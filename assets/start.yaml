@@ -1,0 +1,49 @@
+# Root game object of the scene
+name: Start Scene
+objects:
+  # A list of game objects
+  - name: scene_camera
+    # Is it active? Defaults to true.
+    active: true
+    # Tranform: [X, Y, Z, Yaw, Pitch, Roll, ScaleX, ScaleY, ScaleZ]
+    transform: [0, 0, 0, 0, 0, 0, 1, 1, 1]
+    # A list of components on this game object.
+    components:
+        # This should match the string we registered in AssetLoader
+      - type: ewok::Camera
+        # A property on the camera... the parser should read this
+        name: my camera
+        # And we target a game object loaded later in the scene.
+        target: Start Scene/rando gameo objecto/gameo objecto 4
+
+  - name: i load another scene
+    components:
+      - type: ewok::Prefab
+        prefab: empty.yaml
+        loadOnAttach: true
+
+  - name: i could load another scene
+    components:
+      - type: ewok::Prefab
+        prefab: empty.yaml
+
+  # Another game object
+  - name: rando gameo objecto
+    # That contains more game objects...
+    objects:
+      - name: gameo objecto 1
+        active: false
+      - name: gameo objecto 2
+        active: false
+        components:
+          - type: ewok::Camera
+            name: thingy!
+            # A bad circular reference, loader should catch this and ignore it
+            target: Start Scene/rando gameo objecto/gameo objecto 2
+      - name: gameo objecto 3
+        active: false
+        components:
+          - type: unknown
+            no: really
+      - name: gameo objecto 4
+        active: false
