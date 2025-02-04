@@ -14,6 +14,8 @@ namespace ewok {
 // Fake camera, not a real one, just showing off some component stuff.
 class Camera : public Component<Camera> {
  public:
+  static auto typeName() -> std::string { return "ewok::Camera"; }
+
   void attach() override;
 
   constexpr auto name() -> std::string const& { return name_; }

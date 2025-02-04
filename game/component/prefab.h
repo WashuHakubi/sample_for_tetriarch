@@ -13,6 +13,8 @@
 namespace ewok {
 class Prefab : public AsyncComponent<Prefab> {
  public:
+  static auto typeName() -> std::string { return "ewok::Prefab"; }
+
   auto attachAsync() -> concurrencpp::result<void> override;
 
   // Attempts to load the prefab if it hasn't already been loaded.

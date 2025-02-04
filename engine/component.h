@@ -7,7 +7,6 @@
 #pragma once
 
 #include "engine/forward.h"
-#include "engine/reflection.h"
 
 namespace ewok {
 class ComponentBase {
@@ -61,8 +60,6 @@ template <class TDerived>
 class Component : public ComponentBase {
  public:
   Component() {}
-
-  static auto typeName() -> std::string { return getTypeName<TDerived>(); }
 
  private:
   bool hasUpdate() const final {
