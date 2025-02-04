@@ -14,7 +14,8 @@ SystemFileProvider::SystemFileProvider(
     std::shared_ptr<concurrencpp::executor> ioExecutor, std::string path)
     : ioExecutor_(std::move(ioExecutor)) {
   std::filesystem::path p(path);
-  path_ = std::filesystem::absolute(std::filesystem::path(path));
+  path_ =
+      std::filesystem::absolute(std::filesystem::path(path)).generic_string();
 }
 
 auto SystemFileProvider::readFileAsync(
