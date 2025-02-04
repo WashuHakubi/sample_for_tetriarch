@@ -40,7 +40,7 @@ auto SystemFileProvider::ioReadFileAsync(std::string const& fn)
 
   auto path = std::filesystem::path(path_) / fn;
 
-  FILE* f = fopen(path.c_str(), "rb");
+  FILE* f = fopen(path.generic_string().c_str(), "rb");
   if (!f) {
     co_return std::unexpected{
         std::make_error_code(std::errc::no_such_file_or_directory)};
