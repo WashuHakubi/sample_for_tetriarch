@@ -28,12 +28,18 @@ class GameObject;
 template <class TDerived>
 class Component;
 
+class Renderer;
+
 struct IAsset;
 struct IAssetLoader;
 struct IComponentParser;
 struct IFileProvider;
+struct IRenderable;
 
-template <class T>
+template <typename T>
+concept IsAssetType = std::is_base_of_v<IAsset, T> && std::is_final_v<T>;
+
+template <IsAssetType T>
 struct ITypedAssetLoader;
 
 using ComponentPtr = std::shared_ptr<ComponentBase>;

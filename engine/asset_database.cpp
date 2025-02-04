@@ -34,7 +34,7 @@ auto AssetDatabase::loadAssetAsync(
   auto const& assetLoader = loaderIt->second;
 
   // Load the asset file into memory
-  auto data = co_await fileProvider_->readFileAsync(name, executor_);
+  auto data = co_await loadRawAsset(name);
 
   // and parse the asset. This may trigger additional dependent loads
   auto asset = co_await assetLoader->loadAssetAsync(*this, std::move(data));
@@ -46,6 +46,12 @@ auto AssetDatabase::loadAssetAsync(
   // Cache the asset to avoid loading it again
   weakAssets_.emplace(name, asset);
   co_return asset;
+}
+
+auto AssetDatabase::loadRawAsset(std::string const& name)
+    -> concurrencpp::result<std::vector<char>> {
+  // Load the asset file into memory
+  co_return co_await fileProvider_->readFileAsync(name, executor_);
 }
 
 auto AssetDatabase::registerAssetLoader(

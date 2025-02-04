@@ -23,22 +23,23 @@ class AssetDatabase : public std::enable_shared_from_this<AssetDatabase> {
   auto loadAssetAsync(std::type_index assetType, std::string const& name)
       -> concurrencpp::result<IAssetPtr>;
 
-  template <typename TAsset>
+  // Loads an asset based on the type.
+  template <IsAssetType TAsset>
   auto loadAssetAsync(std::string const& name)
-      -> concurrencpp::result<std::shared_ptr<TAsset>>
-    requires(std::is_final_v<TAsset>)
-  {
+      -> concurrencpp::result<std::shared_ptr<TAsset>> {
     auto assetPtr = co_await loadAssetAsync(typeid(TAsset), name);
     co_return std::static_pointer_cast<TAsset>(assetPtr);
   }
 
+  // Loads a raw asset and returns its bytes.
+  auto loadRawAsset(std::string const& name)
+      -> concurrencpp::result<std::vector<char>>;
+
   void registerAssetLoader(std::type_index type, IAssetLoaderPtr ptr);
 
-  template <typename TAsset, typename TAssetLoader>
+  template <IsAssetType TAsset, typename TAssetLoader>
   void registerAssetLoader(std::unique_ptr<TAssetLoader> ptr)
-    requires(
-        std::is_final_v<TAsset> &&
-        std::is_base_of_v<ITypedAssetLoader<TAsset>, TAssetLoader>)
+    requires(std::is_base_of_v<ITypedAssetLoader<TAsset>, TAssetLoader>)
   {
     registerAssetLoader(typeid(TAsset), std::move(ptr));
   }

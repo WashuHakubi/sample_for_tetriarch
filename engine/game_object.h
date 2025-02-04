@@ -7,7 +7,7 @@
 #pragma once
 
 #include "engine/forward.h"
-#include "engine/transform.h"
+#include "engine/math.h"
 
 namespace ewok {
 class GameObject {
@@ -53,6 +53,9 @@ class GameObject {
   // Removes the component after the end of update or postUpdate.
   void queueRemoveComponent(ComponentPtr const& component);
 
+  // Registers a component to receive render callbacks
+  void registerForRender(ComponentPtr const& component);
+
   // Some components may wish to control if their update method is called. This
   // allows them to add themselves to have update and postUpdate called.
   void registerForUpdate(ComponentPtr const& component);
@@ -65,11 +68,18 @@ class GameObject {
   // remove will be queued.
   void removeComponent(ComponentPtr const& component);
 
+  // Renders the GO and any children
+  void render(Renderer& renderer);
+
   void setActive(bool active);
   void setName(std::string name) { name_ = std::move(name); }
   void setTransform(Transform transform) { transform_ = transform; }
 
   auto transform() const noexcept -> Transform const& { return transform_; }
+
+  // Unregisters a component for rendering updates. For instance if it's not
+  // visible.
+  void unregisterForRender(ComponentPtr const& component);
 
   // Some components may wish to control if their update method is called. This
   // allows them to remove themselves from having update and postUpdate called.
@@ -96,6 +106,7 @@ class GameObject {
   GameObject* parent_{nullptr};
   std::vector<GameObjectPtr> children_;
   std::vector<ComponentPtr> components_;
+  std::unordered_set<ComponentBase*> renderables_;
   std::unordered_set<ComponentBase*> updateComponents_;
   std::unordered_set<ComponentBase*> postUpdateComponents_;
   std::vector<std::function<void(GameObject*)>> postUpdateActions_;

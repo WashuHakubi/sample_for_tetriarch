@@ -9,6 +9,7 @@
 #include <concurrencpp/concurrencpp.h>
 
 #include "engine/forward.h"
+#include "engine/i_asset.h"
 
 namespace ewok {
 struct IAssetLoader {
@@ -18,13 +19,13 @@ struct IAssetLoader {
       -> concurrencpp::result<IAssetPtr> = 0;
 
  private:
-  template <class T>
+  template <IsAssetType T>
   friend class ITypedAssetLoader;
 
   // Always derive from an ITypedAssetLoader
   IAssetLoader() = default;
 };
 
-template <class T>
+template <IsAssetType T>
 struct ITypedAssetLoader : IAssetLoader {};
 } // namespace ewok

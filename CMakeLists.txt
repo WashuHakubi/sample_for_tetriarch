@@ -31,13 +31,11 @@ fetch_dependency(
         CONFIGURATION ${CMAKE_BUILD_TYPE}
 )
 
-file(GLOB_RECURSE ENGINE_FILES CONFIGURE_DEPENDS "engine/*.cpp")
-file(GLOB_RECURSE GAME_FILES CONFIGURE_DEPENDS "game/*.cpp")
+file(GLOB_RECURSE TEST_FILES CONFIGURE_DEPENDS "engine/*.cpp" "game/*.cpp")
 
 add_executable(test
         main.cpp
-        ${ENGINE_FILES}
-        ${GAME_FILES}
+        ${TEST_FILES}
 )
 
 target_link_libraries(test concurrencpp::concurrencpp ryml::ryml)

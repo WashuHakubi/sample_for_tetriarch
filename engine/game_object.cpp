@@ -53,6 +53,10 @@ void GameObject::addComponent(ComponentPtr component) {
     postUpdateComponents_.insert(component.get());
   }
 
+  if (component->hasRender()) {
+    renderables_.insert(component.get());
+  }
+
   components_.push_back(component);
 
   if (!lazyAttach_) {
@@ -156,6 +160,19 @@ void GameObject::queueRemoveComponent(ComponentPtr const& component) {
       });
 }
 
+void GameObject::registerForRender(ComponentPtr const& component) {
+  if (updateState_ == UpdateState::Update) {
+    postUpdateActions_.push_back([component = component](GameObject* self) {
+      self->registerForRender(component);
+    });
+    return;
+  }
+
+  if (component->hasRender()) {
+    renderables_.insert(component.get());
+  }
+}
+
 void GameObject::registerForUpdate(ComponentPtr const& component) {
   if (updateState_ == UpdateState::Update) {
     postUpdateActions_.push_back([component = component](GameObject* self) {
@@ -172,6 +189,7 @@ void GameObject::registerForUpdate(ComponentPtr const& component) {
     postUpdateComponents_.insert(component.get());
   }
 }
+
 void GameObject::removeChild(GameObjectPtr const& child) {
   if (updateState_ == UpdateState::Update) {
     queueRemoveChild(child);
@@ -208,6 +226,27 @@ void GameObject::removeComponent(ComponentPtr const& component) {
   component->detach();
 }
 
+void GameObject::render(Renderer& renderer) {
+  if (!active_) {
+    return;
+  }
+
+  {
+    updateState_ = UpdateState::Update;
+    SCOPED([this]() { updateState_ = UpdateState::Idle; });
+
+    for (auto&& component : renderables_) {
+      component->render(renderer);
+    }
+
+    for (auto&& child : children_) {
+      child->render(renderer);
+    }
+  }
+
+  applyPostUpdateActions();
+}
+
 void GameObject::setActive(bool active) {
   if (updateState_ == UpdateState::Idle) {
     // If we're idle then it is safe to immediately update our active state.
@@ -217,6 +256,17 @@ void GameObject::setActive(bool active) {
     // end of postUpdate.
     pendingActive_ = active;
   }
+}
+
+void GameObject::unregisterForRender(ComponentPtr const& component) {
+  if (updateState_ == UpdateState::Update) {
+    postUpdateActions_.push_back([component = component](GameObject* self) {
+      self->unregisterForRender(component);
+    });
+    return;
+  }
+
+  renderables_.erase(component.get());
 }
 
 void GameObject::unregisterForUpdate(ComponentPtr const& component) {

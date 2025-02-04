@@ -9,6 +9,8 @@
 #include "engine/component.h"
 #include "engine/game_object.h"
 #include "engine/null_file_provider.h"
+#include "engine/renderables/mesh.h"
+#include "engine/renderer.h"
 #include "engine/system_file_provider.h"
 
 #include "game/component/initial_scene_load_component.h"
@@ -22,49 +24,37 @@
 
 using namespace ewok;
 
-struct Mesh final : IAsset {};
-struct MeshLoader : ITypedAssetLoader<Mesh> {
-  auto loadAssetAsync(AssetDatabase& db, std::vector<char> data)
-      -> concurrencpp::result<IAssetPtr> {
-    auto mesh = std::make_shared<Mesh>();
-    co_return mesh;
-  }
-};
-
-class Model final : public IAsset {
+class Model final : public IAsset, public Component<Model> {
  public:
-  Model(std::vector<std::shared_ptr<Mesh>> meshes)
-      : meshes_(std::move(meshes)) {}
+  void render(Renderer& renderer) override {
+    for (auto&& mesh : meshes_) {
+      mesh->render(renderer);
+    }
+  }
 
  private:
   std::vector<std::shared_ptr<Mesh>> meshes_;
 };
 
-struct ModelLoader : ITypedAssetLoader<Model> {
+class ModelLoader : ITypedAssetLoader<Model> {
+ public:
   auto loadAssetAsync(AssetDatabase& db, std::vector<char> data)
-      -> concurrencpp::result<IAssetPtr> {
-    // pretend we loaded this from `data`
-    std::vector<std::string> meshNames;
-    std::vector<std::shared_ptr<Mesh>> meshes;
-    for (auto&& meshName : meshNames) {
-      auto meshPtr = co_await db.loadAssetAsync<Mesh>(meshName);
-      meshes.push_back(meshPtr);
-    }
-
-    auto model = std::make_shared<Model>(std::move(meshes));
-    co_return model;
+      -> concurrencpp::result<IAssetPtr> override {
+    co_return std::make_shared<Model>();
   }
 };
 
-void prefix(int depth) {
+// Stupid, but it works, add an indent.
+void indent(int depth) {
   for (int i = 0; i < depth * 2; ++i) {
     std::cout << ' ';
   }
 }
 
+// Just print the tree of game objects.
 void print(GameObjectPtr const& go, int depth) {
-  prefix(depth);
-  std::cout << go->name() << std::endl;
+  indent(depth);
+  std::cout << go->name() << " (" << go.get() << ")" << std::endl;
 
   for (auto&& child : go->children()) {
     print(child, depth + 1);
@@ -83,14 +73,15 @@ int main() {
       std::make_shared<SystemFileProvider>(ioExecutor, "assets"), executor));
 
   // Register our loaders
-  assetDatabase()->registerAssetLoader<Model>(std::make_unique<ModelLoader>());
-  assetDatabase()->registerAssetLoader<Mesh>(std::make_unique<MeshLoader>());
+  registerRenderables(*assetDatabase());
   assetDatabase()->registerAssetLoader<Scene>(std::make_unique<SceneLoader>());
 
   // And register our component parsers
   assetDatabase()->registerComponentParser(std::make_shared<CameraParser>());
   assetDatabase()->registerComponentParser(std::make_shared<PrefabParser>());
 
+  // We're only creating this outside of the thread for the print() method.
+  // Otherwise it would be in the thread.
   GameObjectPtr root = std::make_shared<GameObject>();
 
   // Fake game loop since I cannot be bothered to hook up SDL or something
@@ -99,6 +90,10 @@ int main() {
     constexpr auto SimStep =
         std::chrono::duration_cast<std::chrono::milliseconds>(
             std::chrono::duration<double>(SimStepSize));
+
+    auto renderer = Renderer::create();
+
+    // Startup the game by loading the initial scene.
     root->addComponent(std::make_shared<InitialSceneLoadComponent>());
 
     auto last = std::chrono::system_clock::now();
@@ -124,7 +119,7 @@ int main() {
       }
 
       // do render.
-      // renderer->render();
+      renderer->present();
     }
 
     executor->shutdown();
@@ -137,6 +132,7 @@ int main() {
     if (c == 'x')
       break;
 
+    // Technically not very thread safe.
     print(root, 0);
   }
 

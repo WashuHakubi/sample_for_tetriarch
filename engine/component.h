@@ -26,6 +26,10 @@ class ComponentBase {
   // after any changes in update() have been applied
   virtual void postUpdate() {}
 
+  // Run once per tick to render the object, only if the object is registered
+  // for notifications
+  virtual void render(Renderer& renderer) {}
+
   // Run once per frame or simulation tick, whatever.
   virtual void update(float dt) {}
 
@@ -47,6 +51,10 @@ class ComponentBase {
   // If true then we assume postUpdate is overriden. Default to true in case the
   // user does not derive from Component<T>
   virtual bool hasPostUpdate() const { return true; }
+
+  // If true then we assume postUpdate is overriden. Default to false in case
+  // the user does not derive from Component<T>
+  virtual bool hasRender() const { return false; }
 };
 
 template <class TDerived>
@@ -67,6 +75,12 @@ class Component : public ComponentBase {
     return !std::is_same_v<
         decltype(&TDerived::postUpdate),
         decltype(&ComponentBase::postUpdate)>;
+  }
+
+  bool hasRender() const final {
+    return !std::is_same_v<
+        decltype(&TDerived::render),
+        decltype(&ComponentBase::render)>;
   }
 };
 
