@@ -85,6 +85,9 @@ class Loader {
     if (objectNode.has_child("objects")) {
       for (auto&& objNode : objectNode["objects"]) {
         if (objNode.has_child("scene")) {
+          std::string name;
+          objNode["name"] >> name;
+
           // For scene nodes we ignore all other properties and child objects
           // except for the active and scene properties.
           std::string sceneName;
@@ -94,13 +97,15 @@ class Loader {
           if (objNode.has_child("active")) {
             objNode["active"] >> active;
           }
-
           // Any scenes we're depending on should also be loaded. This is
           // recursive so we can end up loading many scenes deep. If we have
           // circular scene dependencies we will run out of memory or crash due
           // to infinite recursion.
           auto scene = co_await db.loadAssetAsync<Scene>(sceneName);
           scene->setActive(active);
+
+          // Object name may differ from original scene name
+          scene->setName(name);
 
           // Because we're lazy we don't have to worry about attach running
           // until after all objects are added.

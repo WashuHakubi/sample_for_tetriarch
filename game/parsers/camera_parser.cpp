@@ -34,6 +34,7 @@ void CameraParser::parse(
     std::string targetObject;
     componentNode["target"] >> targetObject;
 
+    // This is a _REALLY_ dumb string splitter.
     std::stringstream test(targetObject);
     std::string segment;
     std::vector<std::string> path;

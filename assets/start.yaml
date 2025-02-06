@@ -16,7 +16,7 @@ objects:
         # And we target a game object loaded later in the scene.
         # The path is from the root game object of this scene,
         # so we don't need to include 'Start Scene/'
-        target: rando gameo objecto/gameo objecto 4
+        target: i am another scene/player
 
   - name: i am another scene
     scene: shorty.yaml
