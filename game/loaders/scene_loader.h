@@ -14,9 +14,5 @@ namespace ewok {
 struct SceneLoader : ITypedAssetLoader<Scene> {
   auto loadAssetAsync(AssetDatabase& db, std::vector<char> data)
       -> concurrencpp::result<IAssetPtr>;
-
-  auto loadAssetAsync(
-      std::shared_ptr<Scene> scene, AssetDatabase& db, std::vector<char> data)
-      -> concurrencpp::result<IAssetPtr>;
 };
 } // namespace ewok
