@@ -35,12 +35,7 @@ void CameraParser::parse(
     componentNode["target"] >> targetObject;
 
     if (auto it = pathToObject.find(targetObject); it != pathToObject.end()) {
-      if (it->second.get() == comp->object()) {
-        std::cerr << "Found circular reference for camera target. Skipping"
-                  << std::endl;
-      } else {
-        camera.setTarget(it->second);
-      }
+      camera.setTarget(it->second);
     }
   }
 }

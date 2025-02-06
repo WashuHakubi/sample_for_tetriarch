@@ -56,6 +56,11 @@ void print(GameObjectPtr const& go, int depth) {
   indent(depth);
   std::cout << go->name() << " (" << go.get() << ")" << std::endl;
 
+  for (auto&& comp : go->components()) {
+    indent(depth);
+    std::cout << comp->describe() << " " << std::endl;
+  }
+
   for (auto&& child : go->children()) {
     print(child, depth + 1);
   }

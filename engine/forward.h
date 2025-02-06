@@ -7,6 +7,7 @@
 #pragma once
 
 #include <expected>
+#include <format>
 #include <iostream>
 #include <memory>
 #include <span>
