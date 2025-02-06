@@ -90,9 +90,20 @@ class Loader {
     // Recurse into each object and add them.
     if (objectNode.has_child("objects")) {
       for (auto&& objNode : objectNode["objects"]) {
-        auto child = std::make_shared<GameObject>(true /* lazy attach */);
-        loadObject(objNode, child, path);
-        result->addChild(std::move(child));
+        if (objNode.has_child("scene")) {
+          auto scene = std::make_shared<Scene>(true /* lazy attach */);
+          std::string name;
+          objNode["name"] >> name;
+          scene->setName(name);
+          // Queue up the scene to be loaded after we're done loading this scene
+          delayedSceneNodes_.push_back({scene, objNode});
+          // And add it to the tree so that we know it's there...
+          result->addChild(std::move(scene));
+        } else {
+          auto child = std::make_shared<GameObject>(true /* lazy attach */);
+          loadObject(objNode, child, path);
+          result->addChild(std::move(child));
+        }
       }
     }
   }
@@ -109,6 +120,21 @@ class Loader {
     }
   }
 
+  auto loadDelayedSceneObjectsAsync(SceneLoader& loader, AssetDatabase& db)
+      -> concurrencpp::result<void> {
+    for (auto&& [scene, node] : delayedSceneNodes_) {
+      std::string sceneToLoad;
+      node["scene"] >> sceneToLoad;
+
+      // Need to read the raw data because we don't want to create another Scene
+      // object as we've already created one.
+      auto data = co_await db.loadRawAsset(sceneToLoad);
+
+      // And trigger the load.
+      co_await loader.loadAssetAsync(scene, db, std::move(data));
+    }
+  }
+
  private:
   std::unordered_map<
       ComponentPtr,
@@ -117,24 +143,38 @@ class Loader {
 
   std::unordered_map<std::string, GameObjectPtr> pathToObject_;
 
+  std::vector<std::tuple<std::shared_ptr<Scene>, ryml::ConstNodeRef>>
+      delayedSceneNodes_;
+
   size_t tmpCount_{0};
 };
 } // namespace
 
 auto SceneLoader::loadAssetAsync(AssetDatabase& db, std::vector<char> data)
     -> concurrencpp::result<IAssetPtr> {
-  auto tree = ryml::parse_in_place(data.data());
-  auto root = tree.rootref();
-
   // Create the scene with lazy attachment, this allows us to trigger the
   // attachment when we've finished loading and added it to the root object.
   auto scene = std::make_shared<Scene>(true /* lazy attach */);
+
+  co_return co_await loadAssetAsync(scene, db, std::move(data));
+}
+
+auto SceneLoader::loadAssetAsync(
+    std::shared_ptr<Scene> scene, AssetDatabase& db, std::vector<char> data)
+    -> concurrencpp::result<IAssetPtr> {
+  auto tree = ryml::parse_in_place(data.data());
+  auto root = tree.rootref();
 
   Loader loader;
   loader.loadObject(root, scene, "");
   loader.postLoad();
 
-  scene->onLoadCompleted();
+  // Any scenes we're depending on should also be loaded. This is recursive so
+  // we can end up loading many scenes deep. If we have circular scene
+  // dependencies we will run out of memory or crash due to infinite recursion.
+  co_await loader.loadDelayedSceneObjectsAsync(*this, db);
+
+  std::static_pointer_cast<Scene>(scene)->onLoadCompleted();
   co_return scene;
 }
 } // namespace ewok

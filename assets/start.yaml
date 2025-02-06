@@ -16,6 +16,9 @@ objects:
         # And we target a game object loaded later in the scene.
         target: Start Scene/rando gameo objecto/gameo objecto 4
 
+  - name: i am another scene
+    scene: shorty.yaml
+
   - name: i load another scene
     components:
       - type: ewok::Prefab

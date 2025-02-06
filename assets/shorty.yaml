@@ -1,0 +1,15 @@
+# Root game object of the scene
+name: Short Scene
+objects:
+  # A list of game objects
+  - name: scene_camera
+    # Is it active? Defaults to true.
+    active: true
+    # Tranform: [X, Y, Z, Yaw, Pitch, Roll, ScaleX, ScaleY, ScaleZ]
+    transform: [0, 0, 0, 0, 0, 0, 1, 1, 1]
+    # A list of components on this game object.
+    components:
+        # This should match the string we registered in AssetLoader
+      - type: ewok::Camera
+        # A property on the camera... the parser should read this
+        name: A short camera
