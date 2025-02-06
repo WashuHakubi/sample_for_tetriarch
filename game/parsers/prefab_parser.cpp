@@ -20,7 +20,7 @@ auto PrefabParser::name() const -> std::string {
 void PrefabParser::parse(
     ComponentPtr const& comp,
     ryml::ConstNodeRef componentNode,
-    std::unordered_map<std::string, GameObjectPtr> const& pathToObject) const {
+    GameObjectPtr const& root) const {
   assert((componentNode["type"].val() == name()));
   auto& prefab = static_cast<Prefab&>(*comp);
 

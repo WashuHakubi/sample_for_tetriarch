@@ -20,7 +20,7 @@ auto CameraParser::name() const -> std::string {
 void CameraParser::parse(
     ComponentPtr const& comp,
     ryml::ConstNodeRef componentNode,
-    std::unordered_map<std::string, GameObjectPtr> const& pathToObject) const {
+    GameObjectPtr const& root) const {
   assert((componentNode["type"].val() == name()));
   std::string name;
   componentNode["name"] >> name;
@@ -34,9 +34,15 @@ void CameraParser::parse(
     std::string targetObject;
     componentNode["target"] >> targetObject;
 
-    if (auto it = pathToObject.find(targetObject); it != pathToObject.end()) {
-      camera.setTarget(it->second);
+    std::stringstream test(targetObject);
+    std::string segment;
+    std::vector<std::string> path;
+
+    while (std::getline(test, segment, '/')) {
+      path.push_back(segment);
     }
+
+    camera.setTarget(root->findDescendant(path));
   }
 }
 } // namespace ewok

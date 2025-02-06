@@ -302,4 +302,21 @@ void GameObject::update(float dt) {
   applyPostUpdateActions();
 }
 
+auto GameObject::findDescendant(std::span<std::string> const& pathParts)
+    -> GameObjectPtr {
+  // Searching for an empty path should result in the current object returning.
+  if (pathParts.empty()) {
+    return shared_from_this();
+  }
+
+  auto const& next = pathParts.front();
+  for (auto&& child : children_) {
+    if (child->name() == next) {
+      return child->findDescendant(pathParts.subspan(1));
+    }
+  }
+
+  // Failed to find the child matching the name.
+  return nullptr;
+}
 } // namespace ewok

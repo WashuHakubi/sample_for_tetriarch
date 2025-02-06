@@ -22,7 +22,6 @@ struct IComponentParser {
   virtual void parse(
       ComponentPtr const& comp,
       ryml::ConstNodeRef component,
-      std::unordered_map<std::string, GameObjectPtr> const& pathToObject)
-      const = 0;
+      GameObjectPtr const& root) const = 0;
 };
 } // namespace ewok

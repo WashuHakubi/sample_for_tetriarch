@@ -14,7 +14,9 @@ objects:
         # A property on the camera... the parser should read this
         name: my camera
         # And we target a game object loaded later in the scene.
-        target: Start Scene/rando gameo objecto/gameo objecto 4
+        # The path is from the root game object of this scene,
+        # so we don't need to include 'Start Scene/'
+        target: rando gameo objecto/gameo objecto 4
 
   - name: i am another scene
     scene: shorty.yaml
@@ -41,8 +43,7 @@ objects:
         components:
           - type: ewok::Camera
             name: thingy!
-            # A bad circular reference, loader should catch this and ignore it
-            target: Start Scene/rando gameo objecto/gameo objecto 2
+            target: rando gameo objecto/gameo objecto 2
       - name: gameo objecto 3
         active: false
         components:

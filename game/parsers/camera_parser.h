@@ -18,7 +18,6 @@ struct CameraParser : IComponentParser {
   void parse(
       ComponentPtr const& comp,
       ryml::ConstNodeRef componentNode,
-      std::unordered_map<std::string, GameObjectPtr> const& pathToObject)
-      const override;
+      GameObjectPtr const& root) const override;
 };
 } // namespace ewok

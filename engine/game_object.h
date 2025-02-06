@@ -10,7 +10,7 @@
 #include "engine/math.h"
 
 namespace ewok {
-class GameObject {
+class GameObject : public std::enable_shared_from_this<GameObject> {
  public:
   explicit GameObject(bool lazyAttach = false) : lazyAttach_(lazyAttach) {}
 
@@ -87,6 +87,10 @@ class GameObject {
 
   // Update this object's components and then every child object
   void update(float dt);
+
+  // Search functions
+ public:
+  auto findDescendant(std::span<std::string> const& pathParts) -> GameObjectPtr;
 
  protected:
   // Fires the attach() call on all components. Should be run after all game

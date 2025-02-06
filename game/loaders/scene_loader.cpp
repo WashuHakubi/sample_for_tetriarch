@@ -19,8 +19,7 @@ class Loader {
   auto loadObject(
       AssetDatabase& db,
       ryml::ConstNodeRef objectNode,
-      GameObjectPtr const& result,
-      std::string rootPath) -> concurrencpp::result<void> {
+      GameObjectPtr const& result) -> concurrencpp::result<void> {
     std::string name;
 
     // All game objects must have a name.
@@ -30,12 +29,6 @@ class Loader {
     // Names cannot contain a '/'
     assert(name.find_first_of('/') == std::string::npos);
     result->setName(name);
-
-    // Remember the path to this game object for future resolution of game
-    // object properties in components. When loading, names are always relative
-    // to the root game object of the scene.
-    std::string path = rootPath.empty() ? name : rootPath + "/" + name;
-    pathToObject_.emplace(path, result);
 
     if (objectNode.has_child("active")) {
       bool active;
@@ -92,18 +85,29 @@ class Loader {
     if (objectNode.has_child("objects")) {
       for (auto&& objNode : objectNode["objects"]) {
         if (objNode.has_child("scene")) {
+          // For scene nodes we ignore all other properties and child objects
+          // except for the active and scene properties.
           std::string sceneName;
           objNode["scene"] >> sceneName;
+
+          bool active = true;
+          if (objNode.has_child("active")) {
+            objNode["active"] >> active;
+          }
 
           // Any scenes we're depending on should also be loaded. This is
           // recursive so we can end up loading many scenes deep. If we have
           // circular scene dependencies we will run out of memory or crash due
           // to infinite recursion.
           auto scene = co_await db.loadAssetAsync<Scene>(sceneName);
+          scene->setActive(active);
+
+          // Because we're lazy we don't have to worry about attach running
+          // until after all objects are added.
           result->addChild(scene);
         } else {
           auto child = std::make_shared<GameObject>(true /* lazy attach */);
-          loadObject(db, objNode, child, path);
+          loadObject(db, objNode, child);
           result->addChild(std::move(child));
         }
       }
@@ -112,15 +116,15 @@ class Loader {
     co_return;
   }
 
-  void postLoad() {
+  void postLoad(GameObjectPtr const& root) {
     // Parse the nodes, loading their data. We do this after creating all game
-    // objects and components because a component might reference a game object
-    // in the scene and we need to be able to resolve that.
+    // objects and components because a component might reference a game
+    // object in the scene and we need to be able to resolve that.
     for (auto&& compParserNode : compToParserAndNode_) {
       auto const& [comp, pair] = compParserNode;
       auto const& [parser, node] = pair;
 
-      parser->parse(comp, node, pathToObject_);
+      parser->parse(comp, node, root);
     }
   }
 
@@ -129,8 +133,6 @@ class Loader {
       ComponentPtr,
       std::pair<IComponentParserPtr, ryml::ConstNodeRef>>
       compToParserAndNode_;
-
-  std::unordered_map<std::string, GameObjectPtr> pathToObject_;
 
   size_t tmpCount_{0};
 };
@@ -146,8 +148,8 @@ auto SceneLoader::loadAssetAsync(AssetDatabase& db, std::vector<char> data)
   auto root = tree.rootref();
 
   Loader loader;
-  co_await loader.loadObject(db, root, scene, "");
-  loader.postLoad();
+  co_await loader.loadObject(db, root, scene);
+  loader.postLoad(scene);
 
   std::static_pointer_cast<Scene>(scene)->onLoadCompleted();
   co_return scene;
