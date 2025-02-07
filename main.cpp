@@ -9,6 +9,7 @@
 #include "engine/component.h"
 #include "engine/game_object.h"
 #include "engine/null_file_provider.h"
+#include "engine/object_database.h"
 #include "engine/renderables/mesh.h"
 #include "engine/renderer.h"
 #include "engine/system_file_provider.h"
@@ -21,6 +22,8 @@
 #include <filesystem>
 #include <format>
 #include <iostream>
+
+#include "engine/guid.h"
 
 using namespace ewok;
 
@@ -77,6 +80,8 @@ int main() {
   setAssetDatabase(std::make_shared<AssetDatabase>(
       std::make_shared<SystemFileProvider>(ioExecutor, "assets"), executor));
 
+  setObjectDatabase(std::make_shared<ObjectDatabase>());
+
   // Register our loaders
   registerRenderables(*assetDatabase());
   assetDatabase()->registerAssetLoader<Scene>(std::make_unique<SceneLoader>());
@@ -87,7 +92,7 @@ int main() {
 
   // We're only creating this outside of the thread for the print() method.
   // Otherwise it would be in the thread.
-  GameObjectPtr root = std::make_shared<GameObject>();
+  GameObjectPtr root = GameObject::create(Guid{});
 
   // Fake game loop since I cannot be bothered to hook up SDL or something
   std::thread gameThread([&]() {

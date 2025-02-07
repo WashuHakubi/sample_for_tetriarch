@@ -7,11 +7,18 @@
 
 #include "engine/game_object.h"
 #include "engine/component.h"
+#include "engine/object_database.h"
 #include "engine/scoped.h"
 
 #include <stack>
 
 namespace ewok {
+auto GameObject::create(Guid id, bool lazyAttach) -> GameObjectPtr {
+  auto p = std::make_shared<GameObject>(ProtectedOnly{}, id, lazyAttach);
+  objectDatabase()->add(p);
+  return p;
+}
+
 void GameObject::addChild(GameObjectPtr child) {
   if (updateState_ == UpdateState::Update) {
     postUpdateActions_.push_back([child = std::move(child)](GameObject* self) {

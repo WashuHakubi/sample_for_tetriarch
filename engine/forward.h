@@ -21,10 +21,13 @@
 
 #include <concurrencpp/concurrencpp.h>
 
+#include "guid.h"
+
 namespace ewok {
 class AssetDatabase;
 class ComponentBase;
 class GameObject;
+class ObjectDatabase;
 
 template <class TDerived>
 class Component;
@@ -54,7 +57,9 @@ using IFileProviderPtr = std::shared_ptr<IFileProvider>;
 
 std::shared_ptr<AssetDatabase> const& assetDatabase();
 std::shared_ptr<concurrencpp::executor> const& globalExecutor();
+std::shared_ptr<ObjectDatabase> const& objectDatabase();
 
 void setAssetDatabase(std::shared_ptr<AssetDatabase> db);
 void setGlobalExecutor(std::shared_ptr<concurrencpp::executor> executor);
+void setObjectDatabase(std::shared_ptr<ObjectDatabase> db);
 } // namespace ewok

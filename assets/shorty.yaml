@@ -1,8 +1,10 @@
 # Root game object of the scene
+id: DC86BE41-C127-40E8-97BD-1C6493605644
 name: Short Scene
 objects:
   # A list of game objects
-  - name: player
+  - id: C61F44F1-A344-4CC7-9E19-E0BE07D2EBA3
+    name: player
     # Is it active? Defaults to true.
     active: true
     # Tranform: [X, Y, Z, Yaw, Pitch, Roll, ScaleX, ScaleY, ScaleZ]

@@ -11,8 +11,14 @@
 
 namespace ewok {
 class GameObject : public std::enable_shared_from_this<GameObject> {
+ protected:
+  struct ProtectedOnly {};
+
  public:
-  explicit GameObject(bool lazyAttach = false) : lazyAttach_(lazyAttach) {}
+  static auto create(Guid id, bool lazyAttach = false) -> GameObjectPtr;
+
+  explicit GameObject(ProtectedOnly const&, Guid id, bool lazyAttach)
+      : id_(id), lazyAttach_(lazyAttach) {}
 
   constexpr bool active() const noexcept { return active_; }
 
@@ -34,6 +40,8 @@ class GameObject : public std::enable_shared_from_this<GameObject> {
   constexpr auto components() const noexcept -> std::span<ComponentPtr const> {
     return components_;
   }
+
+  constexpr auto id() const noexcept -> Guid const& { return id_; }
 
   constexpr auto name() const noexcept -> std::string const& { return name_; }
 
@@ -107,6 +115,7 @@ class GameObject : public std::enable_shared_from_this<GameObject> {
     Update,
   };
 
+  Guid id_;
   GameObject* parent_{nullptr};
   std::vector<GameObjectPtr> children_;
   std::vector<ComponentPtr> components_;

@@ -6,7 +6,14 @@
  */
 
 #include "game/go/scene.h"
+#include "engine/object_database.h"
 
 namespace ewok {
+auto Scene::create(Guid id, bool lazyAttach) -> std::shared_ptr<Scene> {
+  auto p = std::make_shared<Scene>(ProtectedOnly{}, id, lazyAttach);
+  objectDatabase()->add(p);
+  return p;
+}
+
 void Scene::onLoadCompleted() {}
 } // namespace ewok

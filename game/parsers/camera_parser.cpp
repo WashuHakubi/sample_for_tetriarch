@@ -6,6 +6,7 @@
  */
 
 #include "game/parsers/camera_parser.h"
+#include "engine/object_database.h"
 #include "game/component/camera.h"
 
 namespace ewok {
@@ -34,16 +35,9 @@ void CameraParser::parse(
     std::string targetObject;
     componentNode["target"] >> targetObject;
 
-    // This is a _REALLY_ dumb string splitter.
-    std::stringstream test(targetObject);
-    std::string segment;
-    std::vector<std::string> path;
+    auto p = objectDatabase()->find(Guid::parse(targetObject));
 
-    while (std::getline(test, segment, '/')) {
-      path.push_back(segment);
-    }
-
-    camera.setTarget(root->findDescendant(path));
+    camera.setTarget(std::move(p));
   }
 }
 } // namespace ewok

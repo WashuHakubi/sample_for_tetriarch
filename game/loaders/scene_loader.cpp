@@ -8,6 +8,7 @@
 #include "game/loaders/scene_loader.h"
 #include "engine/asset_database.h"
 #include "engine/i_component_parser.h"
+#include "engine/object_database.h"
 
 #include <iostream>
 
@@ -111,7 +112,12 @@ class Loader {
           // until after all objects are added.
           result->addChild(scene);
         } else {
-          auto child = std::make_shared<GameObject>(true /* lazy attach */);
+          std::string idStr;
+          objNode["id"] >> idStr;
+
+          auto child =
+              GameObject::create(Guid::parse(idStr), true /* lazy attach */);
+
           loadObject(db, objNode, child);
           result->addChild(std::move(child));
         }
@@ -147,10 +153,13 @@ auto SceneLoader::loadAssetAsync(AssetDatabase& db, std::vector<char> data)
     -> concurrencpp::result<IAssetPtr> {
   // Create the scene with lazy attachment, this allows us to trigger the
   // attachment when we've finished loading and added it to the root object.
-  auto scene = std::make_shared<Scene>(true /* lazy attach */);
-
   auto tree = ryml::parse_in_place(data.data());
   auto root = tree.rootref();
+
+  std::string idStr;
+  root["id"] >> idStr;
+
+  auto scene = Scene::create(Guid::parse(idStr), true /* lazy attach */);
 
   Loader loader;
   co_await loader.loadObject(db, root, scene);

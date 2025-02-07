@@ -14,6 +14,8 @@ namespace ewok {
 // Represents a serialized tree of game objects
 class Scene final : public GameObject, public IAsset {
  public:
+  static auto create(Guid id, bool lazyAttach = false)
+      -> std::shared_ptr<Scene>;
   using GameObject::GameObject;
 
  private:
