@@ -31,6 +31,13 @@ fetch_dependency(
         CONFIGURATION ${CMAKE_BUILD_TYPE}
 )
 
+fetch_dependency(
+        SDL3
+        GIT_REPOSITORY https://github.com/libsdl-org/SDL.git
+        GIT_TAG release-3.2.4
+        CONFIGURATION ${CMAKE_BUILD_TYPE}
+)
+
 file(GLOB_RECURSE TEST_FILES CONFIGURE_DEPENDS "engine/*.cpp" "game/*.cpp")
 
 add_executable(test
@@ -38,8 +45,9 @@ add_executable(test
         ${TEST_FILES}
 )
 
-target_link_libraries(test concurrencpp::concurrencpp ryml::ryml)
+target_link_libraries(test concurrencpp::concurrencpp ryml::ryml SDL3::SDL3)
 target_include_directories(test PRIVATE ${PROJECT_SOURCE_DIR})
+target_compile_definitions(test PUBLIC SDL_MAIN_USE_CALLBACKS)
 
 add_custom_target(copy_assets
     COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_LIST_DIR}/assets ${CMAKE_CURRENT_BINARY_DIR}/assets

@@ -23,28 +23,52 @@
 #include <format>
 #include <iostream>
 
+#include <SDL3/SDL.h>
+#include <SDL3/SDL_init.h>
+#include <SDL3/SDL_main.h>
+
 #include "engine/guid.h"
 
 using namespace ewok;
 
-class Model final : public IAsset, public Component<Model> {
+constexpr uint32_t windowStartWidth = 640;
+constexpr uint32_t windowStartHeight = 480;
+
+class RootGameObject : public GameObject {
  public:
-  void render(Renderer& renderer) override {
-    for (auto&& mesh : meshes_) {
-      mesh->render(renderer);
+  static auto create(Guid id, bool lazyAttach = false)
+      -> std::shared_ptr<RootGameObject> {
+    return std::make_shared<RootGameObject>(ProtectedOnly{}, id, lazyAttach);
+  }
+
+  using GameObject::GameObject;
+
+  void doUpdate(float dt) {
+    if (!once_) {
+      once_ = true;
+      fireAttached();
     }
+
+    update(dt);
+    postUpdate();
   }
 
  private:
-  std::vector<std::shared_ptr<Mesh>> meshes_;
+  bool once_{false};
 };
 
-class ModelLoader : ITypedAssetLoader<Model> {
- public:
-  auto loadAssetAsync(AssetDatabase& db, std::vector<char> data)
-      -> concurrencpp::result<IAssetPtr> override {
-    co_return std::make_shared<Model>();
-  }
+struct AppState {
+  concurrencpp::runtime runtime;
+  std::shared_ptr<concurrencpp::manual_executor> executor;
+
+  SDL_Window* sdlWindow;
+  SDL_Renderer* sdlRenderer;
+
+  std::shared_ptr<Renderer> renderer;
+  std::shared_ptr<RootGameObject> root;
+
+  bool run{true};
+  uint64_t prevTime{};
 };
 
 // Stupid, but it works, add an indent.
@@ -69,18 +93,18 @@ void print(GameObjectPtr const& go, int depth) {
   }
 }
 
-int main() {
-  concurrencpp::runtime runtime;
-  auto executor = runtime.make_manual_executor();
-  setGlobalExecutor(executor);
-
-  auto ioExecutor = runtime.background_executor();
-  std::atomic_bool run{true};
+void initializeEngine(AppState* appState) {
+  auto ioExecutor = appState->runtime.background_executor();
+  appState->executor = appState->runtime.make_manual_executor();
+  setGlobalExecutor(appState->executor);
 
   setAssetDatabase(std::make_shared<AssetDatabase>(
-      std::make_shared<SystemFileProvider>(ioExecutor, "assets"), executor));
+      std::make_shared<SystemFileProvider>(ioExecutor, "assets"),
+      appState->executor));
 
   setObjectDatabase(std::make_shared<ObjectDatabase>());
+
+  appState->renderer = Renderer::create();
 
   // Register our loaders
   registerRenderables(*assetDatabase());
@@ -92,62 +116,96 @@ int main() {
 
   // We're only creating this outside of the thread for the print() method.
   // Otherwise it would be in the thread.
-  GameObjectPtr root = GameObject::create(Guid{});
+  appState->root = RootGameObject::create(Guid{}, true /* lazyAttach */);
 
-  // Fake game loop since I cannot be bothered to hook up SDL or something
-  std::thread gameThread([&]() {
-    constexpr float SimStepSize = 1.0f / 60.0f;
-    constexpr auto SimStep =
-        std::chrono::duration_cast<std::chrono::milliseconds>(
-            std::chrono::duration<double>(SimStepSize));
+  // Startup the game by loading the initial scene.
+  appState->root->addComponent(std::make_shared<InitialSceneLoadComponent>());
+}
 
-    auto renderer = Renderer::create();
+SDL_AppResult SDL_Fail() {
+  SDL_LogError(SDL_LOG_CATEGORY_CUSTOM, "Error %s", SDL_GetError());
+  return SDL_APP_FAILURE;
+}
 
-    // Startup the game by loading the initial scene.
-    root->addComponent(std::make_shared<InitialSceneLoadComponent>());
-
-    auto last = std::chrono::system_clock::now();
-    while (run) {
-      auto cur = std::chrono::system_clock::now();
-      // Compute a delta since the last sim tick
-      auto dur =
-          std::chrono::duration_cast<std::chrono::milliseconds>(cur - last);
-
-      if (dur >= SimStep) {
-        // Sim tick will run, so update our last time.
-        last = cur;
-      }
-
-      // Run sim ticks for as long as we need to. We might actually want to
-      // render some graphics frames in here if dur is particularily large.
-      while (dur >= SimStep) {
-        dur -= SimStep;
-        root->update(SimStepSize);
-        root->postUpdate();
-
-        executor->loop(executor->size());
-      }
-
-      // do render.
-      renderer->present();
-    }
-
-    executor->shutdown();
-  });
-
-  std::cout << "Press x to exit" << std::endl;
-  while (true) {
-    char c;
-    std::cin.read(&c, 1);
-    if (c == 'x')
-      break;
-
-    // Technically not very thread safe.
-    print(root, 0);
+SDL_AppResult SDL_AppInit(void** appstate, int argc, char* argv[]) {
+  if (not SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO)) {
+    return SDL_Fail();
   }
 
-  run = false;
-  gameThread.join();
+  SDL_Window* window = SDL_CreateWindow(
+      "SDL Minimal Sample",
+      windowStartWidth,
+      windowStartHeight,
+      SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY);
+  if (not window) {
+    return SDL_Fail();
+  }
 
-  return 0;
+  // create a renderer
+  SDL_Renderer* renderer = SDL_CreateRenderer(window, NULL);
+  if (not renderer) {
+    return SDL_Fail();
+  }
+
+  SDL_ShowWindow(window);
+  SDL_SetRenderVSync(renderer, -1);
+
+  auto appState = new AppState{
+      .sdlWindow = window,
+      .sdlRenderer = renderer,
+  };
+  initializeEngine(appState);
+
+  *appstate = appState;
+  return SDL_APP_CONTINUE;
+}
+
+void SDL_AppQuit(void* appstate, SDL_AppResult result) {
+  auto* app = reinterpret_cast<AppState*>(appstate);
+  if (app) {
+    SDL_DestroyRenderer(app->sdlRenderer);
+    SDL_DestroyWindow(app->sdlWindow);
+    delete app;
+  }
+
+  SDL_Quit();
+}
+
+SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* event) {
+  auto* app = reinterpret_cast<AppState*>(appstate);
+
+  if (event->type == SDL_EVENT_KEY_UP) {
+    print(app->root, 0);
+  }
+
+  if (event->type == SDL_EVENT_QUIT) {
+    app->run = false;
+  }
+
+  return SDL_APP_CONTINUE;
+}
+
+SDL_AppResult SDL_AppIterate(void* appstate) {
+  constexpr float kSimTickTime = 1.0f / 60.0f;
+  auto* app = reinterpret_cast<AppState*>(appstate);
+
+  auto time = SDL_GetTicks();
+  auto delta = (time - app->prevTime) / 1000.0f;
+
+  if (delta >= kSimTickTime) {
+    app->prevTime = time;
+
+    auto root = app->root;
+    // Run sim ticks for as long as we need to. We might actually want to
+    // render some graphics frames in here if dur is particularily large.
+    do {
+      root->doUpdate(kSimTickTime);
+
+      app->executor->loop(app->executor->size());
+
+      delta -= kSimTickTime;
+    } while (delta >= kSimTickTime);
+  }
+
+  return app->run ? SDL_APP_CONTINUE : SDL_APP_SUCCESS;
 }
