@@ -197,16 +197,19 @@ SDL_AppResult SDL_AppIterate(void* appstate) {
     app->prevTime = time;
 
     // Run sim ticks for as long as we need to. We might actually want to
-    // render some graphics frames in here if dur is particularily large.
+    // render some graphics frames in here if delta is particularily large.
     do {
+      // Update all GOs
       root->doUpdate(kSimTickTime);
 
+      // Run any pending coroutines
       app->executor->loop(app->executor->size());
 
       delta -= kSimTickTime;
     } while (delta >= kSimTickTime);
   }
 
+  // We render every time we iterate.
   root->render(*app->renderer, delta);
   app->renderer->present();
 
