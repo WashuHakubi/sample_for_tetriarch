@@ -77,7 +77,7 @@ class GameObject : public std::enable_shared_from_this<GameObject> {
   void removeComponent(ComponentPtr const& component);
 
   // Renders the GO and any children
-  void render(Renderer& renderer);
+  void render(Renderer& renderer, float dt);
 
   void setActive(bool active);
   void setName(std::string name) { name_ = std::move(name); }

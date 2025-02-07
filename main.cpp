@@ -191,11 +191,11 @@ SDL_AppResult SDL_AppIterate(void* appstate) {
 
   auto time = SDL_GetTicks();
   auto delta = (time - app->prevTime) / 1000.0f;
+  auto root = app->root;
 
   if (delta >= kSimTickTime) {
     app->prevTime = time;
 
-    auto root = app->root;
     // Run sim ticks for as long as we need to. We might actually want to
     // render some graphics frames in here if dur is particularily large.
     do {
@@ -206,6 +206,9 @@ SDL_AppResult SDL_AppIterate(void* appstate) {
       delta -= kSimTickTime;
     } while (delta >= kSimTickTime);
   }
+
+  root->render(*app->renderer, delta);
+  app->renderer->present();
 
   return app->run ? SDL_APP_CONTINUE : SDL_APP_SUCCESS;
 }

@@ -233,7 +233,7 @@ void GameObject::removeComponent(ComponentPtr const& component) {
   component->detach();
 }
 
-void GameObject::render(Renderer& renderer) {
+void GameObject::render(Renderer& renderer, float dt) {
   if (!active_) {
     return;
   }
@@ -243,11 +243,11 @@ void GameObject::render(Renderer& renderer) {
     SCOPED([this]() { updateState_ = UpdateState::Idle; });
 
     for (auto&& component : renderables_) {
-      component->render(renderer);
+      component->render(renderer, dt);
     }
 
     for (auto&& child : children_) {
-      child->render(renderer);
+      child->render(renderer, dt);
     }
   }
 

@@ -29,7 +29,7 @@ class ComponentBase {
 
   // Run once per tick to render the object, only if the object is registered
   // for notifications
-  virtual void render(Renderer& renderer) {}
+  virtual void render(Renderer& renderer, float dt) {}
 
   // Run once per frame or simulation tick, whatever.
   virtual void update(float dt) {}
