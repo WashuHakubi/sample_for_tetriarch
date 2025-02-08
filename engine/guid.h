@@ -22,7 +22,10 @@ class alignas(uint32_t) Guid {
   auto operator<=>(Guid const&) const = default;
 
  private:
-  uint8_t bytes_[16]{};
+  uint32_t a_{};
+  uint16_t b_{};
+  uint16_t c_{};
+  uint8_t d_[8]{};
 };
 } // namespace ewok
 

@@ -7,18 +7,21 @@
 
 #include "guid.h"
 
-#ifdef _MSC_VER
+#ifdef _WIN32
 #include <Rpc.h>
+#pragma comment(lib, "Rpcrt4.lib")
 #else
 #include <uuid/uuid.h>
 #endif
 
+#include <inttypes.h>
+#include <cassert>
 #include <format>
 
 namespace ewok {
 Guid Guid::newGuid() {
   Guid result;
-#ifdef _MSC_VER
+#ifdef _WIN32
   static_assert(sizeof(Guid) == sizeof(UUID));
   UuidCreate(reinterpret_cast<UUID*>(&result));
 #else
@@ -29,33 +32,50 @@ Guid Guid::newGuid() {
 }
 
 Guid Guid::parse(std::string const& str) {
-  Guid result;
-#ifdef _MSC_VER
-  UuidFromStringA(str.c_str(), reinterpret_cast<UUID*>(&result));
-#else
-  uuid_parse(str.c_str(), reinterpret_cast<unsigned char*>(&result));
-#endif
-  return result;
+  Guid guid;
+
+#define G32 "%8" SCNx32
+#define G16 "%4" SCNx16
+#define G8 "%2" SCNx8
+
+  int nchars = -1;
+  int nfields = sscanf(
+      str.c_str(),
+      "{" G32 "-" G16 "-" G16 "-" G8 G8 "-" G8 G8 G8 G8 G8 G8 "}%n",
+      &guid.a_,
+      &guid.b_,
+      &guid.c_,
+      &guid.d_[0],
+      &guid.d_[1],
+      &guid.d_[2],
+      &guid.d_[3],
+      &guid.d_[4],
+      &guid.d_[5],
+      &guid.d_[6],
+      &guid.d_[7],
+      &nchars);
+
+  assert(nfields == 11 && nchars == 38);
+#undef G8
+#undef G16
+#undef G32
+
+  return guid;
 }
 
 std::string Guid::toString() const {
   return std::format(
-      "{:2x}{:2x}{:2x}{:2x}-{:2x}{:2x}-{:2x}{:2x}-{:2x}{:2x}-{:2x}{:2x}{:2x}{:2x}{:2x}{:2x}",
-      bytes_[0],
-      bytes_[1],
-      bytes_[2],
-      bytes_[3],
-      bytes_[4],
-      bytes_[5],
-      bytes_[6],
-      bytes_[7],
-      bytes_[8],
-      bytes_[9],
-      bytes_[10],
-      bytes_[11],
-      bytes_[12],
-      bytes_[13],
-      bytes_[14],
-      bytes_[15]);
+      "{:8x}-{:4x}-{:4x}-{:2x}{:2x}-{:2x}{:2x}{:2x}{:2x}{:2x}{:2x}",
+      a_,
+      b_,
+      c_,
+      d_[0],
+      d_[1],
+      d_[2],
+      d_[3],
+      d_[4],
+      d_[5],
+      d_[6],
+      d_[7]);
 }
 } // namespace ewok
