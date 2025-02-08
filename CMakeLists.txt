@@ -67,6 +67,11 @@ target_link_libraries(test
         SDL3_ttf::SDL3_ttf)
 target_include_directories(test PRIVATE ${PROJECT_SOURCE_DIR})
 target_compile_definitions(test PUBLIC SDL_MAIN_USE_CALLBACKS)
+add_custom_command(TARGET test POST_BUILD
+  COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_RUNTIME_DLLS:test> $<TARGET_FILE_DIR:test>
+  COMMAND_EXPAND_LISTS
+  )
+
 
 add_custom_target(copy_assets
     COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_LIST_DIR}/assets ${CMAKE_CURRENT_BINARY_DIR}/assets
