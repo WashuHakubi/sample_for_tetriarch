@@ -20,10 +20,10 @@
 #include <vector>
 
 #include <concurrencpp/concurrencpp.h>
-
-#include "guid.h"
-
+#include <crossguid/guid.hpp>
 namespace ewok {
+using xg::Guid;
+
 class AssetDatabase;
 class ComponentBase;
 class GameObject;

@@ -115,8 +115,7 @@ class Loader {
           std::string idStr;
           objNode["id"] >> idStr;
 
-          auto child =
-              GameObject::create(Guid::parse(idStr), true /* lazy attach */);
+          auto child = GameObject::create(Guid(idStr), true /* lazy attach */);
 
           loadObject(db, objNode, child);
           result->addChild(std::move(child));
@@ -159,7 +158,7 @@ auto SceneLoader::loadAssetAsync(AssetDatabase& db, std::vector<char> data)
   std::string idStr;
   root["id"] >> idStr;
 
-  auto scene = Scene::create(Guid::parse(idStr), true /* lazy attach */);
+  auto scene = Scene::create(Guid(idStr), true /* lazy attach */);
 
   Loader loader;
   co_await loader.loadObject(db, root, scene);

@@ -27,8 +27,6 @@
 #include <SDL3/SDL_init.h>
 #include <SDL3/SDL_main.h>
 
-#include "engine/guid.h"
-
 using namespace ewok;
 
 constexpr uint32_t windowStartWidth = 640;

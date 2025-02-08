@@ -35,7 +35,7 @@ void CameraParser::parse(
     std::string targetObject;
     componentNode["target"] >> targetObject;
 
-    auto p = objectDatabase()->find(Guid::parse(targetObject));
+    auto p = objectDatabase()->find(Guid(targetObject));
 
     camera.setTarget(std::move(p));
   }
