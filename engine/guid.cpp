@@ -41,7 +41,7 @@ Guid Guid::parse(std::string const& str) {
   int nchars = -1;
   int nfields = sscanf(
       str.c_str(),
-      "{" G32 "-" G16 "-" G16 "-" G8 G8 "-" G8 G8 G8 G8 G8 G8 "}%n",
+      G32 "-" G16 "-" G16 "-" G8 G8 "-" G8 G8 G8 G8 G8 G8 "%n",
       &guid.a_,
       &guid.b_,
       &guid.c_,
@@ -55,7 +55,7 @@ Guid Guid::parse(std::string const& str) {
       &guid.d_[7],
       &nchars);
 
-  assert(nfields == 11 && nchars == 38);
+  assert(nfields == 11 && nchars == 36);
 #undef G8
 #undef G16
 #undef G32
