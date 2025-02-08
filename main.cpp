@@ -28,10 +28,13 @@
 #include <SDL3/SDL_main.h>
 #include <SDL3_ttf/SDL_ttf.h>
 
+#include <bgfx/bgfx.h>
+#include <bgfx/platform.h>
+
 using namespace ewok;
 
-constexpr uint32_t windowStartWidth = 640;
-constexpr uint32_t windowStartHeight = 480;
+constexpr uint32_t windowStartWidth = 1280;
+constexpr uint32_t windowStartHeight = 720;
 
 class RootGameObject : public GameObject {
  public:
@@ -61,14 +64,12 @@ struct AppState {
   std::shared_ptr<concurrencpp::manual_executor> executor;
 
   SDL_Window* sdlWindow;
-  SDL_Renderer* sdlRenderer;
-
-  TTF_Font* font;
-  TTF_TextEngine* textEngine;
-  TTF_Text* helloWorld;
 
   std::shared_ptr<Renderer> renderer;
   std::shared_ptr<RootGameObject> root;
+
+  uint16_t width;
+  uint16_t height;
 
   bool run{true};
   uint64_t prevTime{};
@@ -125,6 +126,51 @@ void initializeEngine(AppState* appState) {
   appState->root->addComponent(std::make_shared<InitialSceneLoadComponent>());
 }
 
+bool initializeBgfx(SDL_Window* window) {
+  bgfx::PlatformData pd;
+#if defined(SDL_PLATFORM_WIN32)
+  pd.nwh = SDL_GetPointerProperty(
+      SDL_GetWindowProperties(window),
+      SDL_PROP_WINDOW_WIN32_HWND_POINTER,
+      NULL);
+  pd.ndt = NULL;
+#elif defined(SDL_PLATFORM_MACOS)
+  pd.nwh = SDL_GetPointerProperty(
+      SDL_GetWindowProperties(window),
+      SDL_PROP_WINDOW_COCOA_WINDOW_POINTER,
+      NULL);
+  pd.ndt = NULL;
+#else
+#error Unsupported platform, figure out what goes here.
+#endif
+
+  pd.context = NULL;
+  pd.backBuffer = NULL;
+  pd.backBufferDS = NULL;
+  bgfx::setPlatformData(pd);
+
+  bgfx::Init init;
+  init.type = bgfx::RendererType::OpenGL;
+  init.vendorId = BGFX_PCI_ID_NONE;
+  init.platformData.nwh = pd.nwh;
+  init.platformData.ndt = pd.ndt;
+  init.resolution.width = windowStartWidth;
+  init.resolution.height = windowStartHeight;
+  // init.resolution.reset = BGFX_RESET_VSYNC;
+  if (!bgfx::init(init)) {
+    return false;
+  }
+
+  // bgfx::reset( 1280, 720, BGFX_RESET_VSYNC );
+  bgfx::setDebug(BGFX_DEBUG_TEXT);
+  bgfx::setViewRect(
+      0, 0, 0, uint16_t(windowStartWidth), uint16_t(windowStartHeight));
+  bgfx::setViewClear(
+      0, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH, 0x303030FF, 1.0f, 0);
+
+  return true;
+}
+
 SDL_AppResult SDL_Fail() {
   SDL_LogError(SDL_LOG_CATEGORY_CUSTOM, "Error %s", SDL_GetError());
   return SDL_APP_FAILURE;
@@ -149,32 +195,16 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char* argv[]) {
     return SDL_Fail();
   }
 
-  // create a renderer
-  SDL_Renderer* renderer = SDL_CreateRenderer(window, NULL);
-  if (not renderer) {
+  if (!initializeBgfx(window)) {
     return SDL_Fail();
   }
-
-  std::filesystem::path basePath = SDL_GetBasePath();
-  auto fontPath = basePath / "assets" / "fonts" / "Inter-VariableFont.ttf";
-  auto font = TTF_OpenFont(fontPath.generic_string().c_str(), 36);
-  if (not font) {
-    return SDL_Fail();
-  }
-
-  std::string str = "Hello world";
-  auto textEngine = TTF_CreateRendererTextEngine(renderer);
-  auto text = TTF_CreateText(textEngine, font, str.c_str(), str.size());
 
   SDL_ShowWindow(window);
-  SDL_SetRenderVSync(renderer, -1);
 
   auto appState = new AppState{
       .sdlWindow = window,
-      .sdlRenderer = renderer,
-      .font = font,
-      .textEngine = textEngine,
-      .helloWorld = text,
+      .width = windowStartWidth,
+      .height = windowStartHeight,
   };
   initializeEngine(appState);
 
@@ -185,10 +215,7 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char* argv[]) {
 void SDL_AppQuit(void* appstate, SDL_AppResult result) {
   auto* app = reinterpret_cast<AppState*>(appstate);
   if (app) {
-    TTF_DestroyText(app->helloWorld);
-    TTF_DestroyRendererTextEngine(app->textEngine);
-    TTF_CloseFont(app->font);
-    SDL_DestroyRenderer(app->sdlRenderer);
+    bgfx::shutdown();
     SDL_DestroyWindow(app->sdlWindow);
     delete app;
   }
@@ -199,8 +226,17 @@ void SDL_AppQuit(void* appstate, SDL_AppResult result) {
 SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* event) {
   auto* app = reinterpret_cast<AppState*>(appstate);
 
-  if (event->type == SDL_EVENT_QUIT) {
-    app->run = false;
+  switch (event->type) {
+    case SDL_EVENT_QUIT:
+      app->run = false;
+      break;
+    case SDL_EVENT_WINDOW_RESIZED:
+      std::cout << "Resized to: " << event->window.data1 << " "
+                << event->window.data2 << std::endl;
+      app->width = event->window.data1;
+      app->height = event->window.data2;
+      bgfx::reset(event->window.data1, event->window.data2);
+      break;
   }
 
   return SDL_APP_CONTINUE;
@@ -234,14 +270,12 @@ SDL_AppResult SDL_AppIterate(void* appstate) {
   root->render(*app->renderer, delta);
   app->renderer->present();
 
-  std::stringstream ss;
-  print(ss, app->root, 0);
+  bgfx::setViewRect(0, 0, 0, app->width, app->height);
 
-  auto str = ss.str();
-  TTF_SetTextString(app->helloWorld, str.c_str(), str.size());
-
-  TTF_DrawRendererText(app->helloWorld, 0, 0);
-  SDL_RenderPresent(app->sdlRenderer);
+  bgfx::touch(0);
+  bgfx::dbgTextClear();
+  bgfx::dbgTextPrintf(0, 1, 0x4f, "Counter: %d", 1);
+  bgfx::frame();
 
   return app->run ? SDL_APP_CONTINUE : SDL_APP_SUCCESS;
 }
