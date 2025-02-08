@@ -26,6 +26,7 @@
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_init.h>
 #include <SDL3/SDL_main.h>
+#include <SDL3_ttf/SDL_ttf.h>
 
 using namespace ewok;
 
@@ -62,6 +63,10 @@ struct AppState {
   SDL_Window* sdlWindow;
   SDL_Renderer* sdlRenderer;
 
+  TTF_Font* font;
+  TTF_TextEngine* textEngine;
+  TTF_Text* helloWorld;
+
   std::shared_ptr<Renderer> renderer;
   std::shared_ptr<RootGameObject> root;
 
@@ -70,24 +75,24 @@ struct AppState {
 };
 
 // Stupid, but it works, add an indent.
-void indent(int depth) {
+void indent(std::ostream& out, int depth) {
   for (int i = 0; i < depth * 2; ++i) {
-    std::cout << ' ';
+    out << ' ';
   }
 }
 
 // Just print the tree of game objects.
-void print(GameObjectPtr const& go, int depth) {
-  indent(depth);
-  std::cout << go->name() << " (" << go.get() << ")" << std::endl;
+void print(std::ostream& out, GameObjectPtr const& go, int depth) {
+  indent(out, depth);
+  out << go->name() << " (" << go.get() << ")" << std::endl;
 
   for (auto&& comp : go->components()) {
-    indent(depth);
-    std::cout << comp->describe() << " " << std::endl;
+    indent(out, depth);
+    out << comp->describe() << " " << std::endl;
   }
 
   for (auto&& child : go->children()) {
-    print(child, depth + 1);
+    print(out, child, depth + 1);
   }
 }
 
@@ -130,6 +135,11 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char* argv[]) {
     return SDL_Fail();
   }
 
+  // init TTF
+  if (not TTF_Init()) {
+    return SDL_Fail();
+  }
+
   SDL_Window* window = SDL_CreateWindow(
       "SDL Minimal Sample",
       windowStartWidth,
@@ -145,12 +155,26 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char* argv[]) {
     return SDL_Fail();
   }
 
+  std::filesystem::path basePath = SDL_GetBasePath();
+  auto fontPath = basePath / "assets" / "fonts" / "Inter-VariableFont.ttf";
+  auto font = TTF_OpenFont(fontPath.generic_string().c_str(), 36);
+  if (not font) {
+    return SDL_Fail();
+  }
+
+  std::string str = "Hello world";
+  auto textEngine = TTF_CreateRendererTextEngine(renderer);
+  auto text = TTF_CreateText(textEngine, font, str.c_str(), str.size());
+
   SDL_ShowWindow(window);
   SDL_SetRenderVSync(renderer, -1);
 
   auto appState = new AppState{
       .sdlWindow = window,
       .sdlRenderer = renderer,
+      .font = font,
+      .textEngine = textEngine,
+      .helloWorld = text,
   };
   initializeEngine(appState);
 
@@ -161,6 +185,9 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char* argv[]) {
 void SDL_AppQuit(void* appstate, SDL_AppResult result) {
   auto* app = reinterpret_cast<AppState*>(appstate);
   if (app) {
+    TTF_DestroyText(app->helloWorld);
+    TTF_DestroyRendererTextEngine(app->textEngine);
+    TTF_CloseFont(app->font);
     SDL_DestroyRenderer(app->sdlRenderer);
     SDL_DestroyWindow(app->sdlWindow);
     delete app;
@@ -171,10 +198,6 @@ void SDL_AppQuit(void* appstate, SDL_AppResult result) {
 
 SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* event) {
   auto* app = reinterpret_cast<AppState*>(appstate);
-
-  if (event->type == SDL_EVENT_KEY_UP) {
-    print(app->root, 0);
-  }
 
   if (event->type == SDL_EVENT_QUIT) {
     app->run = false;
@@ -210,6 +233,15 @@ SDL_AppResult SDL_AppIterate(void* appstate) {
   // We render every time we iterate.
   root->render(*app->renderer, delta);
   app->renderer->present();
+
+  std::stringstream ss;
+  print(ss, app->root, 0);
+
+  auto str = ss.str();
+  TTF_SetTextString(app->helloWorld, str.c_str(), str.size());
+
+  TTF_DrawRendererText(app->helloWorld, 0, 0);
+  SDL_RenderPresent(app->sdlRenderer);
 
   return app->run ? SDL_APP_CONTINUE : SDL_APP_SUCCESS;
 }

@@ -39,6 +39,14 @@ fetch_dependency(
 )
 
 fetch_dependency(
+        SDL3_ttf
+        GIT_REPOSITORY https://github.com/libsdl-org/SDL_ttf.git
+        # Update when SDL3_ttf is properly released
+        GIT_TAG 51adc815b2959dd918c5c3970eb05d87dc0b5e56
+        CONFIGURATION ${CMAKE_BUILD_TYPE}
+)
+
+fetch_dependency(
         crossguid
         GIT_REPOSITORY https://github.com/graeme-hill/crossguid.git
         GIT_TAG master
@@ -51,7 +59,12 @@ add_executable(test
         ${TEST_FILES}
 )
 
-target_link_libraries(test concurrencpp::concurrencpp ryml::ryml SDL3::SDL3 crossguid)
+target_link_libraries(test
+        crossguid
+        concurrencpp::concurrencpp
+        ryml::ryml
+        SDL3::SDL3
+        SDL3_ttf::SDL3_ttf)
 target_include_directories(test PRIVATE ${PROJECT_SOURCE_DIR})
 target_compile_definitions(test PUBLIC SDL_MAIN_USE_CALLBACKS)
 
