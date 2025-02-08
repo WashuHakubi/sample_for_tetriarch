@@ -49,6 +49,10 @@ target_link_libraries(test concurrencpp::concurrencpp ryml::ryml SDL3::SDL3)
 target_include_directories(test PRIVATE ${PROJECT_SOURCE_DIR})
 target_compile_definitions(test PUBLIC SDL_MAIN_USE_CALLBACKS)
 
+if(CMAKE_SYSTEM_NAME MATCHES "Windows")
+        target_link_libraries(test Rpcrt4.lib)
+endif()
+
 add_custom_target(copy_assets
     COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_LIST_DIR}/assets ${CMAKE_CURRENT_BINARY_DIR}/assets
 )

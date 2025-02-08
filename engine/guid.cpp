@@ -9,7 +9,6 @@
 
 #ifdef _WIN32
 #include <Rpc.h>
-#pragma comment(lib, "Rpcrt4.lib")
 #else
 #include <uuid/uuid.h>
 #endif

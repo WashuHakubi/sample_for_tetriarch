@@ -85,6 +85,7 @@
     "strstream": "cpp",
     "valarray": "cpp",
     "*.ipp": "cpp",
-    "filesystem": "cpp"
+    "filesystem": "cpp",
+    "format": "cpp"
   }
 }
