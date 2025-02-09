@@ -17,10 +17,24 @@
 namespace ewok {
 class Field;
 
-class Class {
+class TypeBase {
  public:
-  Class(std::string name, std::type_index type)
+  TypeBase(std::string name, std::type_index type)
       : name_(std::move(name)), type_(type) {}
+
+  virtual ~TypeBase() = default;
+
+  auto name() const -> std::string const& { return name_; }
+  auto type() const -> std::type_index const& { return type_; }
+
+ private:
+  std::string name_;
+  std::type_index type_;
+};
+
+class Class : public TypeBase {
+ public:
+  using TypeBase::TypeBase;
 
   auto fields() const -> std::span<std::unique_ptr<Field> const> {
     return fields_;
@@ -30,8 +44,6 @@ class Class {
   auto field(F C::*m, std::string name) -> Class&;
 
  private:
-  std::string name_;
-  std::type_index type_;
   std::vector<std::unique_ptr<Field>> fields_;
   std::unordered_map<std::string, size_t> nameToFieldIndex_;
 };
@@ -68,25 +80,16 @@ class Reflection {
       nameToClass_{};
 };
 
-class Field {
+class Field : public TypeBase {
  public:
-  Field(std::string name, std::type_index type)
-      : name_(std::move(name)), type_(type) {}
-  virtual ~Field() = default;
+  using TypeBase::TypeBase;
 
-  auto name() const -> std::string const& { return name_; }
-  auto type() const -> std::type_index const& { return type_; }
-
-  auto getClass() const -> Class const* { return Reflection::getClass(type_); }
+  auto getClass() const -> Class const* { return Reflection::getClass(type()); }
 
   virtual void setValue(
       void* instance, std::type_index srcType, void const* srcValue) = 0;
 
   virtual void* getValue(void* instance) const = 0;
-
- private:
-  std::string name_;
-  std::type_index type_;
 };
 
 template <class C, class F>

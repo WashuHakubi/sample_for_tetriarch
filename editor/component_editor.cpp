@@ -15,6 +15,7 @@
 #include "misc/cpp/imgui_stdlib.h"
 
 namespace ewok {
+namespace {
 void drawName(std::unique_ptr<Field> const& field) {
   ImGui::TableNextRow();
   ImGui::TableSetColumnIndex(0);
@@ -71,6 +72,7 @@ void drawGameObjectHandleEditor(
     ImGui::EndCombo();
   }
 }
+} // namespace
 
 DrawFn getFieldDrawer(std::unique_ptr<Field> const& field) {
   static std::unordered_map<std::type_index, DrawFn> drawers{
@@ -110,6 +112,7 @@ void drawChildCompositeType(void* p, Class const* class_) {
 }
 
 void drawCompositeType(void* p, Class const* class_) {
+  ImGui::Text("%s", class_->name().c_str());
   auto id = std::format("##{}", reinterpret_cast<size_t>(p));
   if (ImGui::BeginTable(id.c_str(), 2)) {
     ImGui::TableSetupColumn("name", ImGuiTableColumnFlags_WidthFixed, 100);
