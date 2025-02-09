@@ -73,6 +73,7 @@ struct AppState {
 
   bool run{true};
   bool showDemoWindow{true};
+  bool showImguiUI{true};
   uint64_t prevTime{};
 };
 
@@ -203,18 +204,26 @@ SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* event) {
 }
 
 void RenderImgui(AppState* app) {
+  if (!app->showImguiUI) {
+    return;
+  }
+
   ImGui_ImplSDLGPU3_NewFrame();
   ImGui_ImplSDL3_NewFrame();
   ImGui::NewFrame();
 
-  // Do your imgui rendering here... maybe a GO.renderUI();
+  // Do your imgui rendering here...
   if (app->showDemoWindow) {
     ImGui::ShowDemoWindow(&app->showDemoWindow);
   }
 
+  // Render any game object components.
   app->root->renderUI();
 
   ImGui::Render();
+
+  // Draw the imgui UI to the screen. This is taken mostly from imgui sample
+  // code.
   ImDrawData* drawData = ImGui::GetDrawData();
   SDL_GPUCommandBuffer* commandBuffer =
       SDL_AcquireGPUCommandBuffer(app->gpuDevice);
