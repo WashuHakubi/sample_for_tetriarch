@@ -254,6 +254,27 @@ void GameObject::render(Renderer& renderer, float dt) {
   applyPostUpdateActions();
 }
 
+void GameObject::renderUI() {
+  if (!active_) {
+    return;
+  }
+
+  {
+    updateState_ = UpdateState::Update;
+    SCOPED([this]() { updateState_ = UpdateState::Idle; });
+
+    for (auto&& component : components_) {
+      component->renderUI();
+    }
+
+    for (auto&& child : children_) {
+      child->renderUI();
+    }
+  }
+
+  applyPostUpdateActions();
+}
+
 void GameObject::setActive(bool active) {
   if (updateState_ == UpdateState::Idle) {
     // If we're idle then it is safe to immediately update our active state.

@@ -79,6 +79,9 @@ class GameObject : public std::enable_shared_from_this<GameObject> {
   // Renders the GO and any children
   void render(Renderer& renderer, float dt);
 
+  // Called every frame to render imgui components.
+  void renderUI();
+
   void setActive(bool active);
   void setName(std::string name) { name_ = std::move(name); }
   void setTransform(Transform transform) { transform_ = transform; }

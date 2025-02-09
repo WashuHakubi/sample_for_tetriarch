@@ -207,9 +207,12 @@ void RenderImgui(AppState* app) {
   ImGui_ImplSDL3_NewFrame();
   ImGui::NewFrame();
 
+  // Do your imgui rendering here... maybe a GO.renderUI();
   if (app->showDemoWindow) {
     ImGui::ShowDemoWindow(&app->showDemoWindow);
   }
+
+  app->root->renderUI();
 
   ImGui::Render();
   ImDrawData* drawData = ImGui::GetDrawData();

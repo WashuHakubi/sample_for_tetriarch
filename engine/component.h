@@ -31,6 +31,9 @@ class ComponentBase {
   // for notifications
   virtual void render(Renderer& renderer, float dt) {}
 
+  // Called once per frame to render UI.
+  virtual void renderUI() {}
+
   // Run once per frame or simulation tick, whatever.
   virtual void update(float dt) {}
 
