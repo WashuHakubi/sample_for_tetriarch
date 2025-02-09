@@ -75,25 +75,20 @@ struct AppState {
   uint64_t prevTime{};
 };
 
-// Stupid, but it works, add an indent.
-void indent(std::ostream& out, int depth) {
-  for (int i = 0; i < depth * 2; ++i) {
-    out << ' ';
-  }
-}
-
 // Just print the tree of game objects.
-void print(std::ostream& out, GameObjectPtr const& go, int depth) {
-  indent(out, depth);
-  out << go->name() << " (" << go.get() << ")" << std::endl;
+void print(GameObjectPtr const& go, int depth, int& line) {
+  auto indent = depth * 2;
+  auto s =
+      std::format("{} ({})", go->name(), reinterpret_cast<size_t>(go.get()));
+  bgfx::dbgTextPrintf(indent, line, 0x0F, s.c_str());
 
   for (auto&& comp : go->components()) {
-    indent(out, depth);
-    out << comp->describe() << " " << std::endl;
+    // indent(out, depth);
+    // out << comp->describe() << " " << std::endl;
   }
 
   for (auto&& child : go->children()) {
-    print(out, child, depth + 1);
+    print(child, depth + 1, ++line);
   }
 }
 
@@ -278,7 +273,8 @@ SDL_AppResult SDL_AppIterate(void* appstate) {
 
   bgfx::touch(0);
   bgfx::dbgTextClear();
-  bgfx::dbgTextPrintf(0, 1, 0x4f, "Counter: %d", 1);
+  int line = 0;
+  print(root, 0, line);
   bgfx::frame();
 
   return app->run ? SDL_APP_CONTINUE : SDL_APP_SUCCESS;
