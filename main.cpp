@@ -224,7 +224,9 @@ void RenderImgui(AppState* app) {
     ImGui::ShowDemoWindow(&app->showDemoWindow);
   }
 
-  app->run = !app->editor->draw(app->root);
+  // draw returns true to exit. But we may have tried to close the window
+  // so we merge run with the return of draw.
+  app->run = app->run && !app->editor->draw(app->root);
 
   // Render any game object components.
   app->root->renderUI();
