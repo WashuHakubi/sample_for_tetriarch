@@ -19,6 +19,8 @@
 #include "game/parsers/camera_parser.h"
 #include "game/parsers/prefab_parser.h"
 
+#include "editor/editor.h"
+
 #include "backends/imgui_impl_sdl3.h"
 #include "backends/imgui_impl_sdlgpu3.h"
 #include "imgui.h"
@@ -70,6 +72,7 @@ struct AppState {
 
   std::shared_ptr<Renderer> renderer;
   std::shared_ptr<RootGameObject> root;
+  std::shared_ptr<Editor> editor;
 
   bool run{true};
   bool showDemoWindow{true};
@@ -89,6 +92,8 @@ void initializeEngine(AppState* appState) {
   setObjectDatabase(std::make_shared<ObjectDatabase>());
 
   appState->renderer = Renderer::create();
+
+  appState->editor = std::make_shared<Editor>();
 
   // Register our loaders
   registerRenderables(*assetDatabase());
@@ -216,6 +221,8 @@ void RenderImgui(AppState* app) {
   if (app->showDemoWindow) {
     ImGui::ShowDemoWindow(&app->showDemoWindow);
   }
+
+  app->editor->draw(app->root);
 
   // Render any game object components.
   app->root->renderUI();

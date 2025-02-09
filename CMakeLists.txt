@@ -55,7 +55,7 @@ fetch_dependency(
 
 add_subdirectory(imgui)
 
-file(GLOB_RECURSE test_FILES CONFIGURE_DEPENDS "engine/*.cpp" "game/*.cpp")
+file(GLOB_RECURSE test_FILES CONFIGURE_DEPENDS "engine/*.cpp" "game/*.cpp" "editor/*.cpp")
 add_executable(test
         main.cpp
         ${test_FILES}
