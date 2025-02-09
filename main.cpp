@@ -150,12 +150,16 @@ bool initializeBgfx(SDL_Window* window) {
   bgfx::setPlatformData(pd);
 
   bgfx::Init init;
-  init.type = bgfx::RendererType::OpenGL;
+  init.type = bgfx::RendererType::Count;
   init.vendorId = BGFX_PCI_ID_NONE;
   init.platformData.nwh = pd.nwh;
   init.platformData.ndt = pd.ndt;
   init.resolution.width = windowStartWidth;
   init.resolution.height = windowStartHeight;
+
+  // Ensure BGFX is single threaded
+  bgfx::renderFrame();
+
   // init.resolution.reset = BGFX_RESET_VSYNC;
   if (!bgfx::init(init)) {
     return false;
