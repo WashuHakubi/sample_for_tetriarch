@@ -45,7 +45,9 @@ void Editor::drawSelectedObjectComponents(GameObjectPtr const& node) {
 
   for (auto&& comp : node->components()) {
     auto editor = comp->getComponentEditor();
-    editor->draw(comp);
+    if (editor) {
+      editor->draw(comp);
+    }
   }
 }
 
