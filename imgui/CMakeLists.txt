@@ -9,6 +9,8 @@ add_library(imgui STATIC
     backends/imgui_impl_sdlgpu3.h
     backends/imgui_impl_sdl3.cpp
     backends/imgui_impl_sdl3.h
+    misc/cpp/imgui_stdlib.cpp
+    misc/cpp/imgui_stdlib.h
 )
 
 target_include_directories(imgui PUBLIC ${PROJECT_SOURCE_DIR})

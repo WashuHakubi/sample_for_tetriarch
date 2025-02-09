@@ -37,6 +37,11 @@ class ComponentBase {
   // Run once per frame or simulation tick, whatever.
   virtual void update(float dt) {}
 
+  // Gets the editor for this component
+  virtual auto getComponentEditor() const -> IComponentEditor* {
+    return nullptr;
+  }
+
  private:
   template <class T>
   friend class Component;

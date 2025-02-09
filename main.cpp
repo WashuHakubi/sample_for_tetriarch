@@ -220,9 +220,9 @@ void RenderImgui(AppState* app) {
   ImGui::DockSpaceOverViewport();
 
   // Do your imgui rendering here...
-  if (app->showDemoWindow) {
-    ImGui::ShowDemoWindow(&app->showDemoWindow);
-  }
+  // if (app->showDemoWindow) {
+  //   ImGui::ShowDemoWindow(&app->showDemoWindow);
+  // }
 
   // draw returns true to exit. But we may have tried to close the window
   // so we merge run with the return of draw.

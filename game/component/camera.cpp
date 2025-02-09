@@ -6,10 +6,15 @@
  */
 
 #include "game/component/camera.h"
+#include "game/component_editors/camera_editor.h"
 
 #include <iostream>
 
 namespace ewok {
+auto Camera::getComponentEditor() const -> IComponentEditor* {
+  return CameraEditor::instance();
+}
+
 void Camera::attach() {
   std::cout << "I'm the camera: " << name_;
   auto t = target();

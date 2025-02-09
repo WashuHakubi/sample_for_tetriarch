@@ -33,7 +33,10 @@ class Camera : public Component<Camera> {
   auto target() const -> GameObjectPtr { return target_.lock(); }
   void setTarget(GameObjectPtr target) { target_ = std::move(target); }
 
+  auto getComponentEditor() const -> IComponentEditor* override;
+
  private:
+  friend class CameraEditor;
   std::string name_;
 
   // Weak handle to a game object, this prevents circular references that can

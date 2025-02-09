@@ -17,6 +17,10 @@ class ObjectDatabase {
 
   auto find(Guid const& id) const -> GameObjectPtr;
 
+  auto getObjects() const -> std::unordered_map<Guid, GameObjectHandle> const& {
+    return idToHandle_;
+  };
+
  private:
   std::unordered_map<Guid, GameObjectHandle> idToHandle_;
 };

@@ -6,7 +6,7 @@
  */
 
 #include "editor/editor.h"
-
+#include "editor/i_component_editor.h"
 #include "engine/component.h"
 
 #include "imgui.h"
@@ -44,10 +44,8 @@ void Editor::drawSelectedObjectComponents(GameObjectPtr const& node) {
   }
 
   for (auto&& comp : node->components()) {
-    auto const& desc = comp->describe();
-    ImGui::BeginChild(desc.c_str());
-    ImGui::Text("%s", desc.c_str());
-    ImGui::EndChild();
+    auto editor = comp->getComponentEditor();
+    editor->draw(comp);
   }
 }
 
