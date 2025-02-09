@@ -46,7 +46,7 @@ void Editor::drawSelectedObjectComponents(GameObjectPtr const& node) {
   for (auto&& comp : node->components()) {
     auto const& desc = comp->describe();
     ImGui::BeginChild(desc.c_str());
-    ImGui::Text(desc.c_str());
+    ImGui::Text("%s", desc.c_str());
     ImGui::EndChild();
   }
 }
