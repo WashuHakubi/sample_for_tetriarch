@@ -52,11 +52,13 @@ fetch_dependency(
         GIT_TAG master
         CONFIGURATION ${CMAKE_BUILD_TYPE}
 )
-file(GLOB_RECURSE TEST_FILES CONFIGURE_DEPENDS "engine/*.cpp" "game/*.cpp")
 
+add_subdirectory(imgui)
+
+file(GLOB_RECURSE test_FILES CONFIGURE_DEPENDS "engine/*.cpp" "game/*.cpp")
 add_executable(test
         main.cpp
-        ${TEST_FILES}
+        ${test_FILES}
 )
 
 target_link_libraries(test
@@ -64,17 +66,19 @@ target_link_libraries(test
         concurrencpp::concurrencpp
         ryml::ryml
         SDL3::SDL3
-        SDL3_ttf::SDL3_ttf)
+        SDL3_ttf::SDL3_ttf
+        imgui)
+        
 target_include_directories(test PRIVATE ${PROJECT_SOURCE_DIR})
 target_compile_definitions(test PUBLIC SDL_MAIN_USE_CALLBACKS)
 add_custom_command(TARGET test POST_BUILD
-  COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_RUNTIME_DLLS:test> $<TARGET_FILE_DIR:test>
-  COMMAND_EXPAND_LISTS
-  )
-
+        COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_RUNTIME_DLLS:test> $<TARGET_FILE_DIR:test>
+        COMMAND_EXPAND_LISTS
+)
 
 add_custom_target(copy_assets
     COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_LIST_DIR}/assets ${CMAKE_CURRENT_BINARY_DIR}/assets
 )
+
 add_dependencies(test copy_assets)
 

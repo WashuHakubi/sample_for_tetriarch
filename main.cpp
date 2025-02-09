@@ -19,19 +19,24 @@
 #include "game/parsers/camera_parser.h"
 #include "game/parsers/prefab_parser.h"
 
+#include "backends/imgui_impl_sdl3.h"
+#include "backends/imgui_impl_sdlgpu3.h"
+#include "imgui.h"
+
 #include <filesystem>
 #include <format>
 #include <iostream>
 
 #include <SDL3/SDL.h>
+#include <SDL3/SDL_gpu.h>
 #include <SDL3/SDL_init.h>
 #include <SDL3/SDL_main.h>
 #include <SDL3_ttf/SDL_ttf.h>
 
 using namespace ewok;
 
-constexpr uint32_t windowStartWidth = 640;
-constexpr uint32_t windowStartHeight = 480;
+constexpr uint32_t windowStartWidth = 1280;
+constexpr uint32_t windowStartHeight = 720;
 
 class RootGameObject : public GameObject {
  public:
@@ -61,40 +66,15 @@ struct AppState {
   std::shared_ptr<concurrencpp::manual_executor> executor;
 
   SDL_Window* sdlWindow;
-  SDL_Renderer* sdlRenderer;
-
-  TTF_Font* font;
-  TTF_TextEngine* textEngine;
-  TTF_Text* helloWorld;
+  SDL_GPUDevice* gpuDevice;
 
   std::shared_ptr<Renderer> renderer;
   std::shared_ptr<RootGameObject> root;
 
   bool run{true};
+  bool showDemoWindow{true};
   uint64_t prevTime{};
 };
-
-// Stupid, but it works, add an indent.
-void indent(std::ostream& out, int depth) {
-  for (int i = 0; i < depth * 2; ++i) {
-    out << ' ';
-  }
-}
-
-// Just print the tree of game objects.
-void print(std::ostream& out, GameObjectPtr const& go, int depth) {
-  indent(out, depth);
-  out << go->name() << " (" << go.get() << ")" << std::endl;
-
-  for (auto&& comp : go->components()) {
-    indent(out, depth);
-    out << comp->describe() << " " << std::endl;
-  }
-
-  for (auto&& child : go->children()) {
-    print(out, child, depth + 1);
-  }
-}
 
 void initializeEngine(AppState* appState) {
   auto ioExecutor = appState->runtime.background_executor();
@@ -150,31 +130,42 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char* argv[]) {
   }
 
   // create a renderer
-  SDL_Renderer* renderer = SDL_CreateRenderer(window, NULL);
-  if (not renderer) {
+  SDL_GPUDevice* gpuDevice = SDL_CreateGPUDevice(
+      SDL_GPU_SHADERFORMAT_SPIRV | SDL_GPU_SHADERFORMAT_DXIL |
+          SDL_GPU_SHADERFORMAT_METALLIB,
+      true,
+      nullptr);
+  if (gpuDevice == nullptr) {
     return SDL_Fail();
   }
 
-  std::filesystem::path basePath = SDL_GetBasePath();
-  auto fontPath = basePath / "assets" / "fonts" / "Inter-VariableFont.ttf";
-  auto font = TTF_OpenFont(fontPath.generic_string().c_str(), 36);
-  if (not font) {
+  if (!SDL_ClaimWindowForGPUDevice(gpuDevice, window)) {
     return SDL_Fail();
   }
 
-  std::string str = "Hello world";
-  auto textEngine = TTF_CreateRendererTextEngine(renderer);
-  auto text = TTF_CreateText(textEngine, font, str.c_str(), str.size());
+  SDL_SetGPUSwapchainParameters(
+      gpuDevice,
+      window,
+      SDL_GPU_SWAPCHAINCOMPOSITION_SDR,
+      SDL_GPU_PRESENTMODE_MAILBOX);
 
-  SDL_ShowWindow(window);
-  SDL_SetRenderVSync(renderer, -1);
+  ImGui::CreateContext();
+  ImGuiIO& io = ImGui::GetIO();
+  io.ConfigFlags |=
+      ImGuiConfigFlags_NavEnableKeyboard; // Enable Keyboard Controls
+
+  ImGui::StyleColorsDark();
+  ImGui_ImplSDL3_InitForSDLGPU(window);
+  ImGui_ImplSDLGPU3_InitInfo init_info = {};
+  init_info.Device = gpuDevice;
+  init_info.ColorTargetFormat =
+      SDL_GetGPUSwapchainTextureFormat(gpuDevice, window);
+  init_info.MSAASamples = SDL_GPU_SAMPLECOUNT_1;
+  ImGui_ImplSDLGPU3_Init(&init_info);
 
   auto appState = new AppState{
       .sdlWindow = window,
-      .sdlRenderer = renderer,
-      .font = font,
-      .textEngine = textEngine,
-      .helloWorld = text,
+      .gpuDevice = gpuDevice,
   };
   initializeEngine(appState);
 
@@ -185,10 +176,13 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char* argv[]) {
 void SDL_AppQuit(void* appstate, SDL_AppResult result) {
   auto* app = reinterpret_cast<AppState*>(appstate);
   if (app) {
-    TTF_DestroyText(app->helloWorld);
-    TTF_DestroyRendererTextEngine(app->textEngine);
-    TTF_CloseFont(app->font);
-    SDL_DestroyRenderer(app->sdlRenderer);
+    SDL_WaitForGPUIdle(app->gpuDevice);
+    ImGui_ImplSDL3_Shutdown();
+    ImGui_ImplSDLGPU3_Shutdown();
+    ImGui::DestroyContext();
+
+    SDL_ReleaseWindowFromGPUDevice(app->gpuDevice, app->sdlWindow);
+    SDL_DestroyGPUDevice(app->gpuDevice);
     SDL_DestroyWindow(app->sdlWindow);
     delete app;
   }
@@ -203,7 +197,58 @@ SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* event) {
     app->run = false;
   }
 
+  ImGui_ImplSDL3_ProcessEvent(event);
+
   return SDL_APP_CONTINUE;
+}
+
+void RenderImgui(AppState* app) {
+  ImGui_ImplSDLGPU3_NewFrame();
+  ImGui_ImplSDL3_NewFrame();
+  ImGui::NewFrame();
+
+  if (app->showDemoWindow) {
+    ImGui::ShowDemoWindow(&app->showDemoWindow);
+  }
+
+  ImGui::Render();
+  ImDrawData* drawData = ImGui::GetDrawData();
+  SDL_GPUCommandBuffer* commandBuffer =
+      SDL_AcquireGPUCommandBuffer(app->gpuDevice);
+
+  SDL_GPUTexture* swapChainTexture;
+  SDL_AcquireGPUSwapchainTexture(
+      commandBuffer,
+      app->sdlWindow,
+      &swapChainTexture,
+      nullptr,
+      nullptr); // Acquire a swapchain texture
+
+  if (swapChainTexture != nullptr) {
+    // This is mandatory: call Imgui_ImplSDLGPU3_PrepareDrawData() to upload the
+    // vertex/index buffer!
+    Imgui_ImplSDLGPU3_PrepareDrawData(drawData, commandBuffer);
+
+    // Setup and start a render pass
+    SDL_GPUColorTargetInfo target_info = {};
+    target_info.texture = swapChainTexture;
+    target_info.clear_color = SDL_FColor{0.45f, 0.55f, 0.60f, 1.00f};
+    target_info.load_op = SDL_GPU_LOADOP_CLEAR;
+    target_info.store_op = SDL_GPU_STOREOP_STORE;
+    target_info.mip_level = 0;
+    target_info.layer_or_depth_plane = 0;
+    target_info.cycle = false;
+    SDL_GPURenderPass* renderPass =
+        SDL_BeginGPURenderPass(commandBuffer, &target_info, 1, nullptr);
+
+    // Render ImGui
+    ImGui_ImplSDLGPU3_RenderDrawData(drawData, commandBuffer, renderPass);
+
+    SDL_EndGPURenderPass(renderPass);
+  }
+
+  // Submit the command buffer
+  SDL_SubmitGPUCommandBuffer(commandBuffer);
 }
 
 SDL_AppResult SDL_AppIterate(void* appstate) {
@@ -234,14 +279,7 @@ SDL_AppResult SDL_AppIterate(void* appstate) {
   root->render(*app->renderer, delta);
   app->renderer->present();
 
-  std::stringstream ss;
-  print(ss, app->root, 0);
-
-  auto str = ss.str();
-  TTF_SetTextString(app->helloWorld, str.c_str(), str.size());
-
-  TTF_DrawRendererText(app->helloWorld, 0, 0);
-  SDL_RenderPresent(app->sdlRenderer);
+  RenderImgui(app);
 
   return app->run ? SDL_APP_CONTINUE : SDL_APP_SUCCESS;
 }

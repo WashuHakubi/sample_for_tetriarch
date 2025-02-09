@@ -86,6 +86,9 @@
     "valarray": "cpp",
     "*.ipp": "cpp",
     "filesystem": "cpp",
-    "format": "cpp"
+    "format": "cpp",
+    "chrono": "cpp",
+    "xlocale": "cpp",
+    "xiosbase": "cpp"
   }
 }
