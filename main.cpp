@@ -157,8 +157,8 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char* argv[]) {
 
   ImGui::CreateContext();
   ImGuiIO& io = ImGui::GetIO();
-  io.ConfigFlags |=
-      ImGuiConfigFlags_NavEnableKeyboard; // Enable Keyboard Controls
+  io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard |
+      ImGuiConfigFlags_DockingEnable; // Enable Keyboard Controls
 
   ImGui::StyleColorsDark();
   ImGui_ImplSDL3_InitForSDLGPU(window);
@@ -217,12 +217,14 @@ void RenderImgui(AppState* app) {
   ImGui_ImplSDL3_NewFrame();
   ImGui::NewFrame();
 
+  ImGui::DockSpaceOverViewport();
+
   // Do your imgui rendering here...
   if (app->showDemoWindow) {
     ImGui::ShowDemoWindow(&app->showDemoWindow);
   }
 
-  app->editor->draw(app->root);
+  app->run = !app->editor->draw(app->root);
 
   // Render any game object components.
   app->root->renderUI();

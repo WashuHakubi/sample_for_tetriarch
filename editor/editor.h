@@ -12,7 +12,7 @@
 namespace ewok {
 class Editor {
  public:
-  void draw(GameObjectPtr const& root);
+  bool draw(GameObjectPtr const& root);
 
  private:
   void drawChildNodes(GameObjectPtr const& node);

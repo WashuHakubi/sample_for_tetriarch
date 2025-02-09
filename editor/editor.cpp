@@ -51,7 +51,19 @@ void Editor::drawSelectedObjectComponents(GameObjectPtr const& node) {
   }
 }
 
-void Editor::draw(GameObjectPtr const& root) {
+bool Editor::draw(GameObjectPtr const& root) {
+  bool exit = false;
+  if (ImGui::BeginMainMenuBar()) {
+    if (ImGui::BeginMenu("File")) {
+      if (ImGui::MenuItem("Exit", "x")) {
+        exit = true;
+      }
+      ImGui::EndMenu();
+    }
+
+    ImGui::EndMainMenuBar();
+  }
+
   ImGui::SetNextWindowSize(ImVec2(550, 680), ImGuiCond_FirstUseEver);
   ImGui::Begin("Object Tree");
   if (ImGui::TreeNodeEx("Root", ImGuiTreeNodeFlags_DefaultOpen)) {
@@ -66,5 +78,7 @@ void Editor::draw(GameObjectPtr const& root) {
   drawSelectedObjectComponents(selected_);
 
   ImGui::End();
+
+  return exit;
 }
 } // namespace ewok
