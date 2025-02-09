@@ -6,55 +6,16 @@
  */
 #pragma once
 
+#include <cassert>
 #include <memory>
+#include <span>
 #include <string>
 #include <typeindex>
 #include <unordered_map>
+#include <vector>
 
 namespace ewok {
-class Field {
- public:
-  Field(std::string name, std::type_index type)
-      : name_(std::move(name)), type_(type) {}
-  virtual ~Field() = default;
-
-  auto name() const -> std::string const& { return name_; }
-  auto type() const -> std::type_index const& { return type_; }
-
-  virtual void setValue(
-      void* instance, std::type_index srcType, void const* srcValue) = 0;
-
-  virtual void* getValue(void* instance) const = 0;
-
- private:
-  std::string name_;
-  std::type_index type_;
-};
-
-template <class C, class F>
-class TypedField : public Field {
- public:
-  TypedField(std::string name, F C::*field)
-      : Field(std::move(name), typeid(F)), field_(field) {}
-
-  void setValue(
-      void* instance, std::type_index srcType, void const* srcValue) override {
-    assert(instance);
-    assert(srcType == type());
-    auto cp = static_cast<C*>(instance);
-    auto fp = static_cast<F const*>(srcValue);
-    (cp->*field_) = *fp;
-  }
-
-  auto getValue(void* instance) const -> void* override {
-    assert(instance);
-    auto cp = static_cast<C*>(instance);
-    return &(cp->*field_);
-  }
-
- private:
-  F C::*field_;
-};
+class Field;
 
 class Class {
  public:
@@ -66,11 +27,7 @@ class Class {
   }
 
   template <class C, class F>
-  auto field(F C::*m, std::string name) -> Class& {
-    fields_.push_back(std::make_unique<TypedField<C, F>>(name, m));
-    nameToFieldIndex_.emplace(std::move(name), fields_.size() - 1);
-    return *this;
-  }
+  auto field(F C::*m, std::string name) -> Class&;
 
  private:
   std::string name_;
@@ -111,6 +68,58 @@ class Reflection {
       nameToClass_{};
 };
 
+class Field {
+ public:
+  Field(std::string name, std::type_index type)
+      : name_(std::move(name)), type_(type) {}
+  virtual ~Field() = default;
+
+  auto name() const -> std::string const& { return name_; }
+  auto type() const -> std::type_index const& { return type_; }
+
+  auto getClass() const -> Class const* { return Reflection::getClass(type_); }
+
+  virtual void setValue(
+      void* instance, std::type_index srcType, void const* srcValue) = 0;
+
+  virtual void* getValue(void* instance) const = 0;
+
+ private:
+  std::string name_;
+  std::type_index type_;
+};
+
+template <class C, class F>
+class TypedField : public Field {
+ public:
+  TypedField(std::string name, F C::*field)
+      : Field(std::move(name), typeid(F)), field_(field) {}
+
+  void setValue(
+      void* instance, std::type_index srcType, void const* srcValue) override {
+    assert(instance);
+    assert(srcType == type());
+    auto cp = static_cast<C*>(instance);
+    auto fp = static_cast<F const*>(srcValue);
+    (cp->*field_) = *fp;
+  }
+
+  auto getValue(void* instance) const -> void* override {
+    assert(instance);
+    auto cp = static_cast<C*>(instance);
+    return &(cp->*field_);
+  }
+
+ private:
+  F C::*field_;
+};
+
+template <class C, class F>
+auto Class::field(F C::*m, std::string name) -> Class& {
+  fields_.push_back(std::make_unique<TypedField<C, F>>(name, m));
+  nameToFieldIndex_.emplace(std::move(name), fields_.size() - 1);
+  return *this;
+}
 } // namespace ewok
 
 #define EWOK_CONCAT(a, b) EWOK_CONCAT_INNER(a, b)

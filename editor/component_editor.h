@@ -8,6 +8,7 @@
 #pragma once
 
 #include "engine/forward.h"
+#include "engine/reflection/reflection.h"
 
 namespace ewok {
 struct ComponentEditor {
@@ -15,4 +16,20 @@ struct ComponentEditor {
 
   virtual void draw(ComponentPtr const& component);
 };
+
+void drawStringEditor(void* instance, std::unique_ptr<Field> const& field);
+
+void drawGameObjectHandleEditor(
+    void* instance, std::unique_ptr<Field> const& field);
+
+template <int T>
+void drawScalarEditor(void* instance, std::unique_ptr<Field> const& field);
+
+template <int T, size_t N>
+void drawScalarEditorN(void* instance, std::unique_ptr<Field> const& field);
+
+using DrawFn = void (*)(void* instance, std::unique_ptr<Field> const& field);
+DrawFn getFieldDrawer(std::unique_ptr<Field> const& field);
+
+void drawCompositeType(void* p, Class const* class_);
 } // namespace ewok

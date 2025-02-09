@@ -13,6 +13,12 @@
 #include <stack>
 
 namespace ewok {
+EWOK_REGISTRATION {
+  Reflection::class_<GameObject>("GameObject")
+      .field(&GameObject::name_, "name")
+      .field(&GameObject::transform_, "transform");
+}
+
 auto GameObject::create(Guid id, bool lazyAttach) -> GameObjectPtr {
   auto p = std::make_shared<GameObject>(ProtectedOnly{}, id, lazyAttach);
   objectDatabase()->add(p);

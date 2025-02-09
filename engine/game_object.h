@@ -8,6 +8,7 @@
 
 #include "engine/forward.h"
 #include "engine/math.h"
+#include "engine/reflection/reflection.h"
 
 namespace ewok {
 class GameObject : public std::enable_shared_from_this<GameObject> {
@@ -113,6 +114,7 @@ class GameObject : public std::enable_shared_from_this<GameObject> {
   void applyPostUpdateActions();
 
  private:
+  EWOK_REFLECTION_DECL;
   enum class UpdateState {
     Idle,
     Update,

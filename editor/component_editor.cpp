@@ -15,19 +15,34 @@
 #include "misc/cpp/imgui_stdlib.h"
 
 namespace ewok {
-namespace {
+void drawName(std::unique_ptr<Field> const& field) {
+  ImGui::TableNextRow();
+  ImGui::TableSetColumnIndex(0);
+  ImGui::Text("%s", field->name().c_str());
+  ImGui::TableSetColumnIndex(1);
+}
 
 void drawStringEditor(void* instance, std::unique_ptr<Field> const& field) {
   auto str = static_cast<std::string*>(field->getValue(instance));
-  auto id = "##" + field->name();
+  auto id = std::format("##{}", reinterpret_cast<size_t>(str));
+  drawName(field);
   ImGui::InputText(id.c_str(), str);
 }
 
-template <ImGuiDataType T>
+template <int T>
 void drawScalarEditor(void* instance, std::unique_ptr<Field> const& field) {
   auto str = field->getValue(instance);
-  auto id = "##" + field->name();
+  auto id = std::format("##{}", reinterpret_cast<size_t>(str));
+  drawName(field);
   ImGui::InputScalar(id.c_str(), T, str);
+}
+
+template <int T, size_t N>
+void drawScalarEditorN(void* instance, std::unique_ptr<Field> const& field) {
+  auto str = field->getValue(instance);
+  auto id = std::format("##{}", reinterpret_cast<size_t>(str));
+  drawName(field);
+  ImGui::InputScalarN(id.c_str(), T, str, N);
 }
 
 void drawGameObjectHandleEditor(
@@ -36,7 +51,8 @@ void drawGameObjectHandleEditor(
   auto target = handle->lock();
   auto initial = target ? target->name() : "<null>";
 
-  auto id = "##" + field->name();
+  drawName(field);
+  auto id = std::format("##{}", reinterpret_cast<size_t>(handle));
   if (ImGui::BeginCombo(id.c_str(), initial.c_str())) {
     if (ImGui::Selectable("<null>", target == nullptr)) {
       handle->reset();
@@ -56,8 +72,6 @@ void drawGameObjectHandleEditor(
   }
 }
 
-using DrawFn = void (*)(void* instance, std::unique_ptr<Field> const& field);
-
 DrawFn getFieldDrawer(std::unique_ptr<Field> const& field) {
   static std::unordered_map<std::type_index, DrawFn> drawers{
       {typeid(std::string), drawStringEditor},
@@ -70,13 +84,42 @@ DrawFn getFieldDrawer(std::unique_ptr<Field> const& field) {
       {typeid(uint16_t), drawScalarEditor<ImGuiDataType_U16>},
       {typeid(uint32_t), drawScalarEditor<ImGuiDataType_U32>},
       {typeid(uint64_t), drawScalarEditor<ImGuiDataType_U64>},
+      {typeid(Vec2), drawScalarEditorN<ImGuiDataType_Float, 2>},
+      {typeid(Vec3), drawScalarEditorN<ImGuiDataType_Float, 3>},
+      {typeid(Vec4), drawScalarEditorN<ImGuiDataType_Float, 4>},
   };
 
   auto it = drawers.find(field->type());
-
   return it != drawers.end() ? it->second : nullptr;
 }
-} // namespace
+
+void drawChildCompositeType(void* p, Class const* class_) {
+  for (auto&& field : class_->fields()) {
+    auto drawer = getFieldDrawer(field);
+    if (!drawer) {
+      auto childClass = field->getClass();
+      if (childClass) {
+        auto val = field->getValue(p);
+        drawChildCompositeType(val, childClass);
+      }
+      continue;
+    }
+
+    drawer(p, field);
+  }
+}
+
+void drawCompositeType(void* p, Class const* class_) {
+  auto id = std::format("##{}", reinterpret_cast<size_t>(p));
+  if (ImGui::BeginTable(id.c_str(), 2)) {
+    ImGui::TableSetupColumn("name", ImGuiTableColumnFlags_WidthFixed, 100);
+    ImGui::TableSetupColumn("value", ImGuiTableColumnFlags_WidthStretch);
+
+    drawChildCompositeType(p, class_);
+
+    ImGui::EndTable();
+  }
+}
 
 void ComponentEditor::draw(ComponentPtr const& component) {
   auto p = component.get();
@@ -85,23 +128,6 @@ void ComponentEditor::draw(ComponentPtr const& component) {
     return;
   }
 
-  if (ImGui::BeginTable(p->describe().c_str(), 2)) {
-    ImGui::TableSetupColumn("name", ImGuiTableColumnFlags_WidthFixed, 100);
-    ImGui::TableSetupColumn("value", ImGuiTableColumnFlags_WidthStretch);
-
-    for (auto&& field : cp->fields()) {
-      auto drawer = getFieldDrawer(field);
-      if (!drawer) {
-        continue;
-      }
-
-      ImGui::TableNextRow();
-      ImGui::TableSetColumnIndex(0);
-      ImGui::Text("%s", field->name().c_str());
-      ImGui::TableSetColumnIndex(1);
-      drawer(p, field);
-    }
-    ImGui::EndTable();
-  }
+  drawCompositeType(p, cp);
 }
 } // namespace ewok

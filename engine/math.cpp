@@ -6,10 +6,18 @@
  */
 
 #include "engine/math.h"
+#include "engine/reflection/reflection.h"
 
 #include <cmath>
 
 namespace ewok {
+EWOK_REGISTRATION {
+  Reflection::class_<Transform>("Transform")
+      .field(&Transform::position, "position")
+      .field(&Transform::rotation, "rotation")
+      .field(&Transform::scale, "scale");
+}
+
 Quat fromEuler(Vec3 const& eulerAngles) {
   auto roll = eulerAngles.x;
   auto pitch = eulerAngles.y;
