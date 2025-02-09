@@ -9,6 +9,7 @@
 
 #include "engine/component.h"
 #include "engine/game_object.h"
+#include "engine/reflection/reflection.h"
 
 namespace ewok {
 // Fake camera, not a real one, just showing off some component stuff.
@@ -33,14 +34,18 @@ class Camera : public Component<Camera> {
   auto target() const -> GameObjectPtr { return target_.lock(); }
   void setTarget(GameObjectPtr target) { target_ = std::move(target); }
 
-  auto getComponentEditor() const -> IComponentEditor* override;
-
  private:
+  EWOK_REFLECTION_DECL;
+
   friend class CameraEditor;
   std::string name_;
 
   // Weak handle to a game object, this prevents circular references that can
   // cause memory leaks.
   GameObjectHandle target_;
+
+  int32_t s32_;
+  float f_;
+  uint64_t u64_;
 };
 } // namespace ewok

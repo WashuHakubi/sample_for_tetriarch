@@ -10,9 +10,9 @@
 #include "engine/forward.h"
 
 namespace ewok {
-struct IComponentEditor {
-  virtual ~IComponentEditor() = default;
+struct ComponentEditor {
+  virtual ~ComponentEditor() = default;
 
-  virtual void draw(ComponentPtr const& component) = 0;
+  virtual void draw(ComponentPtr const& component);
 };
 } // namespace ewok

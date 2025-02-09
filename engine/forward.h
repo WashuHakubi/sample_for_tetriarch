@@ -46,7 +46,7 @@ concept IsAssetType = std::is_base_of_v<IAsset, T> && std::is_final_v<T>;
 template <IsAssetType T>
 struct ITypedAssetLoader;
 
-struct IComponentEditor;
+struct ComponentEditor;
 
 using ComponentPtr = std::shared_ptr<ComponentBase>;
 using GameObjectPtr = std::shared_ptr<GameObject>;

@@ -6,13 +6,17 @@
  */
 
 #include "game/component/camera.h"
-#include "game/component_editors/camera_editor.h"
 
 #include <iostream>
 
 namespace ewok {
-auto Camera::getComponentEditor() const -> IComponentEditor* {
-  return CameraEditor::instance();
+EWOK_REGISTRATION {
+  Reflection::class_<Camera>("Camera")
+      .field(&Camera::name_, "name")
+      .field(&Camera::target_, "target")
+      .field(&Camera::f_, "f")
+      .field(&Camera::s32_, "s32")
+      .field(&Camera::u64_, "u64");
 }
 
 void Camera::attach() {

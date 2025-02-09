@@ -38,9 +38,9 @@ class ComponentBase {
   virtual void update(float dt) {}
 
   // Gets the editor for this component
-  virtual auto getComponentEditor() const -> IComponentEditor* {
-    return nullptr;
-  }
+  virtual auto getComponentEditor() const -> ComponentEditor*;
+
+  virtual auto getComponentType() const -> std::type_index = 0;
 
  private:
   template <class T>
@@ -70,6 +70,10 @@ template <class TDerived>
 class Component : public ComponentBase {
  public:
   Component() {}
+
+  auto getComponentType() const -> std::type_index override {
+    return typeid(TDerived);
+  }
 
  private:
   bool hasUpdate() const final {

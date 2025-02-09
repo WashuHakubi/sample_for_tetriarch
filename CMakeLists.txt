@@ -53,12 +53,6 @@ fetch_dependency(
         CONFIGURATION ${CMAKE_BUILD_TYPE}
 )
 
-fetch_dependency(
-        reflectcpp
-        GIT_REPOSITORY https://github.com/getml/reflect-cpp.git
-        GIT_TAG v0.17.0
-        CONFIGURATION ${CMAKE_BUILD_TYPE}
-)
 add_subdirectory(imgui)
 
 file(GLOB_RECURSE test_FILES CONFIGURE_DEPENDS "engine/*.cpp" "game/*.cpp" "editor/*.cpp")
@@ -73,8 +67,7 @@ target_link_libraries(test
         ryml::ryml
         SDL3::SDL3
         SDL3_ttf::SDL3_ttf
-        imgui
-        reflectcpp::reflectcpp)
+        imgui)
 
 target_include_directories(test PRIVATE ${PROJECT_SOURCE_DIR})
 target_compile_definitions(test PUBLIC SDL_MAIN_USE_CALLBACKS)

@@ -6,7 +6,7 @@
  */
 
 #include "editor/editor.h"
-#include "editor/i_component_editor.h"
+#include "editor/component_editor.h"
 #include "engine/component.h"
 
 #include "imgui.h"
