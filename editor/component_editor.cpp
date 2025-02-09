@@ -46,6 +46,16 @@ void drawScalarEditorN(void* instance, std::unique_ptr<Field> const& field) {
   ImGui::InputScalarN(id.c_str(), T, str, N);
 }
 
+void drawQuaternionEditor(void* instance, std::unique_ptr<Field> const& field) {
+  auto q = reinterpret_cast<Quat*>(field->getValue(instance));
+  auto id = std::format("##{}", reinterpret_cast<size_t>(q));
+  drawName(field);
+  Vec3 v = toEuler(*q);
+  if (ImGui::InputScalarN(id.c_str(), ImGuiDataType_Float, &v, 3)) {
+    *q = fromEuler(v);
+  }
+}
+
 void drawGameObjectHandleEditor(
     void* instance, std::unique_ptr<Field> const& field) {
   auto handle = static_cast<GameObjectHandle*>(field->getValue(instance));
@@ -89,6 +99,7 @@ DrawFn getFieldDrawer(std::unique_ptr<Field> const& field) {
       {typeid(Vec2), drawScalarEditorN<ImGuiDataType_Float, 2>},
       {typeid(Vec3), drawScalarEditorN<ImGuiDataType_Float, 3>},
       {typeid(Vec4), drawScalarEditorN<ImGuiDataType_Float, 4>},
+      {typeid(Quat), drawQuaternionEditor},
   };
 
   auto it = drawers.find(field->type());

@@ -41,9 +41,11 @@ constexpr Vec3 asEuler(float roll, float pitch, float yaw) {
 // Assumes x = roll, y = pitch, z = yaw
 Quat fromEuler(Vec3 const& eulerAngles);
 
+Vec3 toEuler(Quat const& quat);
+
 struct Transform {
-  Vec3 position;
-  Vec3 scale;
-  Quat rotation;
+  Vec3 position{};
+  Vec3 scale{};
+  Quat rotation{};
 };
 } // namespace ewok
