@@ -15,6 +15,7 @@
 #include <vector>
 
 namespace ewok {
+class Class;
 class Field;
 
 class TypeBase {
@@ -32,6 +33,18 @@ class TypeBase {
   std::type_index type_;
 };
 
+class Field : public TypeBase {
+ public:
+  using TypeBase::TypeBase;
+
+  auto getClass() const -> Class const*;
+
+  virtual void setValue(
+      void* instance, std::type_index srcType, void const* srcValue) = 0;
+
+  virtual void* getValue(void* instance) const = 0;
+};
+
 class Class : public TypeBase {
  public:
   using TypeBase::TypeBase;
@@ -41,7 +54,7 @@ class Class : public TypeBase {
   }
 
   template <class C, class F>
-  auto field(F C::*m, std::string name) -> Class&;
+  auto field(F C::* m, std::string name) -> Class&;
 
  private:
   std::vector<std::unique_ptr<Field>> fields_;
@@ -80,22 +93,10 @@ class Reflection {
       nameToClass_{};
 };
 
-class Field : public TypeBase {
- public:
-  using TypeBase::TypeBase;
-
-  auto getClass() const -> Class const* { return Reflection::getClass(type()); }
-
-  virtual void setValue(
-      void* instance, std::type_index srcType, void const* srcValue) = 0;
-
-  virtual void* getValue(void* instance) const = 0;
-};
-
 template <class C, class F>
 class TypedField : public Field {
  public:
-  TypedField(std::string name, F C::*field)
+  TypedField(std::string name, F C::* field)
       : Field(std::move(name), typeid(F)), field_(field) {}
 
   void setValue(
@@ -114,11 +115,11 @@ class TypedField : public Field {
   }
 
  private:
-  F C::*field_;
+  F C::* field_;
 };
 
 template <class C, class F>
-auto Class::field(F C::*m, std::string name) -> Class& {
+auto Class::field(F C::* m, std::string name) -> Class& {
   fields_.push_back(std::make_unique<TypedField<C, F>>(name, m));
   nameToFieldIndex_.emplace(std::move(name), fields_.size() - 1);
   return *this;

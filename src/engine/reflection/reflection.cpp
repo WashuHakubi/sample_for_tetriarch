@@ -7,4 +7,8 @@
 
 #include "engine/reflection/reflection.h"
 
-namespace ewok {} // namespace ewok
+namespace ewok {
+auto Field::getClass() const -> Class const* {
+  return Reflection::getClass(type());
+}
+} // namespace ewok
