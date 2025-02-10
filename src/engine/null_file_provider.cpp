@@ -20,4 +20,9 @@ auto NullFileProvider::readFileAsync(
     -> concurrencpp::result<std::vector<char>> {
   co_return std::vector<char>{};
 }
+
+auto NullFileProvider::blockingReadFile(std::string const& fn)
+    -> std::expected<std::vector<char>, std::error_code> {
+  return std::vector<char>{};
+}
 } // namespace ewok

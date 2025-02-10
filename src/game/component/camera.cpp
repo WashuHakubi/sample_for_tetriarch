@@ -9,8 +9,9 @@
 
 #include <iostream>
 
-namespace ewok {
 EWOK_REGISTRATION {
+  using namespace ewok;
+
   Reflection::class_<Camera>("Camera")
       .field(&Camera::name_, "name")
       .field(&Camera::target_, "target")
@@ -19,6 +20,7 @@ EWOK_REGISTRATION {
       .field(&Camera::u64_, "u64");
 }
 
+namespace ewok {
 void Camera::attach() {
   std::cout << "I'm the camera: " << name_;
   auto t = target();

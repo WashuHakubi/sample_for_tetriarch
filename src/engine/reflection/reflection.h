@@ -125,6 +125,8 @@ auto Class::field(F C::*m, std::string name) -> Class& {
 }
 } // namespace ewok
 
+static void ewok_auto_register_reflection_function_();
+
 #define EWOK_CONCAT(a, b) EWOK_CONCAT_INNER(a, b)
 #define EWOK_CONCAT_INNER(a, b) a##b
 #define EWOK_UNIQUE_NAME(base) EWOK_CONCAT(base, __COUNTER__)
@@ -142,4 +144,4 @@ auto Class::field(F C::*m, std::string name) -> Class& {
   static void ewok_auto_register_reflection_function_()
 
 #define EWOK_REFLECTION_DECL \
-  friend void ewok_auto_register_reflection_function_();
+  friend void ::ewok_auto_register_reflection_function_();

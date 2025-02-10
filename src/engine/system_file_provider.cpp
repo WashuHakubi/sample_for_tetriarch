@@ -34,21 +34,19 @@ auto SystemFileProvider::readFileAsync(
   }
 }
 
-auto SystemFileProvider::ioReadFileAsync(std::string const& fn)
-    -> concurrencpp::result<std::expected<std::vector<char>, std::error_code>> {
-  co_await concurrencpp::resume_on(ioExecutor_);
-
+auto SystemFileProvider::blockingReadFile(std::string const& fn)
+    -> std::expected<std::vector<char>, std::error_code> {
   auto path = std::filesystem::path(path_) / fn;
 
   FILE* f = fopen(path.generic_string().c_str(), "rb");
   if (!f) {
-    co_return std::unexpected{
+    return std::unexpected{
         std::make_error_code(std::errc::no_such_file_or_directory)};
   }
 
   if (fseek(f, 0, SEEK_END)) {
     fclose(f);
-    co_return std::unexpected{
+    return std::unexpected{
         std::make_error_code(std::errc::bad_file_descriptor)};
   }
 
@@ -62,10 +60,19 @@ auto SystemFileProvider::ioReadFileAsync(std::string const& fn)
   auto readLen = fread(data.data(), 1, len, f);
   if (readLen != len) {
     fclose(f);
-    co_return std::unexpected{
+    return std::unexpected{
         std::make_error_code(std::errc::bad_file_descriptor)};
   }
   assert(data[data.size() - 1] == 0);
+
+  return data;
+}
+
+auto SystemFileProvider::ioReadFileAsync(std::string const& fn)
+    -> concurrencpp::result<std::expected<std::vector<char>, std::error_code>> {
+  co_await concurrencpp::resume_on(ioExecutor_);
+
+  auto data = blockingReadFile(fn);
 
   co_return data;
 }

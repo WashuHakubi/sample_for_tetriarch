@@ -6,15 +6,18 @@
  */
 #pragma once
 
-#include "engine/i_file_provider.h"
+#include "engine/forward.h"
 
 namespace ewok {
-struct NullFileProvider final : IFileProvider {
-  static auto instance() -> std::shared_ptr<NullFileProvider> const&;
+struct IFileProvider {
+  virtual ~IFileProvider() = default;
 
-  auto readFileAsync(
+  virtual auto readFileAsync(
       std::string const& fn,
       std::shared_ptr<concurrencpp::executor> const& resumeOnExecutor)
-      -> concurrencpp::result<std::vector<char>> override;
+      -> concurrencpp::result<std::vector<char>> = 0;
+
+  virtual auto blockingReadFile(std::string const& fn)
+      -> std::expected<std::vector<char>, std::error_code> = 0;
 };
 } // namespace ewok

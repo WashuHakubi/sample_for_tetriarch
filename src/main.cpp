@@ -33,7 +33,8 @@
 #include <SDL3/SDL_gpu.h>
 #include <SDL3/SDL_init.h>
 #include <SDL3/SDL_main.h>
-#include <SDL3_ttf/SDL_ttf.h>
+
+#include <SDL3_shadercross/SDL_shadercross.h>
 
 using namespace ewok;
 
@@ -80,14 +81,37 @@ struct AppState {
   uint64_t prevTime{};
 };
 
+SDL_GPUShader* buildShader(
+    SDL_GPUDevice* gpuDevice,
+    std::string const& name,
+    SDL_ShaderCross_ShaderStage stage) {
+  // Compile a shader
+  auto const& sfp = assetDatabase()->getFileProvider();
+  auto source = sfp->blockingReadFile(name).value();
+
+  SDL_ShaderCross_HLSL_Info info = {
+      .source = source.data(),
+      .entrypoint = "main",
+      .include_dir = nullptr,
+      .defines = nullptr,
+      .shader_stage = stage,
+      .enable_debug = false,
+      .name = nullptr,
+      .props = 0,
+  };
+
+  SDL_ShaderCross_GraphicsShaderMetadata metadata;
+  return SDL_ShaderCross_CompileGraphicsShaderFromHLSL(
+      gpuDevice, &info, &metadata);
+}
+
 void initializeEngine(AppState* appState) {
   auto ioExecutor = appState->runtime.background_executor();
   appState->executor = appState->runtime.make_manual_executor();
   setGlobalExecutor(appState->executor);
 
-  setAssetDatabase(std::make_shared<AssetDatabase>(
-      std::make_shared<SystemFileProvider>(ioExecutor, "assets"),
-      appState->executor));
+  auto sfp = std::make_shared<SystemFileProvider>(ioExecutor, "assets");
+  setAssetDatabase(std::make_shared<AssetDatabase>(sfp, appState->executor));
 
   setObjectDatabase(std::make_shared<ObjectDatabase>());
 
@@ -118,11 +142,6 @@ SDL_AppResult SDL_Fail() {
 
 SDL_AppResult SDL_AppInit(void** appstate, int argc, char* argv[]) {
   if (not SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO)) {
-    return SDL_Fail();
-  }
-
-  // init TTF
-  if (not TTF_Init()) {
     return SDL_Fail();
   }
 
@@ -174,6 +193,21 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char* argv[]) {
       .gpuDevice = gpuDevice,
   };
   initializeEngine(appState);
+
+  auto vertShader = buildShader(
+      gpuDevice,
+      "shaders/position_color.vert.hlsl",
+      SDL_ShaderCross_ShaderStage::SDL_SHADERCROSS_SHADERSTAGE_VERTEX);
+  assert(vertShader);
+
+  auto fragShader = buildShader(
+      gpuDevice,
+      "shaders/solid_color.frag.hlsl",
+      SDL_ShaderCross_ShaderStage::SDL_SHADERCROSS_SHADERSTAGE_FRAGMENT);
+  assert(fragShader);
+
+  SDL_ReleaseGPUShader(gpuDevice, vertShader);
+  SDL_ReleaseGPUShader(gpuDevice, fragShader);
 
   *appstate = appState;
   return SDL_APP_CONTINUE;
@@ -255,7 +289,7 @@ void RenderImgui(AppState* app) {
     // Setup and start a render pass
     SDL_GPUColorTargetInfo target_info = {};
     target_info.texture = swapChainTexture;
-    target_info.clear_color = SDL_FColor{0.45f, 0.55f, 0.60f, 1.00f};
+    target_info.clear_color = SDL_FColor{0, 0, 0, 1.00f};
     target_info.load_op = SDL_GPU_LOADOP_CLEAR;
     target_info.store_op = SDL_GPU_STOREOP_STORE;
     target_info.mip_level = 0;

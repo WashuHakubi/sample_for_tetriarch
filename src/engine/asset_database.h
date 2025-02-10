@@ -46,6 +46,10 @@ class AssetDatabase : public std::enable_shared_from_this<AssetDatabase> {
 
   void registerComponentParser(IComponentParserPtr ptr);
 
+  auto getFileProvider() const -> IFileProviderPtr const& {
+    return fileProvider_;
+  }
+
  private:
   IFileProviderPtr fileProvider_;
   std::shared_ptr<concurrencpp::manual_executor> executor_;

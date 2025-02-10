@@ -19,9 +19,13 @@ class SystemFileProvider : public IFileProvider {
       std::shared_ptr<concurrencpp::executor> const& resumeOnExecutor)
       -> concurrencpp::result<std::vector<char>> override;
 
+  auto blockingReadFile(std::string const& fn)
+      -> std::expected<std::vector<char>, std::error_code> override;
+
  private:
-  auto ioReadFileAsync(std::string const& fn) -> concurrencpp::result<
-      std::expected<std::vector<char>, std::error_code>>;
+  auto ioReadFileAsync(std::string const& fn)
+      -> concurrencpp::result<
+          std::expected<std::vector<char>, std::error_code>>;
 
   std::shared_ptr<concurrencpp::executor> ioExecutor_;
   std::string path_;

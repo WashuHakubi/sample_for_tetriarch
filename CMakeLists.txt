@@ -11,11 +11,11 @@ FetchContent_Declare(FetchDependency
 FetchContent_MakeAvailable(FetchDependency)
 include(${fetchdependency_SOURCE_DIR}/FetchDependency.cmake)
 
-fetch_dependency(Catch2
-        GIT_REPOSITORY https://github.com/catchorg/Catch2.git
-        GIT_TAG v3.8.0
-        CONFIGURATION ${CMAKE_BUILD_TYPE}
-)
+# fetch_dependency(Catch2
+#         GIT_REPOSITORY https://github.com/catchorg/Catch2.git
+#         GIT_TAG v3.8.0
+#         CONFIGURATION ${CMAKE_BUILD_TYPE}
+# )
 
 fetch_dependency(
         concurrencpp
@@ -38,13 +38,13 @@ fetch_dependency(
         CONFIGURATION ${CMAKE_BUILD_TYPE}
 )
 
-fetch_dependency(
-        SDL3_ttf
-        GIT_REPOSITORY https://github.com/libsdl-org/SDL_ttf.git
-        # Update when SDL3_ttf is properly released
-        GIT_TAG 51adc815b2959dd918c5c3970eb05d87dc0b5e56
-        CONFIGURATION ${CMAKE_BUILD_TYPE}
-)
+# fetch_dependency(
+#         SDL3_ttf
+#         GIT_REPOSITORY https://github.com/libsdl-org/SDL_ttf.git
+#         # Update when SDL3_ttf is properly released
+#         GIT_TAG 51adc815b2959dd918c5c3970eb05d87dc0b5e56
+#         CONFIGURATION ${CMAKE_BUILD_TYPE}
+# )
 
 fetch_dependency(
         crossguid
@@ -53,11 +53,13 @@ fetch_dependency(
         CONFIGURATION ${CMAKE_BUILD_TYPE}
 )
 
+SET(SDLSHADERCROSS_VENDORED ON)
+add_subdirectory(external/SDL_shadercross)
+
 add_subdirectory(imgui)
 
-file(GLOB_RECURSE test_FILES CONFIGURE_DEPENDS "engine/*.cpp" "game/*.cpp" "editor/*.cpp")
+file(GLOB_RECURSE test_FILES CONFIGURE_DEPENDS "src/**.cpp")
 add_executable(test
-        main.cpp
         ${test_FILES}
 )
 
@@ -66,10 +68,11 @@ target_link_libraries(test
         concurrencpp::concurrencpp
         ryml::ryml
         SDL3::SDL3
-        SDL3_ttf::SDL3_ttf
-        imgui)
+        # SDL3_ttf::SDL3_ttf
+        imgui
+        SDL3_shadercross::SDL3_shadercross)
 
-target_include_directories(test PRIVATE ${PROJECT_SOURCE_DIR})
+target_include_directories(test PRIVATE ${PROJECT_SOURCE_DIR}/src)
 target_compile_definitions(test PUBLIC SDL_MAIN_USE_CALLBACKS)
 
 if (CMAKE_HOST_WIN32)
