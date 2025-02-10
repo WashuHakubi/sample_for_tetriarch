@@ -162,8 +162,7 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char* argv[]) {
 
   // create a renderer
   SDL_GPUDevice* gpuDevice = SDL_CreateGPUDevice(
-      SDL_GPU_SHADERFORMAT_SPIRV | SDL_GPU_SHADERFORMAT_DXIL |
-          SDL_GPU_SHADERFORMAT_METALLIB,
+      SDL_GPU_SHADERFORMAT_SPIRV | SDL_GPU_SHADERFORMAT_METALLIB,
       true,
       nullptr);
   if (gpuDevice == nullptr) {
