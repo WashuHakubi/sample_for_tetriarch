@@ -338,7 +338,10 @@ SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* event) {
   return SDL_APP_CONTINUE;
 }
 
-void RenderImgui(AppState* app) {
+void RenderImgui(
+    AppState* app,
+    SDL_GPUTexture* swapChainTexture,
+    SDL_GPUCommandBuffer* commandBuffer) {
   if (!app->showImguiUI) {
     return;
   }
@@ -347,7 +350,8 @@ void RenderImgui(AppState* app) {
   ImGui_ImplSDL3_NewFrame();
   ImGui::NewFrame();
 
-  ImGui::DockSpaceOverViewport();
+  ImGui::DockSpaceOverViewport(
+      0, nullptr, ImGuiDockNodeFlags_PassthruCentralNode);
 
   // Do your imgui rendering here...
   // if (app->showDemoWindow) {
@@ -366,83 +370,28 @@ void RenderImgui(AppState* app) {
   // Draw the imgui UI to the screen. This is taken mostly from imgui sample
   // code.
   ImDrawData* drawData = ImGui::GetDrawData();
-  SDL_GPUCommandBuffer* commandBuffer =
-      SDL_AcquireGPUCommandBuffer(app->gpuDevice);
 
-  SDL_GPUTexture* swapChainTexture;
-  SDL_AcquireGPUSwapchainTexture(
-      commandBuffer,
-      app->sdlWindow,
-      &swapChainTexture,
-      nullptr,
-      nullptr); // Acquire a swapchain texture
-
-  if (swapChainTexture != nullptr) {
-    // This is mandatory: call Imgui_ImplSDLGPU3_PrepareDrawData() to upload the
-    // vertex/index buffer!
-    Imgui_ImplSDLGPU3_PrepareDrawData(drawData, commandBuffer);
-
-    // Setup and start a render pass
-    SDL_GPUColorTargetInfo target_info = {};
-    target_info.texture = swapChainTexture;
-    target_info.clear_color = SDL_FColor{0, 0, 0, 0};
-    target_info.load_op = SDL_GPU_LOADOP_CLEAR;
-    target_info.store_op = SDL_GPU_STOREOP_STORE;
-    target_info.mip_level = 0;
-    target_info.layer_or_depth_plane = 0;
-    target_info.cycle = false;
-    SDL_GPURenderPass* renderPass =
-        SDL_BeginGPURenderPass(commandBuffer, &target_info, 1, nullptr);
-
-    // Render ImGui
-    ImGui_ImplSDLGPU3_RenderDrawData(drawData, commandBuffer, renderPass);
-
-    SDL_EndGPURenderPass(renderPass);
-  }
-
-  // Submit the command buffer
-  SDL_SubmitGPUCommandBuffer(commandBuffer);
+  // This is mandatory: call Imgui_ImplSDLGPU3_PrepareDrawData() to upload the
+  // vertex/index buffer!
+  Imgui_ImplSDLGPU3_PrepareDrawData(drawData, commandBuffer);
 }
 
-void drawTriangle(AppState* app) {
-  SDL_GPUCommandBuffer* cmdbuf = SDL_AcquireGPUCommandBuffer(app->gpuDevice);
-  if (cmdbuf == NULL) {
-    SDL_Log("AcquireGPUCommandBuffer failed: %s", SDL_GetError());
-    return;
-  }
+void drawTriangle(
+    AppState* app,
+    SDL_GPUTexture* swapchainTexture,
+    SDL_GPUCommandBuffer* cmdbuf,
+    SDL_GPURenderPass* renderPass) {
+  SDL_GPUColorTargetInfo colorTargetInfo = {0};
 
-  SDL_GPUTexture* swapchainTexture;
-  if (!SDL_WaitAndAcquireGPUSwapchainTexture(
-          cmdbuf, app->sdlWindow, &swapchainTexture, NULL, NULL)) {
-    SDL_Log("WaitAndAcquireGPUSwapchainTexture failed: %s", SDL_GetError());
-    return;
-  }
+  SDL_BindGPUGraphicsPipeline(renderPass, app->sdlPipeline);
 
-  if (swapchainTexture != NULL) {
-    SDL_GPUColorTargetInfo colorTargetInfo = {0};
-    colorTargetInfo.texture = swapchainTexture;
-    colorTargetInfo.clear_color = (SDL_FColor){0.0f, 0.0f, 0.0f, 1.0f};
-    colorTargetInfo.load_op = SDL_GPU_LOADOP_CLEAR;
-    colorTargetInfo.store_op = SDL_GPU_STOREOP_STORE;
+  auto bufferBinding = SDL_GPUBufferBinding{
+      .buffer = app->vertexBuffer,
+      .offset = 0,
+  };
 
-    SDL_GPURenderPass* renderPass =
-        SDL_BeginGPURenderPass(cmdbuf, &colorTargetInfo, 1, NULL);
-
-    SDL_BindGPUGraphicsPipeline(renderPass, app->sdlPipeline);
-
-    auto bufferBinding = SDL_GPUBufferBinding{
-        .buffer = app->vertexBuffer,
-        .offset = 0,
-    };
-
-    SDL_BindGPUVertexBuffers(renderPass, 0, &bufferBinding, 1);
-    SDL_DrawGPUPrimitives(renderPass, 3, 1, 0, 0);
-
-    SDL_EndGPURenderPass(renderPass);
-  }
-
-  SDL_SubmitGPUCommandBuffer(cmdbuf);
-
+  SDL_BindGPUVertexBuffers(renderPass, 0, &bufferBinding, 1);
+  SDL_DrawGPUPrimitives(renderPass, 3, 1, 0, 0);
   return;
 }
 
@@ -474,8 +423,39 @@ SDL_AppResult SDL_AppIterate(void* appstate) {
   root->render(*app->renderer, delta);
   app->renderer->present();
 
-  drawTriangle(app);
-  RenderImgui(app);
+  SDL_GPUTexture* swapChainTexture;
+
+  SDL_GPUCommandBuffer* cmdbuf = SDL_AcquireGPUCommandBuffer(app->gpuDevice);
+  SDL_WaitAndAcquireGPUSwapchainTexture(
+      cmdbuf,
+      app->sdlWindow,
+      &swapChainTexture,
+      nullptr,
+      nullptr); // Acquire a swapchain texture
+
+  RenderImgui(app, swapChainTexture, cmdbuf);
+
+  if (swapChainTexture != nullptr) {
+    SDL_GPUColorTargetInfo target_info = {};
+    target_info.texture = swapChainTexture;
+    target_info.clear_color = SDL_FColor{0, 0, 0, 0};
+    target_info.load_op = SDL_GPU_LOADOP_LOAD;
+    target_info.store_op = SDL_GPU_STOREOP_STORE;
+    target_info.mip_level = 0;
+    target_info.layer_or_depth_plane = 0;
+    target_info.cycle = false;
+    SDL_GPURenderPass* renderPass =
+        SDL_BeginGPURenderPass(cmdbuf, &target_info, 1, nullptr);
+
+    drawTriangle(app, swapChainTexture, cmdbuf, renderPass);
+
+    ImGui_ImplSDLGPU3_RenderDrawData(ImGui::GetDrawData(), cmdbuf, renderPass);
+
+    SDL_EndGPURenderPass(renderPass);
+  }
+
+  // Submit the command buffer
+  SDL_SubmitGPUCommandBuffer(cmdbuf);
 
   return app->run ? SDL_APP_CONTINUE : SDL_APP_SUCCESS;
 }
