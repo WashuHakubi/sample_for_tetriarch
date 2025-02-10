@@ -53,7 +53,8 @@ fetch_dependency(
         CONFIGURATION ${CMAKE_BUILD_TYPE}
 )
 
-SET(SDLSHADERCROSS_VENDORED ON)
+set(SDLSHADERCROSS_DXC OFF)
+set(SDLSHADERCROSS_VENDORED ON)
 add_subdirectory(external/SDL_shadercross)
 
 add_subdirectory(imgui)

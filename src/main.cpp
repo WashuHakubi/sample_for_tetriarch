@@ -89,11 +89,10 @@ SDL_GPUShader* buildShader(
   auto const& sfp = assetDatabase()->getFileProvider();
   auto source = sfp->blockingReadFile(name).value();
 
-  SDL_ShaderCross_HLSL_Info info = {
-      .source = source.data(),
+  SDL_ShaderCross_SPIRV_Info info = {
+      .bytecode = reinterpret_cast<uint8_t const*>(source.data()),
+      .bytecode_size = source.size(),
       .entrypoint = "main",
-      .include_dir = nullptr,
-      .defines = nullptr,
       .shader_stage = stage,
       .enable_debug = false,
       .name = nullptr,
@@ -101,7 +100,7 @@ SDL_GPUShader* buildShader(
   };
 
   SDL_ShaderCross_GraphicsShaderMetadata metadata;
-  return SDL_ShaderCross_CompileGraphicsShaderFromHLSL(
+  return SDL_ShaderCross_CompileGraphicsShaderFromSPIRV(
       gpuDevice, &info, &metadata);
 }
 
@@ -196,13 +195,13 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char* argv[]) {
 
   auto vertShader = buildShader(
       gpuDevice,
-      "shaders/position_color.vert.hlsl",
+      "shaders/position_color.vert.spv",
       SDL_ShaderCross_ShaderStage::SDL_SHADERCROSS_SHADERSTAGE_VERTEX);
   assert(vertShader);
 
   auto fragShader = buildShader(
       gpuDevice,
-      "shaders/solid_color.frag.hlsl",
+      "shaders/solid_color.frag.spv",
       SDL_ShaderCross_ShaderStage::SDL_SHADERCROSS_SHADERSTAGE_FRAGMENT);
   assert(fragShader);
 
