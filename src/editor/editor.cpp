@@ -70,7 +70,7 @@ bool Editor::draw(GameObjectPtr const& root) {
   }
 
   ImGui::SetNextWindowSize(ImVec2(550, 680), ImGuiCond_FirstUseEver);
-  ImGui::Begin("Object Tree");
+  ImGui::Begin("Object Tree", nullptr, ImGuiWindowFlags_NoBackground);
   if (ImGui::TreeNodeEx("Root", ImGuiTreeNodeFlags_DefaultOpen)) {
     drawChildNodes(root);
     ImGui::TreePop();

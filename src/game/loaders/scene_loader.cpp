@@ -42,9 +42,9 @@ class Loader {
       // We expect 9 children, 3 for position, 3 for rotation and 3 for scale
       assert(transNode.num_children() == 9);
       Transform transform;
-      transNode[0] >> transform.position.x;
-      transNode[1] >> transform.position.y;
-      transNode[2] >> transform.position.z;
+      transNode[0] >> transform.position.v[0];
+      transNode[1] >> transform.position.v[1];
+      transNode[2] >> transform.position.v[2];
 
       float roll;
       float pitch;
@@ -55,9 +55,9 @@ class Loader {
       auto eulerAngles = asEuler(roll, pitch, yaw);
       transform.rotation = fromEuler(eulerAngles);
 
-      transNode[6] >> transform.scale.x;
-      transNode[7] >> transform.scale.y;
-      transNode[8] >> transform.scale.z;
+      transNode[6] >> transform.scale.v[0];
+      transNode[7] >> transform.scale.v[1];
+      transNode[8] >> transform.scale.v[2];
 
       result->setTransform(transform);
     }

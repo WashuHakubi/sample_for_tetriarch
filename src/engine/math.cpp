@@ -22,9 +22,9 @@ EWOK_REGISTRATION {
 
 namespace ewok {
 Quat fromEuler(Vec3 const& eulerAngles) {
-  auto roll = eulerAngles.x;
-  auto pitch = eulerAngles.y;
-  auto yaw = eulerAngles.z;
+  auto roll = eulerAngles.v[0];
+  auto pitch = eulerAngles.v[1];
+  auto yaw = eulerAngles.v[2];
 
   double cr = cos(roll * 0.5);
   double sr = sin(roll * 0.5);
