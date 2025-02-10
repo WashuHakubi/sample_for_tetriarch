@@ -217,37 +217,49 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char* argv[]) {
       },
   };
 
-  // Create the pipeline
+  SDL_GPUVertexBufferDescription vertexBufferDesc[] = {
+      {
+          .slot = 0,
+          .pitch = sizeof(PositionColorVertex),
+          .input_rate = SDL_GPU_VERTEXINPUTRATE_VERTEX,
+          .instance_step_rate = 0,
+      },
+  };
+
+  SDL_GPUVertexAttribute vertexAttributes[] = {
+      {
+          .location = 0,
+          .buffer_slot = 0,
+          .format = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT3,
+          .offset = 0,
+      },
+      {
+          .location = 1,
+          .buffer_slot = 0,
+          .format = SDL_GPU_VERTEXELEMENTFORMAT_UBYTE4_NORM,
+          .offset = sizeof(float) * 3,
+      },
+  };
+
+  // Create
   SDL_GPUGraphicsPipelineCreateInfo pipelineCreateInfo = {
+      .vertex_shader = vertShader,
+      .fragment_shader = fragShader,
+      .vertex_input_state =
+          {
+              .vertex_buffer_descriptions = vertexBufferDesc,
+              .num_vertex_buffers = 1,
+              .vertex_attributes = vertexAttributes,
+              .num_vertex_attributes = 2,
+          },
+      .primitive_type = SDL_GPU_PRIMITIVETYPE_TRIANGLELIST,
       .target_info =
           {
-              .num_color_targets = 1,
               .color_target_descriptions = colorTargetDescs,
+              .num_color_targets = 1,
           },
       // This is set up to match the vertex shader layout!
-      .vertex_input_state =
-          (SDL_GPUVertexInputState){
-              .num_vertex_buffers = 1,
-              .vertex_buffer_descriptions =
-                  (SDL_GPUVertexBufferDescription[]){
-                      {.slot = 0,
-                       .input_rate = SDL_GPU_VERTEXINPUTRATE_VERTEX,
-                       .instance_step_rate = 0,
-                       .pitch = sizeof(PositionColorVertex)}},
-              .num_vertex_attributes = 2,
-              .vertex_attributes =
-                  (SDL_GPUVertexAttribute[]){
-                      {.buffer_slot = 0,
-                       .format = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT3,
-                       .location = 0,
-                       .offset = 0},
-                      {.buffer_slot = 0,
-                       .format = SDL_GPU_VERTEXELEMENTFORMAT_UBYTE4_NORM,
-                       .location = 1,
-                       .offset = sizeof(float) * 3}}},
-      .primitive_type = SDL_GPU_PRIMITIVETYPE_TRIANGLELIST,
-      .vertex_shader = vertShader,
-      .fragment_shader = fragShader};
+  };
 
   appState->sdlPipeline =
       SDL_CreateGPUGraphicsPipeline(gpuDevice, &pipelineCreateInfo);
@@ -277,9 +289,9 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char* argv[]) {
   PositionColorVertex* transferData = reinterpret_cast<PositionColorVertex*>(
       SDL_MapGPUTransferBuffer(gpuDevice, transferBuffer, false));
 
-  transferData[0] = (PositionColorVertex){-1, -1, 0, 255, 0, 0, 255};
-  transferData[1] = (PositionColorVertex){1, -1, 0, 0, 255, 0, 255};
-  transferData[2] = (PositionColorVertex){0, 1, 0, 0, 0, 255, 255};
+  transferData[0] = PositionColorVertex{-1, -1, 0, 255, 0, 0, 255};
+  transferData[1] = PositionColorVertex{1, -1, 0, 0, 255, 0, 255};
+  transferData[2] = PositionColorVertex{0, 1, 0, 0, 0, 255, 255};
 
   SDL_UnmapGPUTransferBuffer(gpuDevice, transferBuffer);
 
