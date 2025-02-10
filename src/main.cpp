@@ -450,7 +450,7 @@ SDL_AppResult SDL_AppIterate(void* appstate) {
     SDL_GPUColorTargetInfo target_info = {};
     target_info.texture = swapChainTexture;
     target_info.clear_color = SDL_FColor{0, 0, 0, 0};
-    target_info.load_op = SDL_GPU_LOADOP_LOAD;
+    target_info.load_op = SDL_GPU_LOADOP_CLEAR;
     target_info.store_op = SDL_GPU_STOREOP_STORE;
     target_info.mip_level = 0;
     target_info.layer_or_depth_plane = 0;
