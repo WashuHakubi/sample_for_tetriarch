@@ -53,17 +53,34 @@ class ComponentBase {
 
   GameObject* parent_{nullptr};
 
+  enum OverrideFlags {
+    HasUpdate = 0x01,
+    HasPostUpdate = 0x02,
+    HasRender = 0x04,
+  };
+
+  // Defaults to all flags on.
+  virtual auto getOverrideFlags() const -> OverrideFlags {
+    return static_cast<OverrideFlags>(~0);
+  }
+
   // If true then we assume update is overriden. Default to true in case the
   // user does not derive from Component<T>
-  virtual bool hasUpdate() const { return true; }
+  constexpr bool hasUpdate() const {
+    return getOverrideFlags() & OverrideFlags::HasUpdate;
+  }
 
   // If true then we assume postUpdate is overriden. Default to true in case the
   // user does not derive from Component<T>
-  virtual bool hasPostUpdate() const { return true; }
+  constexpr bool hasPostUpdate() const {
+    return getOverrideFlags() & OverrideFlags::HasPostUpdate;
+  }
 
   // If true then we assume postUpdate is overriden. Default to false in case
   // the user does not derive from Component<T>
-  virtual bool hasRender() const { return false; }
+  constexpr bool hasRender() const {
+    return getOverrideFlags() & OverrideFlags::HasRender;
+  }
 };
 
 template <class TDerived>
@@ -76,22 +93,23 @@ class Component : public ComponentBase {
   }
 
  private:
-  bool hasUpdate() const final {
-    return !std::is_same_v<
-        decltype(&TDerived::update),
-        decltype(&ComponentBase::update)>;
-  }
-
-  bool hasPostUpdate() const final {
-    return !std::is_same_v<
-        decltype(&TDerived::postUpdate),
-        decltype(&ComponentBase::postUpdate)>;
-  }
-
-  bool hasRender() const final {
-    return !std::is_same_v<
-        decltype(&TDerived::render),
-        decltype(&ComponentBase::render)>;
+  auto getOverrideFlags() const -> OverrideFlags final {
+    return static_cast<OverrideFlags>(
+        (std::is_same_v<
+             decltype(&TDerived::update),
+             decltype(&ComponentBase::update)>
+             ? 0
+             : OverrideFlags::HasUpdate) |
+        (std::is_same_v<
+             decltype(&TDerived::postUpdate),
+             decltype(&ComponentBase::postUpdate)>
+             ? 0
+             : OverrideFlags::HasPostUpdate) |
+        (std::is_same_v<
+             decltype(&TDerived::render),
+             decltype(&ComponentBase::render)>
+             ? 0
+             : OverrideFlags::HasRender));
   }
 };
 
