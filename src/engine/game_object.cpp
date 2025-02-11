@@ -318,6 +318,10 @@ void GameObject::unregisterForUpdate(ComponentPtr const& component) {
 }
 
 void GameObject::update(float dt) {
+  if (pendingActive_ != active_) {
+    setActive(pendingActive_);
+  }
+
   if (!active_) {
     return;
   }
