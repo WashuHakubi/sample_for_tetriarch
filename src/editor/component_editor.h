@@ -21,4 +21,6 @@ using DrawFn = void (*)(void* instance, std::unique_ptr<Field> const& field);
 DrawFn getFieldDrawer(std::unique_ptr<Field> const& field);
 
 void drawCompositeType(void* p, Class const* class_);
+
+void drawChildCompositeType(void* p, Class const* class_);
 } // namespace ewok

@@ -133,16 +133,21 @@ void drawChildCompositeType(void* p, Class const* class_) {
 }
 
 void drawCompositeType(void* p, Class const* class_) {
-  ImGui::Text("%s", class_->name().c_str());
-  auto id = std::format("##{}", reinterpret_cast<size_t>(p));
-  if (ImGui::BeginTable(id.c_str(), 2, ImGuiTableFlags_SizingStretchProp)) {
-    ImGui::TableSetupColumn("name", ImGuiTableColumnFlags_WidthFixed, 100);
-    // ImGui::TableSetupColumn("value",
-    // ImGuiTableColumnFlags_WidthStretch, 1.0f);
+  if (ImGui::CollapsingHeader(
+          class_->name().c_str(), ImGuiTreeNodeFlags_DefaultOpen)) {
+    auto id = std::format("##{}", reinterpret_cast<size_t>(p));
+    if (ImGui::BeginTable(
+            id.c_str(),
+            2,
+            ImGuiTableFlags_SizingStretchProp | ImGuiTableFlags_Resizable)) {
+      ImGui::TableSetupColumn("name", ImGuiTableColumnFlags_WidthFixed, 100);
+      ImGui::TableSetupColumn(
+          "value", ImGuiTableColumnFlags_WidthStretch, 1.0f);
 
-    drawChildCompositeType(p, class_);
+      drawChildCompositeType(p, class_);
 
-    ImGui::EndTable();
+      ImGui::EndTable();
+    }
   }
 }
 

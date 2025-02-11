@@ -114,6 +114,8 @@ class GameObject : public std::enable_shared_from_this<GameObject> {
   void applyPostUpdateActions();
 
  private:
+  friend class Editor;
+
   EWOK_REFLECTION_DECL;
   enum class UpdateState {
     Idle,

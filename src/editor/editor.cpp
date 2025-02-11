@@ -46,12 +46,10 @@ void Editor::drawSelectedObjectComponents(GameObjectPtr const& node) {
   auto goc = Reflection::getClass<GameObject>();
   drawCompositeType(node.get(), goc);
 
-  ImGui::Separator();
   for (auto&& comp : node->components()) {
     auto editor = comp->getComponentEditor();
     if (editor) {
       editor->draw(comp);
-      ImGui::Separator();
     }
   }
 }
