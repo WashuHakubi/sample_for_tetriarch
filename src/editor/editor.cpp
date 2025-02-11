@@ -78,7 +78,7 @@ bool Editor::draw(GameObjectPtr const& root) {
   ImGui::End();
 
   ImGui::SetNextWindowSize(ImVec2(550, 680), ImGuiCond_FirstUseEver);
-  ImGui::Begin("Component View");
+  ImGui::Begin("Component View", nullptr, ImGuiWindowFlags_NoBackground);
 
   drawSelectedObjectComponents(selected_);
 

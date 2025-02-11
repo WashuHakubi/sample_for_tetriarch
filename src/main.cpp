@@ -385,14 +385,36 @@ void RenderImgui(
   // This is mandatory: call Imgui_ImplSDLGPU3_PrepareDrawData() to upload the
   // vertex/index buffer!
   Imgui_ImplSDLGPU3_PrepareDrawData(drawData, commandBuffer);
+
+  SDL_GPUColorTargetInfo target_info = {};
+  target_info.texture = swapChainTexture;
+  target_info.load_op = SDL_GPU_LOADOP_LOAD;
+  target_info.store_op = SDL_GPU_STOREOP_STORE;
+  SDL_GPURenderPass* renderPass =
+      SDL_BeginGPURenderPass(commandBuffer, &target_info, 1, nullptr);
+
+  ImGui_ImplSDLGPU3_RenderDrawData(
+      ImGui::GetDrawData(), commandBuffer, renderPass);
+
+  SDL_EndGPURenderPass(renderPass);
 }
 
 void drawTriangle(
     AppState* app,
-    SDL_GPUTexture* swapchainTexture,
-    SDL_GPUCommandBuffer* cmdbuf,
-    SDL_GPURenderPass* renderPass) {
+    SDL_GPUTexture* swapChainTexture,
+    SDL_GPUCommandBuffer* cmdbuf) {
   SDL_GPUColorTargetInfo colorTargetInfo = {0};
+
+  SDL_GPUColorTargetInfo target_info = {};
+  target_info.texture = swapChainTexture;
+  target_info.clear_color = SDL_FColor{0, 0, 0, 0};
+  target_info.load_op = SDL_GPU_LOADOP_CLEAR;
+  target_info.store_op = SDL_GPU_STOREOP_STORE;
+  target_info.mip_level = 0;
+  target_info.layer_or_depth_plane = 0;
+  target_info.cycle = false;
+  SDL_GPURenderPass* renderPass =
+      SDL_BeginGPURenderPass(cmdbuf, &target_info, 1, nullptr);
 
   SDL_BindGPUGraphicsPipeline(renderPass, app->sdlPipeline);
 
@@ -403,6 +425,8 @@ void drawTriangle(
 
   SDL_BindGPUVertexBuffers(renderPass, 0, &bufferBinding, 1);
   SDL_DrawGPUPrimitives(renderPass, 3, 1, 0, 0);
+
+  SDL_EndGPURenderPass(renderPass);
   return;
 }
 
@@ -444,25 +468,9 @@ SDL_AppResult SDL_AppIterate(void* appstate) {
       nullptr,
       nullptr); // Acquire a swapchain texture
 
-  RenderImgui(app, swapChainTexture, cmdbuf);
-
   if (swapChainTexture != nullptr) {
-    SDL_GPUColorTargetInfo target_info = {};
-    target_info.texture = swapChainTexture;
-    target_info.clear_color = SDL_FColor{0, 0, 0, 0};
-    target_info.load_op = SDL_GPU_LOADOP_CLEAR;
-    target_info.store_op = SDL_GPU_STOREOP_STORE;
-    target_info.mip_level = 0;
-    target_info.layer_or_depth_plane = 0;
-    target_info.cycle = false;
-    SDL_GPURenderPass* renderPass =
-        SDL_BeginGPURenderPass(cmdbuf, &target_info, 1, nullptr);
-
-    drawTriangle(app, swapChainTexture, cmdbuf, renderPass);
-
-    ImGui_ImplSDLGPU3_RenderDrawData(ImGui::GetDrawData(), cmdbuf, renderPass);
-
-    SDL_EndGPURenderPass(renderPass);
+    drawTriangle(app, swapChainTexture, cmdbuf);
+    RenderImgui(app, swapChainTexture, cmdbuf);
   }
 
   // Submit the command buffer
