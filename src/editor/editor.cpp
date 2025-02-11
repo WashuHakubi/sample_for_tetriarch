@@ -17,7 +17,7 @@ void Editor::drawChildNodes(GameObjectPtr const& node) {
     auto name = std::format(
         "{} ({})", child->name(), reinterpret_cast<size_t>(child.get()));
     ImGuiTreeNodeFlags flags =
-        ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_OpenOnArrow;
+        ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_DefaultOpen;
 
     if (selected_ == child) {
       flags |= ImGuiTreeNodeFlags_Selected;
@@ -27,13 +27,25 @@ void Editor::drawChildNodes(GameObjectPtr const& node) {
       flags |= ImGuiTreeNodeFlags_Leaf;
     }
 
+    bool active = child->active();
+    if (!active) {
+      ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.5f, 0.5f, 0.5f, 1));
+    }
+
     if (ImGui::TreeNodeEx(name.c_str(), flags)) {
+      if (!active) {
+        ImGui::PopStyleColor();
+      }
       if (ImGui::IsItemClicked()) {
         selected_ = child;
       }
 
       drawChildNodes(child);
       ImGui::TreePop();
+    } else {
+      if (!active) {
+        ImGui::PopStyleColor();
+      }
     }
   }
 }

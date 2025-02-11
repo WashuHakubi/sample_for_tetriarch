@@ -32,6 +32,15 @@ void drawStringEditor(void* instance, std::unique_ptr<Field> const& field) {
   ImGui::InputText(id.c_str(), str);
 }
 
+void drawBoolEditor(void* instance, std::unique_ptr<Field> const& field) {
+  auto str = static_cast<bool*>(field->getValue(instance));
+  auto id = std::format("##{}", reinterpret_cast<size_t>(str));
+  drawName(field);
+  auto avail = ImGui::GetContentRegionAvail();
+  ImGui::SetNextItemWidth(avail.x);
+  ImGui::Checkbox(id.c_str(), str);
+}
+
 template <int T>
 void drawScalarEditor(void* instance, std::unique_ptr<Field> const& field) {
   auto str = field->getValue(instance);
@@ -98,6 +107,7 @@ DrawFn getFieldDrawer(std::unique_ptr<Field> const& field) {
   static std::unordered_map<std::type_index, DrawFn> drawers{
       {typeid(std::string), drawStringEditor},
       {typeid(GameObjectHandle), drawGameObjectHandleEditor},
+      {typeid(bool), drawBoolEditor},
       {typeid(float), drawScalarEditor<ImGuiDataType_Float>},
       {typeid(double), drawScalarEditor<ImGuiDataType_Double>},
       {typeid(int16_t), drawScalarEditor<ImGuiDataType_S16>},
@@ -110,6 +120,7 @@ DrawFn getFieldDrawer(std::unique_ptr<Field> const& field) {
       {typeid(Vec3), drawScalarEditorN<ImGuiDataType_Float, 3>},
       {typeid(Vec4), drawScalarEditorN<ImGuiDataType_Float, 4>},
       {typeid(Quat), drawQuaternionEditor},
+
   };
 
   auto it = drawers.find(field->type());
