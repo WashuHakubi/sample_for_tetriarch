@@ -460,6 +460,12 @@ SDL_AppResult SDL_AppIterate(void* appstate) {
 
     drawTriangle(app, swapChainTexture, cmdbuf, renderPass);
 
+    SDL_EndGPURenderPass(renderPass);
+
+    target_info.load_op = SDL_GPU_LOADOP_LOAD;
+    target_info.store_op = SDL_GPU_STOREOP_STORE;
+    renderPass = SDL_BeginGPURenderPass(cmdbuf, &target_info, 1, nullptr);
+
     ImGui_ImplSDLGPU3_RenderDrawData(ImGui::GetDrawData(), cmdbuf, renderPass);
 
     SDL_EndGPURenderPass(renderPass);
