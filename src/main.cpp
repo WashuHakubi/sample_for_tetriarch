@@ -185,6 +185,10 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char* argv[]) {
       ImGuiConfigFlags_DockingEnable; // Enable Keyboard Controls
 
   ImGui::StyleColorsDark();
+  auto& style = ImGui::GetStyle();
+  style.AntiAliasedFill = true;
+  style.AntiAliasedLines = true;
+
   ImGui_ImplSDL3_InitForSDLGPU(window);
   ImGui_ImplSDLGPU3_InitInfo init_info = {};
   init_info.Device = gpuDevice;

@@ -27,6 +27,8 @@ void drawStringEditor(void* instance, std::unique_ptr<Field> const& field) {
   auto str = static_cast<std::string*>(field->getValue(instance));
   auto id = std::format("##{}", reinterpret_cast<size_t>(str));
   drawName(field);
+  auto avail = ImGui::GetContentRegionAvail();
+  ImGui::SetNextItemWidth(avail.x);
   ImGui::InputText(id.c_str(), str);
 }
 
@@ -35,6 +37,8 @@ void drawScalarEditor(void* instance, std::unique_ptr<Field> const& field) {
   auto str = field->getValue(instance);
   auto id = std::format("##{}", reinterpret_cast<size_t>(str));
   drawName(field);
+  auto avail = ImGui::GetContentRegionAvail();
+  ImGui::SetNextItemWidth(avail.x);
   ImGui::InputScalar(id.c_str(), T, str);
 }
 
@@ -43,6 +47,8 @@ void drawScalarEditorN(void* instance, std::unique_ptr<Field> const& field) {
   auto str = field->getValue(instance);
   auto id = std::format("##{}", reinterpret_cast<size_t>(str));
   drawName(field);
+  auto avail = ImGui::GetContentRegionAvail();
+  ImGui::SetNextItemWidth(avail.x);
   ImGui::InputScalarN(id.c_str(), T, str, N);
 }
 
@@ -51,6 +57,8 @@ void drawQuaternionEditor(void* instance, std::unique_ptr<Field> const& field) {
   auto id = std::format("##{}", reinterpret_cast<size_t>(q));
   drawName(field);
   Vec3 v = toEuler(*q);
+  auto avail = ImGui::GetContentRegionAvail();
+  ImGui::SetNextItemWidth(avail.x);
   if (ImGui::InputScalarN(id.c_str(), ImGuiDataType_Float, &v, 3)) {
     *q = fromEuler(v);
   }
@@ -64,6 +72,8 @@ void drawGameObjectHandleEditor(
 
   drawName(field);
   auto id = std::format("##{}", reinterpret_cast<size_t>(handle));
+  auto avail = ImGui::GetContentRegionAvail();
+  ImGui::SetNextItemWidth(avail.x);
   if (ImGui::BeginCombo(id.c_str(), initial.c_str())) {
     if (ImGui::Selectable("<null>", target == nullptr)) {
       handle->reset();
@@ -125,9 +135,10 @@ void drawChildCompositeType(void* p, Class const* class_) {
 void drawCompositeType(void* p, Class const* class_) {
   ImGui::Text("%s", class_->name().c_str());
   auto id = std::format("##{}", reinterpret_cast<size_t>(p));
-  if (ImGui::BeginTable(id.c_str(), 2)) {
+  if (ImGui::BeginTable(id.c_str(), 2, ImGuiTableFlags_SizingStretchProp)) {
     ImGui::TableSetupColumn("name", ImGuiTableColumnFlags_WidthFixed, 100);
-    ImGui::TableSetupColumn("value", ImGuiTableColumnFlags_WidthStretch);
+    // ImGui::TableSetupColumn("value",
+    // ImGuiTableColumnFlags_WidthStretch, 1.0f);
 
     drawChildCompositeType(p, class_);
 
