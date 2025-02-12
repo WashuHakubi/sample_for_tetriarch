@@ -37,9 +37,6 @@ class ComponentBase {
   // Run once per frame or simulation tick, whatever.
   virtual void update(float dt) {}
 
-  // Gets the editor for this component
-  virtual auto getComponentEditor() const -> ComponentEditor*;
-
   virtual auto getComponentType() const -> std::type_index = 0;
 
  private:

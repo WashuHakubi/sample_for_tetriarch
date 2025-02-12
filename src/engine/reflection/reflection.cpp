@@ -8,7 +8,7 @@
 #include "engine/reflection/reflection.h"
 
 namespace ewok {
-auto Field::getClass() const -> Class const* {
+auto Field::getClass() const -> ClassPtr {
   return Reflection::getClass(type());
 }
 } // namespace ewok

@@ -6,12 +6,5 @@
  */
 
 #include "engine/component.h"
-#include "editor/component_editor.h"
 
-namespace ewok {
-static ComponentEditor s_defaultEditor;
-
-auto ComponentBase::getComponentEditor() const -> ComponentEditor* {
-  return &s_defaultEditor;
-}
-} // namespace ewok
+namespace ewok {} // namespace ewok
