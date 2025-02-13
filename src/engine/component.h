@@ -21,8 +21,6 @@ class ComponentBase {
   // called when a component is removed from a game object
   virtual void detach() {}
 
-  virtual auto describe() const -> std::string { return ""; }
-
   // Run after each update() call. Useful for doing work that needs to happen
   // after any changes in update() have been applied
   virtual void postUpdate() {}

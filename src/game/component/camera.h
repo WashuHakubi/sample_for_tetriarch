@@ -19,15 +19,6 @@ class Camera : public Component<Camera> {
 
   void attach() override;
 
-  auto describe() const -> std::string override {
-    auto t = target_.lock();
-    return std::format(
-        "[Camera: {}, {}{}]",
-        name_,
-        t ? t->name() : "",
-        t ? std::format(" ({})", (void*)t.get()) : std::string());
-  }
-
   constexpr auto name() -> std::string const& { return name_; }
   void setName(std::string name) { name_ = std::move(name); }
 

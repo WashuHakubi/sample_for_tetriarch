@@ -17,10 +17,6 @@ class Prefab : public AsyncComponent<Prefab> {
 
   auto attachAsync() -> concurrencpp::result<void> override;
 
-  auto describe() const -> std::string override {
-    return std::format("[Prefab: {}, {}]", prefabName_, loadOnAttach_);
-  }
-
   // Attempts to load the prefab if it hasn't already been loaded.
   auto loadAsync() -> concurrencpp::result<GameObjectPtr>;
 
