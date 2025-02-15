@@ -38,5 +38,9 @@ class Camera : public Component<Camera> {
   int32_t s32_;
   float f_;
   uint64_t u64_;
+
+  std::vector<float> floats_;
+
+  std::vector<Vec3> vecs_;
 };
 } // namespace ewok

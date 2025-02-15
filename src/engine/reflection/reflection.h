@@ -7,6 +7,7 @@
 #pragma once
 
 #include <cassert>
+#include <format>
 #include <memory>
 #include <span>
 #include <string>
@@ -19,6 +20,8 @@ class Class;
 using ClassPtr = std::shared_ptr<Class>;
 class Field;
 using FieldPtr = std::shared_ptr<Field>;
+class FieldArrayAdapter;
+using FieldArrayAdapterPtr = std::shared_ptr<FieldArrayAdapter>;
 
 class TypeBase {
  public:
@@ -27,8 +30,8 @@ class TypeBase {
 
   virtual ~TypeBase() = default;
 
-  auto name() const -> std::string const& { return name_; }
-  auto type() const -> std::type_index const& { return type_; }
+  virtual auto name() const -> std::string const& { return name_; }
+  virtual auto type() const -> std::type_index const& { return type_; }
 
  private:
   std::string name_;
@@ -50,12 +53,14 @@ class Field : public TypeBase {
   }
 
   virtual auto getValue(void* instance, std::type_index expected) const
-      -> void const* = 0;
+      -> void* = 0;
 
   template <class T>
-  auto getValue(void* instance) -> T {
-    return *reinterpret_cast<T const*>(getValue(instance, typeid(T)));
+  auto getValue(void* instance) const -> T {
+    return *reinterpret_cast<T*>(getValue(instance, typeid(T)));
   }
+
+  virtual auto getArrayAdapter() const -> FieldArrayAdapterPtr = 0;
 };
 
 class Class : public TypeBase {
@@ -65,7 +70,7 @@ class Class : public TypeBase {
   auto fields() const -> std::span<FieldPtr const> { return fields_; }
 
   template <class C, class F>
-  auto field(F C::* m, std::string name) -> Class&;
+  auto field(F C::*m, std::string name) -> Class&;
 
  private:
   std::vector<FieldPtr> fields_;
@@ -106,7 +111,7 @@ class Reflection {
 template <class C, class F>
 class TypedField : public Field {
  public:
-  TypedField(std::string name, F C::* field)
+  TypedField(std::string name, F C::*field)
       : Field(std::move(name), typeid(F)), field_(field) {}
 
   void setValue(
@@ -119,19 +124,138 @@ class TypedField : public Field {
   }
 
   auto getValue(void* instance, std::type_index expected) const
-      -> void const* override {
+      -> void* override {
     assert(instance);
     assert(expected == type());
     auto cp = static_cast<C*>(instance);
     return &(cp->*field_);
   }
 
+  auto getArrayAdapter() const -> FieldArrayAdapterPtr override {
+    return nullptr;
+  }
+
  private:
-  F C::* field_;
+  F C::*field_;
+};
+
+struct SyntheticArrayField : Field {
+  using Field::Field;
+
+  void setIndex(size_t index) {
+    index_ = index;
+    name_ = std::format("{}", index_);
+  }
+
+  auto name() const -> std::string const& override { return name_; }
+
+ protected:
+  size_t index_{};
+  std::string name_;
+};
+
+template <class T>
+struct TSyntheticArrayField : SyntheticArrayField {
+  TSyntheticArrayField() : SyntheticArrayField("__array_item__", typeid(T)) {}
+
+  void setValue(
+      void* instance, std::type_index srcType, void const* srcValue) override {
+    assert(instance);
+    assert(srcType == type());
+
+    auto cp = static_cast<std::vector<T>*>(instance);
+    auto fp = static_cast<T const*>(srcValue);
+    (*cp)[index_] = *fp;
+  }
+
+  auto getValue(void* instance, std::type_index expected) const
+      -> void* override {
+    assert(instance);
+    assert(expected == type());
+
+    auto cp = static_cast<std::vector<T>*>(instance);
+    return &(*cp)[index_];
+  }
+
+  auto getArrayAdapter() const -> FieldArrayAdapterPtr override {
+    return nullptr;
+  }
+};
+
+struct FieldArrayAdapter {
+  virtual auto size(void* instance) const -> size_t = 0;
+  virtual auto item(void* instance, size_t idx) const -> void* = 0;
+  virtual void resize(void* instance, size_t newSize) const = 0;
+  virtual auto getSyntheticField() const
+      -> std::shared_ptr<SyntheticArrayField> = 0;
+  virtual auto type() const -> std::type_index = 0;
+};
+
+template <class TElem>
+struct TFieldArrayAdapter : FieldArrayAdapter {
+  auto size(void* instance) const -> size_t override {
+    auto pA = reinterpret_cast<std::vector<TElem>*>(instance);
+    return pA->size();
+  }
+
+  auto item(void* instance, size_t idx) const -> void* override {
+    auto pA = reinterpret_cast<std::vector<TElem>*>(instance);
+    return &pA[idx];
+  }
+
+  void resize(void* instance, size_t newSize) const override {
+    auto pA = reinterpret_cast<std::vector<TElem>*>(instance);
+    pA->resize(newSize);
+  }
+
+  auto type() const -> std::type_index override { return typeid(TElem); }
+
+  auto getSyntheticField() const
+      -> std::shared_ptr<SyntheticArrayField> override {
+    return std::make_shared<TSyntheticArrayField<TElem>>();
+  }
+};
+
+// Specialization for arrays
+template <class C, class T>
+class TypedField<C, std::vector<T>> : public Field {
+ public:
+  using FieldType = std::vector<T>;
+  using FieldPtr = FieldType C::*;
+
+  TypedField(std::string name, FieldPtr field)
+      : Field(std::move(name), typeid(FieldType)),
+        field_(field),
+        adapter_(std::make_shared<TFieldArrayAdapter<T>>()) {}
+
+  void setValue(
+      void* instance, std::type_index srcType, void const* srcValue) override {
+    assert(instance);
+    assert(srcType == type());
+    auto cp = static_cast<C*>(instance);
+    auto fp = static_cast<FieldType const*>(srcValue);
+    (cp->*field_) = *fp;
+  }
+
+  auto getValue(void* instance, std::type_index expected) const
+      -> void* override {
+    assert(instance);
+    assert(expected == type());
+    auto cp = static_cast<C*>(instance);
+    return &(cp->*field_);
+  }
+
+  auto getArrayAdapter() const -> FieldArrayAdapterPtr override {
+    return adapter_;
+  }
+
+ private:
+  FieldPtr field_;
+  FieldArrayAdapterPtr adapter_;
 };
 
 template <class C, class F>
-auto Class::field(F C::* m, std::string name) -> Class& {
+auto Class::field(F C::*m, std::string name) -> Class& {
   fields_.push_back(std::make_shared<TypedField<C, F>>(name, m));
   nameToField_.emplace(std::move(name), fields_.back());
   return *this;

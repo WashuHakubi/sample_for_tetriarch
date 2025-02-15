@@ -17,7 +17,9 @@ EWOK_REGISTRATION {
       .field(&Camera::target_, "target")
       .field(&Camera::f_, "f")
       .field(&Camera::s32_, "s32")
-      .field(&Camera::u64_, "u64");
+      .field(&Camera::u64_, "u64")
+      .field(&Camera::floats_, "floats")
+      .field(&Camera::vecs_, "vecs");
 }
 
 namespace ewok {
@@ -28,5 +30,12 @@ void Camera::attach() {
     std::cout << " and I target: '" << t->path() << "'";
   }
   std::cout << std::endl;
+
+  for (auto i = 0; i < 10; ++i) {
+    floats_.push_back(i);
+    if (i % 2) {
+      vecs_.push_back({i + 0.f, i + 1.f, i - 1.f});
+    }
+  }
 }
 } // namespace ewok

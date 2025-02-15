@@ -370,7 +370,7 @@ void RenderImgui(
 
   // Do your imgui rendering here...
   // if (app->showDemoWindow) {
-  //   ImGui::ShowDemoWindow(&app->showDemoWindow);
+  // ImGui::ShowDemoWindow(&app->showDemoWindow);
   // }
 
   // draw returns true to exit. But we may have tried to close the window

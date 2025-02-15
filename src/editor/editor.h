@@ -13,33 +13,10 @@ namespace ewok {
 class PropertyDrawer;
 using PropertyDrawerPtr = std::shared_ptr<PropertyDrawer>;
 
-class ComponentView {
- public:
-  ComponentView(void* p, ClassPtr const& class_);
-
-  void draw();
-
- private:
-  void buildCompositeFields(void* p, ClassPtr const& class_);
-
-  void* instance_;
-  ClassPtr class_;
-  std::string id_;
-  std::vector<std::tuple<void*, FieldPtr, PropertyDrawerPtr>> fieldDrawers_;
-};
-
-class EditorComponentsView {
- public:
-  EditorComponentsView(GameObjectPtr const& node);
-
-  void draw();
-
- private:
-  std::vector<ComponentView> views_;
-};
-
 class Editor {
  public:
+  Editor();
+
   bool draw(GameObjectPtr const& root);
 
  private:
@@ -48,12 +25,12 @@ class Editor {
 
  private:
   GameObjectHandle selected_;
-  std::shared_ptr<EditorComponentsView> selectedView_;
 };
 
 class PropertyDrawer {
  public:
   static auto getDrawer(std::type_index type) -> PropertyDrawerPtr;
+  static void registerDrawer(std::type_index type, PropertyDrawerPtr ptr);
 
   virtual ~PropertyDrawer() = default;
 
@@ -61,5 +38,13 @@ class PropertyDrawer {
 
  protected:
   virtual void onDraw(FieldPtr const& field, void* instance) = 0;
+
+ private:
+  friend class Editor;
+  static void initialize();
+
+  static std::unique_ptr<std::unordered_map<std::type_index, PropertyDrawerPtr>>
+      s_drawerFactories_;
 };
+
 } // namespace ewok

@@ -13,6 +13,12 @@
 #include "misc/cpp/imgui_stdlib.h"
 
 namespace ewok {
+void drawComplexObject(ClassPtr const& class_, void* instance);
+
+Editor::Editor() {
+  PropertyDrawer::initialize();
+}
+
 void Editor::drawChildNodes(GameObjectPtr const& node) {
   for (auto&& child : node->children()) {
     auto name = std::format(
@@ -39,9 +45,6 @@ void Editor::drawChildNodes(GameObjectPtr const& node) {
         ImGui::PopStyleColor();
       }
       if (ImGui::IsItemClicked()) {
-        if (selected != child && selected != nullptr) {
-          selectedView_ = nullptr;
-        }
         selected_ = child;
       }
 
@@ -60,11 +63,15 @@ void Editor::drawSelectedObjectComponents(GameObjectPtr const& node) {
     return;
   }
 
-  if (!selectedView_) {
-    selectedView_ = std::make_shared<EditorComponentsView>(node);
-  }
+  auto transformClass = Reflection::getClass(typeid(Transform));
+  drawComplexObject(transformClass, &node->transform_);
 
-  selectedView_->draw();
+  for (auto&& comp : node->components()) {
+    auto compClass = Reflection::getClass(comp->getComponentType());
+    if (compClass) {
+      drawComplexObject(compClass, comp.get());
+    }
+  }
 }
 
 bool Editor::draw(GameObjectPtr const& root) {
@@ -98,67 +105,12 @@ bool Editor::draw(GameObjectPtr const& root) {
   return exit;
 }
 
-EditorComponentsView::EditorComponentsView(GameObjectPtr const& node) {
-  auto class_ = Reflection::getClass<GameObject>();
-  views_.emplace_back(node.get(), class_);
+template <class T>
+struct InternalTypedPropertyDrawer : public PropertyDrawer {
+  using value_type = T;
+};
 
-  for (auto&& comp : node->components()) {
-    auto compClass = Reflection::getClass(comp->getComponentType());
-    if (compClass) {
-      views_.emplace_back(comp.get(), compClass);
-    }
-  }
-}
-
-void EditorComponentsView::draw() {
-  for (auto&& view : views_) {
-    view.draw();
-    ImGui::Separator();
-  }
-}
-
-ComponentView::ComponentView(void* p, ClassPtr const& class_)
-    : instance_(p), class_(class_) {
-  id_ = std::format("##{}", reinterpret_cast<size_t>(instance_));
-  buildCompositeFields(p, class_);
-}
-
-void ComponentView::buildCompositeFields(void* p, ClassPtr const& class_) {
-  for (auto&& field : class_->fields()) {
-    auto drawer = PropertyDrawer::getDrawer(field->type());
-    if (!drawer) {
-      auto childClass = field->getClass();
-      if (childClass) {
-        auto val = const_cast<void*>(field->getValue(p, childClass->type()));
-        buildCompositeFields(val, childClass);
-      }
-      continue;
-    }
-
-    fieldDrawers_.emplace_back(p, field, std::move(drawer));
-  }
-}
-
-void ComponentView::draw() {
-  if (ImGui::CollapsingHeader(
-          class_->name().c_str(), ImGuiTreeNodeFlags_DefaultOpen)) {
-    auto tableFlags =
-        ImGuiTableFlags_SizingStretchProp | ImGuiTableFlags_Resizable;
-    if (ImGui::BeginTable(id_.c_str(), 2, tableFlags)) {
-      ImGui::TableSetupColumn("name", ImGuiTableColumnFlags_WidthFixed, 100);
-      ImGui::TableSetupColumn(
-          "value", ImGuiTableColumnFlags_WidthStretch, 1.0f);
-
-      for (auto&& [p, field, drawer] : fieldDrawers_) {
-        drawer->draw(field, p);
-      }
-
-      ImGui::EndTable();
-    }
-  }
-}
-
-class StringPropertyDrawer : public PropertyDrawer {
+class StringPropertyDrawer : public InternalTypedPropertyDrawer<std::string> {
  public:
   void onDraw(FieldPtr const& field, void* instance) override {
     auto str = field->getValue<std::string>(instance);
@@ -169,7 +121,7 @@ class StringPropertyDrawer : public PropertyDrawer {
   }
 };
 
-class BoolPropertyDrawer : public PropertyDrawer {
+class BoolPropertyDrawer : public InternalTypedPropertyDrawer<bool> {
  public:
   void onDraw(FieldPtr const& field, void* instance) override {
     auto v = field->getValue<bool>(instance);
@@ -181,7 +133,7 @@ class BoolPropertyDrawer : public PropertyDrawer {
 };
 
 template <class T, int V, int N = 1>
-class ScalarPropertyDrawer : public PropertyDrawer {
+class ScalarPropertyDrawer : public InternalTypedPropertyDrawer<T> {
  public:
   void onDraw(FieldPtr const& field, void* instance) override {
     auto v = field->getValue<T>(instance);
@@ -192,7 +144,7 @@ class ScalarPropertyDrawer : public PropertyDrawer {
   }
 };
 
-class QuaternionPropertyDrawer : public PropertyDrawer {
+class QuaternionPropertyDrawer : public InternalTypedPropertyDrawer<Quat> {
  public:
   void onDraw(FieldPtr const& field, void* instance) override {
     auto q = field->getValue<Quat>(instance);
@@ -204,7 +156,8 @@ class QuaternionPropertyDrawer : public PropertyDrawer {
   }
 };
 
-class GameObjectHandlePropertyDrawer : public PropertyDrawer {
+class GameObjectHandlePropertyDrawer
+    : public InternalTypedPropertyDrawer<GameObjectHandle> {
  protected:
   void onDraw(FieldPtr const& field, void* instance) override {
     auto handle = field->getValue<GameObjectHandle>(instance);
@@ -233,63 +186,71 @@ class GameObjectHandlePropertyDrawer : public PropertyDrawer {
 };
 
 template <class T>
-static PropertyDrawerPtr makeDrawer() {
-  return std::make_shared<T>();
+static auto makeDrawer() {
+  return std::pair{
+      std::type_index{typeid(T::value_type)}, std::make_shared<T>()};
 }
+
+std::unique_ptr<std::unordered_map<std::type_index, PropertyDrawerPtr>>
+    PropertyDrawer::s_drawerFactories_;
+
+void PropertyDrawer::initialize() {
+  if (s_drawerFactories_ != nullptr) {
+    return;
+  }
+
+  std::unordered_map<std::type_index, PropertyDrawerPtr> drawerFactories = {
+      makeDrawer<StringPropertyDrawer>(),
+      makeDrawer<BoolPropertyDrawer>(),
+
+      makeDrawer<ScalarPropertyDrawer<int8_t, ImGuiDataType_S8>>(),
+      makeDrawer<ScalarPropertyDrawer<int16_t, ImGuiDataType_S16>>(),
+      makeDrawer<ScalarPropertyDrawer<int32_t, ImGuiDataType_S32>>(),
+      makeDrawer<ScalarPropertyDrawer<int64_t, ImGuiDataType_S64>>(),
+      makeDrawer<ScalarPropertyDrawer<uint8_t, ImGuiDataType_U8>>(),
+      makeDrawer<ScalarPropertyDrawer<uint16_t, ImGuiDataType_U16>>(),
+      makeDrawer<ScalarPropertyDrawer<uint32_t, ImGuiDataType_U32>>(),
+      makeDrawer<ScalarPropertyDrawer<uint64_t, ImGuiDataType_U64>>(),
+      makeDrawer<ScalarPropertyDrawer<float, ImGuiDataType_Float>>(),
+      makeDrawer<ScalarPropertyDrawer<double, ImGuiDataType_Double>>(),
+
+      makeDrawer<ScalarPropertyDrawer<Vec2, ImGuiDataType_Float, 2>>(),
+      makeDrawer<ScalarPropertyDrawer<Vec3, ImGuiDataType_Float, 3>>(),
+      makeDrawer<ScalarPropertyDrawer<Vec4, ImGuiDataType_Float, 4>>(),
+
+      makeDrawer<ScalarPropertyDrawer<Int8Vec2, ImGuiDataType_S8, 2>>(),
+      makeDrawer<ScalarPropertyDrawer<Int8Vec3, ImGuiDataType_S8, 3>>(),
+      makeDrawer<ScalarPropertyDrawer<Int8Vec4, ImGuiDataType_S8, 4>>(),
+
+      makeDrawer<ScalarPropertyDrawer<UInt8Vec2, ImGuiDataType_U8, 2>>(),
+      makeDrawer<ScalarPropertyDrawer<UInt8Vec3, ImGuiDataType_U8, 3>>(),
+      makeDrawer<ScalarPropertyDrawer<UInt8Vec4, ImGuiDataType_U8, 4>>(),
+
+      makeDrawer<QuaternionPropertyDrawer>(),
+
+      makeDrawer<GameObjectHandlePropertyDrawer>(),
+  };
+
+  s_drawerFactories_ =
+      std::make_unique<std::unordered_map<std::type_index, PropertyDrawerPtr>>(
+          std::move(drawerFactories));
+}
+
+void PropertyDrawer::registerDrawer(
+    std::type_index type, PropertyDrawerPtr ptr) {
+  if (!s_drawerFactories_) {
+    initialize();
+  }
+
+  assert(s_drawerFactories_ != nullptr);
+  s_drawerFactories_->emplace(type, std::move(ptr));
+}
+
 auto PropertyDrawer::getDrawer(std::type_index type) -> PropertyDrawerPtr {
-  static const std::unordered_map<std::type_index, PropertyDrawerPtr>
-      drawerFactories = {
-          {typeid(std::string), makeDrawer<StringPropertyDrawer>()},
-          {typeid(bool), makeDrawer<BoolPropertyDrawer>()},
+  assert(s_drawerFactories_ != nullptr);
 
-          {typeid(int8_t),
-           makeDrawer<ScalarPropertyDrawer<int8_t, ImGuiDataType_S8>>()},
-          {typeid(int16_t),
-           makeDrawer<ScalarPropertyDrawer<int16_t, ImGuiDataType_S16>>()},
-          {typeid(int32_t),
-           makeDrawer<ScalarPropertyDrawer<int32_t, ImGuiDataType_S32>>()},
-          {typeid(int64_t),
-           makeDrawer<ScalarPropertyDrawer<int64_t, ImGuiDataType_S64>>()},
-          {typeid(uint8_t),
-           makeDrawer<ScalarPropertyDrawer<uint8_t, ImGuiDataType_U8>>()},
-          {typeid(uint16_t),
-           makeDrawer<ScalarPropertyDrawer<uint16_t, ImGuiDataType_U16>>()},
-          {typeid(uint32_t),
-           makeDrawer<ScalarPropertyDrawer<uint32_t, ImGuiDataType_U32>>()},
-          {typeid(uint64_t),
-           makeDrawer<ScalarPropertyDrawer<uint64_t, ImGuiDataType_U64>>()},
-          {typeid(float),
-           makeDrawer<ScalarPropertyDrawer<float, ImGuiDataType_Float>>()},
-          {typeid(double),
-           makeDrawer<ScalarPropertyDrawer<double, ImGuiDataType_Double>>()},
-
-          {typeid(Vec2),
-           makeDrawer<ScalarPropertyDrawer<Vec2, ImGuiDataType_Float, 2>>()},
-          {typeid(Vec3),
-           makeDrawer<ScalarPropertyDrawer<Vec3, ImGuiDataType_Float, 3>>()},
-          {typeid(Vec4),
-           makeDrawer<ScalarPropertyDrawer<Vec4, ImGuiDataType_Float, 4>>()},
-
-          {typeid(Int8Vec2),
-           makeDrawer<ScalarPropertyDrawer<Int8Vec2, ImGuiDataType_S8, 2>>()},
-          {typeid(Int8Vec3),
-           makeDrawer<ScalarPropertyDrawer<Int8Vec3, ImGuiDataType_S8, 3>>()},
-          {typeid(Int8Vec4),
-           makeDrawer<ScalarPropertyDrawer<Int8Vec4, ImGuiDataType_S8, 4>>()},
-
-          {typeid(UInt8Vec2),
-           makeDrawer<ScalarPropertyDrawer<UInt8Vec2, ImGuiDataType_U8, 2>>()},
-          {typeid(UInt8Vec3),
-           makeDrawer<ScalarPropertyDrawer<UInt8Vec3, ImGuiDataType_U8, 3>>()},
-          {typeid(UInt8Vec4),
-           makeDrawer<ScalarPropertyDrawer<UInt8Vec4, ImGuiDataType_U8, 4>>()},
-
-          {typeid(GameObjectHandle),
-           makeDrawer<GameObjectHandlePropertyDrawer>()},
-      };
-
-  auto it = drawerFactories.find(type);
-  if (it == drawerFactories.end()) {
+  auto it = s_drawerFactories_->find(type);
+  if (it == s_drawerFactories_->end()) {
     return nullptr;
   }
 
@@ -304,5 +265,72 @@ void PropertyDrawer::draw(FieldPtr const& field, void* instance) {
   auto avail = ImGui::GetContentRegionAvail();
   ImGui::SetNextItemWidth(avail.x);
   onDraw(field, instance);
+}
+
+void drawComplexObject(ClassPtr const& class_, void* instance) {
+  auto id = std::format("##{}", reinterpret_cast<size_t>(instance));
+  if (ImGui::CollapsingHeader(
+          class_->name().c_str(), ImGuiTreeNodeFlags_DefaultOpen)) {
+    auto tableFlags =
+        ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_Resizable;
+    ImGui::BeginTable(id.c_str(), 2, tableFlags);
+    ImGui::TableSetupColumn("name", ImGuiTableColumnFlags_WidthFixed, 100.0f);
+    ImGui::TableSetupColumn("value", ImGuiTableColumnFlags_WidthStretch);
+
+    for (auto&& field : class_->fields()) {
+      auto fieldClass = Reflection::getClass(field->type());
+      if (fieldClass) {
+        drawComplexObject(fieldClass, field->getValue(instance, field->type()));
+        continue;
+      }
+
+      auto arrayAdapter = field->getArrayAdapter();
+      if (arrayAdapter) {
+        auto arrayClass = Reflection::getClass(arrayAdapter->type());
+        auto arrayDrawer = PropertyDrawer::getDrawer(arrayAdapter->type());
+
+        // don't know how to draw this array, skip
+        if (arrayClass == nullptr && arrayDrawer == nullptr) {
+          continue;
+        }
+
+        // Draw the field name
+        ImGui::TableNextRow();
+        ImGui::TableSetColumnIndex(0);
+        ImGui::Text("%s", field->name().c_str());
+        ImGui::TableSetColumnIndex(1);
+        auto avail = ImGui::GetContentRegionAvail();
+        ImGui::SetNextItemWidth(avail.x);
+
+        // Start a nested table with the array values.
+        ImGui::BeginTable(id.c_str(), 2, tableFlags);
+        ImGui::TableSetupColumn("name", ImGuiTableColumnFlags_WidthFixed);
+        ImGui::TableSetupColumn("value", ImGuiTableColumnFlags_WidthStretch);
+
+        auto arrayInst = field->getValue(instance, field->type());
+        auto synthField = arrayAdapter->getSyntheticField();
+        auto len = arrayAdapter->size(arrayInst);
+
+        for (size_t i = 0; i < len; ++i) {
+          if (fieldClass) {
+            drawComplexObject(arrayClass, arrayAdapter->item(arrayInst, i));
+          } else {
+            synthField->setIndex(i);
+            arrayDrawer->draw(synthField, arrayInst);
+          }
+        }
+
+        // End nested table.
+        ImGui::EndTable();
+        continue;
+      }
+
+      auto drawer = PropertyDrawer::getDrawer(field->type());
+      if (drawer) {
+        drawer->draw(field, instance);
+      }
+    }
+    ImGui::EndTable();
+  }
 }
 } // namespace ewok
