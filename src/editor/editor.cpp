@@ -322,6 +322,17 @@ void drawComplexObject(ClassPtr const& class_, void* instance) {
 
         // End nested table.
         ImGui::EndTable();
+        ImGui::BeginTable("##array_ops", 2, ImGuiTableColumnFlags_WidthFixed);
+        ImGui::TableNextRow();
+        ImGui::TableNextColumn();
+        if (ImGui::Button("Add Item")) {
+          arrayAdapter->resize(arrayInst, len + 1);
+        }
+        ImGui::TableNextColumn();
+        if (ImGui::Button("Remove Last Item")) {
+          arrayAdapter->resize(arrayInst, len - 1);
+        }
+        ImGui::EndTable();
         continue;
       }
 
