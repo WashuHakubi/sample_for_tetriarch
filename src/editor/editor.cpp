@@ -188,7 +188,7 @@ class GameObjectHandlePropertyDrawer
 template <class T>
 static auto makeDrawer() {
   return std::pair{
-      std::type_index{typeid(T::value_type)}, std::make_shared<T>()};
+      std::type_index{typeid(typename T::value_type)}, std::make_shared<T>()};
 }
 
 std::unique_ptr<std::unordered_map<std::type_index, PropertyDrawerPtr>>
