@@ -19,7 +19,7 @@ class Scene final : public GameObject, public IAsset {
   using GameObject::GameObject;
 
  private:
-  friend class SceneLoader;
+  friend struct SceneLoader;
 
   void onLoadCompleted();
 };

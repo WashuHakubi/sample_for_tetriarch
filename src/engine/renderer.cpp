@@ -37,6 +37,8 @@ class RendererImpl : public Renderer {
   void present() {
     for (auto&& [bucketId, commands] : commands_) {
       // make like a tree and draw.
+      (void)bucketId;
+      (void)commands;
     }
   }
 

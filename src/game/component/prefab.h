@@ -35,7 +35,7 @@ class Prefab : public AsyncComponent<Prefab> {
   void unload();
 
  private:
-  friend class PrefabParser;
+  friend struct PrefabParser;
   void setPrefabName(std::string value) { prefabName_ = std::move(value); }
   void setLoadOnAttach(bool value) { loadOnAttach_ = value; }
 

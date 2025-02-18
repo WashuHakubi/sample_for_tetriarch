@@ -50,7 +50,7 @@ auto SystemFileProvider::blockingReadFile(std::string const& fn)
         std::make_error_code(std::errc::bad_file_descriptor)};
   }
 
-  auto len = ftell(f);
+  auto len = static_cast<size_t>(ftell(f));
 
   std::vector<char> data;
   data.resize(len + 1);

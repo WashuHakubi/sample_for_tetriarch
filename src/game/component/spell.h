@@ -11,12 +11,43 @@
 #include "engine/reflection/reflection.h"
 
 namespace ewok {
-struct SpellAction {};
+enum class DamageType {
+  None,
+  Air,
+  Earth,
+  Fire,
+  Water,
+};
+
+enum class ActionType {
+  Aoe,
+  Projectile,
+  PiercingProjectile,
+  Target,
+};
+
+enum class SpellOnHitEffect {
+  Damage,
+  Dot,
+  Heal,
+};
+
+struct SpellActionOnHit {
+  SpellOnHitEffect effect;
+  DamageType type;
+  std::pair<float, float> damageRange;
+  float duration;
+};
+
+struct SpellAction {
+  ActionType type;
+  std::vector<SpellActionOnHit> onHit;
+};
 
 class Spell : public Component<Spell> {
  public:
  private:
-  EWOK_REFLECTION_DECL;
+  EWOK_REFLECTION_DECL
 
   std::string name_;
   // How long the spell takes to cast

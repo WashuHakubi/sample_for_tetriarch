@@ -11,6 +11,8 @@
 namespace ewok {
 class ComponentBase {
  public:
+  virtual ~ComponentBase() = default;
+
   // Gets the game object that owns this component, or null if this component is
   // not owned.
   auto object() const noexcept -> GameObject* { return parent_; }

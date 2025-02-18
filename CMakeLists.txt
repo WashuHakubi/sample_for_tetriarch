@@ -76,6 +76,13 @@ target_link_libraries(test
 target_include_directories(test PRIVATE ${PROJECT_SOURCE_DIR}/src)
 target_compile_definitions(test PUBLIC SDL_MAIN_USE_CALLBACKS)
 
+if(MSVC)
+  target_compile_options(test PRIVATE /W4 /WX)
+else()
+  target_compile_options(test PRIVATE -Wall -Wextra -Werror  -Wno-unused-parameter -Wno-unused-function -Wno-unused-private-field)
+endif()
+
+
 if (CMAKE_HOST_WIN32)
         add_custom_command(TARGET test POST_BUILD
                 COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_RUNTIME_DLLS:test> $<TARGET_FILE_DIR:test>

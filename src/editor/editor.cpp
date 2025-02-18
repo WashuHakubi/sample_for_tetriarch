@@ -63,11 +63,11 @@ void Editor::drawSelectedObjectComponents(GameObjectPtr const& node) {
     return;
   }
 
-  auto transformClass = Reflection::getClass(typeid(Transform));
+  auto transformClass = Reflection::class_(typeid(Transform));
   drawComplexObject(transformClass, &node->transform_);
 
   for (auto&& comp : node->components()) {
-    auto compClass = Reflection::getClass(comp->getComponentType());
+    auto compClass = Reflection::class_(comp->getComponentType());
     if (compClass) {
       drawComplexObject(compClass, comp.get());
     }
@@ -112,46 +112,40 @@ struct InternalTypedPropertyDrawer : public PropertyDrawer {
 
 class StringPropertyDrawer : public InternalTypedPropertyDrawer<std::string> {
  public:
-  void onDraw(FieldPtr const& field, void* instance) override {
-    auto str = field->getValue<std::string>(instance);
-    auto id = std::format("##{}", field->name());
-    if (ImGui::InputText(id.c_str(), &str)) {
-      field->setValue(instance, str);
-    }
+  void onDraw(FieldWrapper const& field, void* instance) override {
+    auto v = reinterpret_cast<std::string*>(field.valuePtr(instance));
+    auto id = std::format("##{}", field.name());
+    ImGui::InputText(id.c_str(), v);
   }
 };
 
 class BoolPropertyDrawer : public InternalTypedPropertyDrawer<bool> {
  public:
-  void onDraw(FieldPtr const& field, void* instance) override {
-    auto v = field->getValue<bool>(instance);
-    auto id = std::format("##{}", field->name());
-    if (ImGui::Checkbox(id.c_str(), &v)) {
-      field->setValue(instance, v);
-    }
+  void onDraw(FieldWrapper const& field, void* instance) override {
+    auto v = reinterpret_cast<bool*>(field.valuePtr(instance));
+    auto id = std::format("##{}", field.name());
+    ImGui::Checkbox(id.c_str(), v);
   }
 };
 
 template <class T, int V, int N = 1>
 class ScalarPropertyDrawer : public InternalTypedPropertyDrawer<T> {
  public:
-  void onDraw(FieldPtr const& field, void* instance) override {
-    auto v = field->getValue<T>(instance);
-    auto id = std::format("##{}", field->name());
-    if (ImGui::InputScalarN(id.c_str(), V, &v, N)) {
-      field->setValue(instance, v);
-    }
+  void onDraw(FieldWrapper const& field, void* instance) override {
+    auto v = reinterpret_cast<T*>(field.valuePtr(instance));
+    auto id = std::format("##{}", field.name());
+    ImGui::InputScalarN(id.c_str(), V, v, N);
   }
 };
 
 class QuaternionPropertyDrawer : public InternalTypedPropertyDrawer<Quat> {
  public:
-  void onDraw(FieldPtr const& field, void* instance) override {
-    auto q = field->getValue<Quat>(instance);
-    Vec3 v = toEuler(q);
-    auto id = std::format("##{}", field->name());
+  void onDraw(FieldWrapper const& field, void* instance) override {
+    auto q = reinterpret_cast<Quat*>(field.valuePtr(instance));
+    Vec3 v = toEuler(*q);
+    auto id = std::format("##{}", field.name());
     if (ImGui::InputScalarN(id.c_str(), ImGuiDataType_Float, &v, 3)) {
-      field->setValue(instance, fromEuler(v));
+      *q = fromEuler(v);
     }
   }
 };
@@ -159,15 +153,15 @@ class QuaternionPropertyDrawer : public InternalTypedPropertyDrawer<Quat> {
 class GameObjectHandlePropertyDrawer
     : public InternalTypedPropertyDrawer<GameObjectHandle> {
  protected:
-  void onDraw(FieldPtr const& field, void* instance) override {
-    auto handle = field->getValue<GameObjectHandle>(instance);
-    auto target = handle.lock();
+  void onDraw(FieldWrapper const& field, void* instance) override {
+    auto v = reinterpret_cast<GameObjectHandle*>(field.valuePtr(instance));
+    auto target = v->lock();
     auto initial = target ? target->name() : "<null>";
 
-    auto id = std::format("##{}", field->name());
+    auto id = std::format("##{}", field.name());
     if (ImGui::BeginCombo(id.c_str(), initial.c_str())) {
       if (ImGui::Selectable("<null>", target == nullptr)) {
-        field->setValue(instance, GameObjectHandle{});
+        *v = GameObjectHandle{};
       }
 
       for (auto&& [guid, h] : objectDatabase()->getObjects()) {
@@ -177,11 +171,23 @@ class GameObjectHandlePropertyDrawer
         }
 
         if (ImGui::Selectable(obj->name().c_str(), obj == target)) {
-          field->setValue(instance, GameObjectHandle{obj});
+          *v = GameObjectHandle{obj};
         }
       }
       ImGui::EndCombo();
     }
+  }
+};
+
+class EnumPropertyDrawer : public PropertyDrawer {
+  void onDraw(FieldWrapper const& field, void* instance) override {
+    // auto enumType = Reflection::getEnum(field->type());
+    // assert(enumType);
+
+    // auto v = enumType->getValue(field, instance);
+    // enumType->val auto id = std::format("##{}", field->name());
+    // if (ImGui::BeginCombo(id.c_str(), initial.c_str())) {
+    //}
   }
 };
 
@@ -257,10 +263,10 @@ auto PropertyDrawer::getDrawer(std::type_index type) -> PropertyDrawerPtr {
   return it->second;
 }
 
-void PropertyDrawer::draw(FieldPtr const& field, void* instance) {
+void PropertyDrawer::draw(FieldWrapper const& field, void* instance) {
   ImGui::TableNextRow();
   ImGui::TableSetColumnIndex(0);
-  ImGui::Text("%s", field->name().c_str());
+  ImGui::Text("%s", field.name().c_str());
   ImGui::TableSetColumnIndex(1);
   auto avail = ImGui::GetContentRegionAvail();
   ImGui::SetNextItemWidth(avail.x);
@@ -278,23 +284,29 @@ void drawComplexObject(ClassPtr const& class_, void* instance) {
     ImGui::TableSetupColumn("value", ImGuiTableColumnFlags_WidthStretch);
 
     for (auto&& field : class_->fields()) {
-      auto fieldClass = Reflection::getClass(field->type());
+      auto fieldClass = Reflection::class_(field->type());
       if (fieldClass) {
-        drawComplexObject(fieldClass, field->getValue(instance, field->type()));
+        ImGui::TableNextRow();
+        ImGui::TableSetColumnIndex(0);
+        ImGui::Text("%s", field->name().c_str());
+        ImGui::TableSetColumnIndex(1);
+        auto avail = ImGui::GetContentRegionAvail();
+        ImGui::SetNextItemWidth(avail.x);
+
+        drawComplexObject(fieldClass, field->valuePtr(instance));
         continue;
       }
 
-      auto arrayAdapter = field->getArrayAdapter();
-      if (arrayAdapter) {
-        auto arrayClass = Reflection::getClass(arrayAdapter->type());
-        auto arrayDrawer = PropertyDrawer::getDrawer(arrayAdapter->type());
+      if (auto arrayType = field->asArray(); arrayType != nullptr) {
+        auto elemClass = arrayType->getElemClass();
+        auto elemDrawer = PropertyDrawer::getDrawer(arrayType->getElemType());
 
         // don't know how to draw this array, skip
-        if (arrayClass == nullptr && arrayDrawer == nullptr) {
+        if (elemClass == nullptr && elemDrawer == nullptr) {
           continue;
         }
 
-        // Draw the field name
+        //   // Draw the field name
         ImGui::TableNextRow();
         ImGui::TableSetColumnIndex(0);
         ImGui::Text("%s", field->name().c_str());
@@ -307,16 +319,17 @@ void drawComplexObject(ClassPtr const& class_, void* instance) {
         ImGui::TableSetupColumn("name", ImGuiTableColumnFlags_WidthFixed);
         ImGui::TableSetupColumn("value", ImGuiTableColumnFlags_WidthStretch);
 
-        auto arrayInst = field->getValue(instance, field->type());
-        auto synthField = arrayAdapter->getSyntheticField();
-        auto len = arrayAdapter->size(arrayInst);
+        // auto arrayInst = field->getValue(instance, field->type());
+        // auto synthField = arrayAdapter->getSyntheticField();
+        auto len = arrayType->getSize(instance);
 
         for (size_t i = 0; i < len; ++i) {
           if (fieldClass) {
-            drawComplexObject(arrayClass, arrayAdapter->item(arrayInst, i));
+            drawComplexObject(
+                elemClass, arrayType->valueAtIndexPtr(instance, i));
           } else {
-            synthField->setIndex(i);
-            arrayDrawer->draw(synthField, arrayInst);
+            // synthField->setIndex(i);
+            elemDrawer->draw(ArrayFieldWrapper(field, arrayType, i), instance);
           }
         }
 
@@ -326,11 +339,11 @@ void drawComplexObject(ClassPtr const& class_, void* instance) {
         ImGui::TableNextRow();
         ImGui::TableNextColumn();
         if (ImGui::Button("Add Item")) {
-          arrayAdapter->resize(arrayInst, len + 1);
+          arrayType->setSize(instance, len + 1);
         }
         ImGui::TableNextColumn();
         if (ImGui::Button("Remove Last Item")) {
-          arrayAdapter->resize(arrayInst, len - 1);
+          arrayType->setSize(instance, len - 1);
         }
         ImGui::EndTable();
         continue;

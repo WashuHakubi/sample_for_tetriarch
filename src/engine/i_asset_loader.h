@@ -20,7 +20,7 @@ struct IAssetLoader {
 
  private:
   template <IsAssetType T>
-  friend class ITypedAssetLoader;
+  friend struct ITypedAssetLoader;
 
   // Always derive from an ITypedAssetLoader
   IAssetLoader() = default;

@@ -117,7 +117,8 @@ class GameObject : public std::enable_shared_from_this<GameObject> {
   friend class Editor;
   friend class EditorComponentsView;
 
-  EWOK_REFLECTION_DECL;
+  EWOK_REFLECTION_DECL
+
   enum class UpdateState {
     Idle,
     Update,

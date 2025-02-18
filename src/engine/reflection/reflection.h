@@ -9,257 +9,295 @@
 #include <cassert>
 #include <format>
 #include <memory>
+#include <optional>
 #include <span>
 #include <string>
 #include <typeindex>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 namespace ewok {
 class Class;
-using ClassPtr = std::shared_ptr<Class>;
+using ClassPtr = Class const*;
 class Field;
-using FieldPtr = std::shared_ptr<Field>;
-class FieldArrayAdapter;
-using FieldArrayAdapterPtr = std::shared_ptr<FieldArrayAdapter>;
+using FieldPtr = Field const*;
+struct IArrayField;
+using ArrayFieldPtr = IArrayField const*;
 
-class TypeBase {
+namespace detail {
+template <class T>
+class TClassBuilder;
+} // namespace detail
+
+class MemberInfo {
  public:
-  TypeBase(std::string name, std::type_index type)
+  virtual ~MemberInfo() = default;
+
+  // Not copyable nor movable.
+  MemberInfo(MemberInfo&&) noexcept = delete;
+  MemberInfo(MemberInfo const&) = delete;
+  MemberInfo& operator=(MemberInfo&&) noexcept = delete;
+  MemberInfo& operator=(MemberInfo const&) = delete;
+
+  auto name() const -> std::string const& { return name_; }
+  auto type() const -> std::type_index { return type_; }
+
+ protected:
+  MemberInfo(std::string name, std::type_index type)
       : name_(std::move(name)), type_(type) {}
-
-  virtual ~TypeBase() = default;
-
-  virtual auto name() const -> std::string const& { return name_; }
-  virtual auto type() const -> std::type_index const& { return type_; }
 
  private:
   std::string name_;
   std::type_index type_;
 };
 
-class Field : public TypeBase {
+class Class : public MemberInfo {
  public:
-  using TypeBase::TypeBase;
+  Class(
+      std::string name,
+      std::type_index type,
+      std::vector<std::unique_ptr<Field>> fields);
 
-  auto getClass() const -> ClassPtr;
-
-  virtual void setValue(
-      void* instance, std::type_index srcType, void const* srcValue) = 0;
-
-  template <class T>
-  void setValue(void* instance, T const& value) {
-    setValue(instance, typeid(T), &value);
-  }
-
-  virtual auto getValue(void* instance, std::type_index expected) const
-      -> void* = 0;
-
-  template <class T>
-  auto getValue(void* instance) const -> T {
-    return *reinterpret_cast<T*>(getValue(instance, typeid(T)));
-  }
-
-  virtual auto getArrayAdapter() const -> FieldArrayAdapterPtr = 0;
-};
-
-class Class : public TypeBase {
- public:
-  using TypeBase::TypeBase;
+  ~Class() override;
 
   auto fields() const -> std::span<FieldPtr const> { return fields_; }
 
-  template <class C, class F>
-  auto field(F C::*m, std::string name) -> Class&;
+  auto field(std::string const& name) const -> FieldPtr {
+    if (auto it = nameToField_.find(name); it != nameToField_.end()) {
+      return it->second;
+    }
+
+    return nullptr;
+  }
 
  private:
   std::vector<FieldPtr> fields_;
   std::unordered_map<std::string, FieldPtr> nameToField_;
 };
 
-class Reflection {
+class Field : public MemberInfo {
  public:
+  virtual auto asArray() const -> ArrayFieldPtr { return nullptr; }
+
+  virtual void getValue(
+      void* instance, std::type_index expected, void* out) const = 0;
+
+  virtual void setValue(
+      void* instance, std::type_index expected, void const* in) const = 0;
+
+  virtual auto valuePtr(void* instance) const -> void* = 0;
+
   template <class T>
-  static Class& class_(std::string name) {
-    auto p = std::make_shared<Class>(name, typeid(T));
-    auto resp = p.get();
-    typeToClass_.emplace(typeid(T), p);
-    nameToClass_.emplace(std::move(name), std::move(p));
-    return *resp;
-  }
-
-  static auto getClass(std::string const& name) -> ClassPtr {
-    auto it = nameToClass_.find(name);
-    return it != nameToClass_.end() ? it->second : nullptr;
-  }
-
-  static auto getClass(std::type_index type) -> ClassPtr {
-    auto it = typeToClass_.find(type);
-    return it != typeToClass_.end() ? it->second : nullptr;
+  T getValue(void* instance) const {
+    T val;
+    getValue(instance, typeid(T), &val);
+    return val;
   }
 
   template <class T>
-  static auto getClass() -> ClassPtr {
-    return getClass(typeid(T));
+  void setValue(void* instance, T val) const {
+    setValue(instance, typeid(T), &val);
   }
-
- private:
-  inline static std::unordered_map<std::type_index, ClassPtr> typeToClass_{};
-  inline static std::unordered_map<std::string, ClassPtr> nameToClass_{};
-};
-
-template <class C, class F>
-class TypedField : public Field {
- public:
-  TypedField(std::string name, F C::*field)
-      : Field(std::move(name), typeid(F)), field_(field) {}
-
-  void setValue(
-      void* instance, std::type_index srcType, void const* srcValue) override {
-    assert(instance);
-    assert(srcType == type());
-    auto cp = static_cast<C*>(instance);
-    auto fp = static_cast<F const*>(srcValue);
-    (cp->*field_) = *fp;
-  }
-
-  auto getValue(void* instance, std::type_index expected) const
-      -> void* override {
-    assert(instance);
-    assert(expected == type());
-    auto cp = static_cast<C*>(instance);
-    return &(cp->*field_);
-  }
-
-  auto getArrayAdapter() const -> FieldArrayAdapterPtr override {
-    return nullptr;
-  }
-
- private:
-  F C::*field_;
-};
-
-struct SyntheticArrayField : Field {
-  using Field::Field;
-
-  void setIndex(size_t index) {
-    index_ = index;
-    name_ = std::format("{}", index_);
-  }
-
-  auto name() const -> std::string const& override { return name_; }
 
  protected:
-  size_t index_{};
-  std::string name_;
+  using MemberInfo::MemberInfo;
+};
+
+struct IArrayField {
+  virtual auto getElemClass() const -> ClassPtr = 0;
+  virtual auto getElemType() const -> std::type_index = 0;
+
+  virtual auto getSize(void* instance) const -> size_t = 0;
+
+  virtual void setSize(void* instance, size_t size) const = 0;
+
+  virtual void swapElems(void* instance, size_t aIdx, size_t bIdx) const = 0;
+
+  virtual void getValueAtIndex(
+      void* instance, size_t index, std::type_index expected, void* out)
+      const = 0;
+
+  virtual void setValueAtIndex(
+      void* instance, size_t index, std::type_index expected, void const* in)
+      const = 0;
+
+  virtual auto valueAtIndexPtr(void* instance, size_t index) const -> void* = 0;
+  template <class T>
+  T getValueAtIndex(void* instance, size_t index) const {
+    T val;
+    getValueAtIndex(instance, index, typeid(T), &val);
+    return val;
+  }
+
+  template <class T>
+  void setValueAtIndex(void* instance, size_t index, T const& val) {
+    setValueAtIndex(instance, index, typeid(T), &val);
+  }
+};
+
+namespace detail {
+template <class C, class T>
+class TMemberField : public Field {
+ public:
+  TMemberField(std::string name, T C::* ptr)
+      : Field(std::move(name), typeid(T)), ptr_(ptr) {}
+
+  void getValue(
+      void* instance, std::type_index expected, void* out) const override {
+    if (expected != this->type()) {
+      throw std::runtime_error("Expected was not the correct type");
+    }
+
+    auto cp = reinterpret_cast<C const*>(instance);
+    auto tp = reinterpret_cast<T*>(out);
+    *tp = cp->*ptr_;
+  }
+
+  void setValue(
+      void* instance, std::type_index expected, void const* in) const override {
+    if (expected != this->type()) {
+      throw std::runtime_error("Expected was not the correct type");
+    }
+
+    auto cp = reinterpret_cast<C*>(instance);
+    auto tp = reinterpret_cast<T const*>(in);
+    cp->*ptr_ = *tp;
+  }
+
+  auto valuePtr(void* instance) const -> void* override {
+    auto cp = reinterpret_cast<C*>(instance);
+    return &(cp->*ptr_);
+  }
+
+ protected:
+  T C::* ptr_;
 };
 
 template <class T>
-struct TSyntheticArrayField : SyntheticArrayField {
-  TSyntheticArrayField() : SyntheticArrayField("__array_item__", typeid(T)) {}
+class TField;
 
-  void setValue(
-      void* instance, std::type_index srcType, void const* srcValue) override {
-    assert(instance);
-    assert(srcType == type());
-
-    auto cp = static_cast<std::vector<T>*>(instance);
-    auto fp = static_cast<T const*>(srcValue);
-    (*cp)[index_] = *fp;
-  }
-
-  auto getValue(void* instance, std::type_index expected) const
-      -> void* override {
-    assert(instance);
-    assert(expected == type());
-
-    auto cp = static_cast<std::vector<T>*>(instance);
-    return &(*cp)[index_];
-  }
-
-  auto getArrayAdapter() const -> FieldArrayAdapterPtr override {
-    return nullptr;
-  }
-};
-
-struct FieldArrayAdapter {
-  virtual auto size(void* instance) const -> size_t = 0;
-  virtual auto item(void* instance, size_t idx) const -> void* = 0;
-  virtual void resize(void* instance, size_t newSize) const = 0;
-  virtual auto getSyntheticField() const
-      -> std::shared_ptr<SyntheticArrayField> = 0;
-  virtual auto type() const -> std::type_index = 0;
-};
-
-template <class TElem>
-struct TFieldArrayAdapter : FieldArrayAdapter {
-  auto size(void* instance) const -> size_t override {
-    auto pA = reinterpret_cast<std::vector<TElem>*>(instance);
-    return pA->size();
-  }
-
-  auto item(void* instance, size_t idx) const -> void* override {
-    auto pA = reinterpret_cast<std::vector<TElem>*>(instance);
-    return &pA[idx];
-  }
-
-  void resize(void* instance, size_t newSize) const override {
-    auto pA = reinterpret_cast<std::vector<TElem>*>(instance);
-    pA->resize(newSize);
-  }
-
-  auto type() const -> std::type_index override { return typeid(TElem); }
-
-  auto getSyntheticField() const
-      -> std::shared_ptr<SyntheticArrayField> override {
-    return std::make_shared<TSyntheticArrayField<TElem>>();
-  }
-};
-
-// Specialization for arrays
 template <class C, class T>
-class TypedField<C, std::vector<T>> : public Field {
+class TField<T C::*> : public TMemberField<C, T> {
  public:
-  using FieldType = std::vector<T>;
-  using FieldPtr = FieldType C::*;
+  using TMemberField<C, T>::TMemberField;
+};
 
-  TypedField(std::string name, FieldPtr field)
-      : Field(std::move(name), typeid(FieldType)),
-        field_(field),
-        adapter_(std::make_shared<TFieldArrayAdapter<T>>()) {}
+template <class C, class T>
+class TField<std::vector<T> C::*>
+    : public TMemberField<C, std::vector<T>>, public IArrayField {
+ public:
+  using TMemberField<C, std::vector<T>>::TMemberField;
 
-  void setValue(
-      void* instance, std::type_index srcType, void const* srcValue) override {
-    assert(instance);
-    assert(srcType == type());
-    auto cp = static_cast<C*>(instance);
-    auto fp = static_cast<FieldType const*>(srcValue);
-    (cp->*field_) = *fp;
+  auto asArray() const -> ArrayFieldPtr override { return this; }
+
+  auto getElemClass() const -> ClassPtr override;
+
+  auto getElemType() const -> std::type_index override { return typeid(T); }
+
+  auto getSize(void* instance) const -> size_t override {
+    auto vp = reinterpret_cast<std::vector<T> const*>(this->valuePtr(instance));
+    return vp->size();
   }
 
-  auto getValue(void* instance, std::type_index expected) const
-      -> void* override {
-    assert(instance);
-    assert(expected == type());
-    auto cp = static_cast<C*>(instance);
-    return &(cp->*field_);
+  void setSize(void* instance, size_t size) const override {
+    auto vp = reinterpret_cast<std::vector<T>*>(this->valuePtr(instance));
+    vp->resize(size);
   }
 
-  auto getArrayAdapter() const -> FieldArrayAdapterPtr override {
-    return adapter_;
+  void swapElems(void* instance, size_t aIdx, size_t bIdx) const override {
+    auto vp = reinterpret_cast<std::vector<T>*>(this->valuePtr(instance));
+    std::swap(vp->at(aIdx), vp->at(bIdx));
+  }
+
+  void getValueAtIndex(
+      void* instance, size_t index, std::type_index expected, void* out)
+      const override {
+    if (expected != typeid(T)) {
+      throw std::runtime_error("Array expected was not the correct type");
+    }
+    auto vp = reinterpret_cast<std::vector<T> const*>(this->valuePtr(instance));
+    auto tp = reinterpret_cast<T*>(out);
+    *tp = vp->at(index);
+  }
+
+  void setValueAtIndex(
+      void* instance, size_t index, std::type_index expected, void const* in)
+      const override {
+    if (expected != typeid(T)) {
+      throw std::runtime_error("Array expected was not the correct type");
+    }
+    auto vp = reinterpret_cast<std::vector<T>*>(this->valuePtr(instance));
+    auto tp = reinterpret_cast<T const*>(in);
+    vp->at(index) = *tp;
+  }
+
+  auto valueAtIndexPtr(void* instance, size_t index) const -> void* override {
+    auto vp = reinterpret_cast<std::vector<T>*>(this->valuePtr(instance));
+    return &vp->at(index);
+  }
+};
+
+template <class T>
+class TClassBuilder {
+ public:
+  TClassBuilder(std::string name) : name_(std::move(name)) {}
+
+  ~TClassBuilder();
+
+  template <class F>
+  auto field(F f, std::string name) -> TClassBuilder& {
+    fields_.push_back(std::make_unique<TField<F>>(std::move(name), f));
+    return *this;
   }
 
  private:
-  FieldPtr field_;
-  FieldArrayAdapterPtr adapter_;
+  std::string name_;
+  std::vector<std::unique_ptr<Field>> fields_;
 };
 
-template <class C, class F>
-auto Class::field(F C::*m, std::string name) -> Class& {
-  fields_.push_back(std::make_shared<TypedField<C, F>>(name, m));
-  nameToField_.emplace(std::move(name), fields_.back());
-  return *this;
+} // namespace detail
+
+class Reflection {
+ public:
+  static auto class_(std::string const& name) -> ClassPtr;
+  static auto class_(std::type_index type) -> ClassPtr;
+
+ private:
+  template <class T>
+  friend class detail::TClassBuilder;
+
+  friend struct Register;
+
+  static std::unordered_map<std::string, ClassPtr>& nameToClass();
+  static std::unordered_map<std::type_index, ClassPtr>& typeToClass();
+};
+
+struct Register {
+  template <class T>
+  static auto class_(std::string name) -> detail::TClassBuilder<T> {
+    return detail::TClassBuilder<T>(std::move(name));
+  }
+};
+
+namespace detail {
+template <class C, class T>
+auto TField<std::vector<T> C::*>::getElemClass() const -> ClassPtr {
+  return Reflection::class_(typeid(T));
 }
+
+template <class T>
+TClassBuilder<T>::~TClassBuilder() {
+  if (name_.empty()) {
+    return;
+  }
+
+  auto cp = new Class(std::move(name_), typeid(T), std::move(fields_));
+
+  Reflection::nameToClass().emplace(cp->name(), cp);
+  Reflection::typeToClass().emplace(typeid(T), cp);
+}
+} // namespace detail
 } // namespace ewok
 
 static void ewok_auto_register_reflection_function_();

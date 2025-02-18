@@ -14,7 +14,7 @@
 
 EWOK_REGISTRATION {
   using namespace ewok;
-  Reflection::class_<GameObject>("GameObject")
+  Register::class_<GameObject>("GameObject")
       .field(&GameObject::name_, "name")
       .field(&GameObject::pendingActive_, "active")
       .field(&GameObject::transform_, "transform");

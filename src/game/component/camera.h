@@ -26,7 +26,7 @@ class Camera : public Component<Camera> {
   void setTarget(GameObjectPtr target) { target_ = std::move(target); }
 
  private:
-  EWOK_REFLECTION_DECL;
+  EWOK_REFLECTION_DECL
 
   friend class CameraEditor;
   std::string name_;
@@ -42,5 +42,7 @@ class Camera : public Component<Camera> {
   std::vector<float> floats_;
 
   std::vector<Vec3> vecs_;
+
+  Transform t_;
 };
 } // namespace ewok

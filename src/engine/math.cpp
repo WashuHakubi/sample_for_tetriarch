@@ -14,7 +14,7 @@
 EWOK_REGISTRATION {
   using namespace ewok;
 
-  Reflection::class_<Transform>("Transform")
+  Register::class_<Transform>("Transform")
       .field(&Transform::position, "position")
       .field(&Transform::rotation, "rotation")
       .field(&Transform::scale, "scale");

@@ -293,9 +293,9 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char* argv[]) {
   PositionColorVertex* transferData = reinterpret_cast<PositionColorVertex*>(
       SDL_MapGPUTransferBuffer(gpuDevice, transferBuffer, false));
 
-  transferData[0] = PositionColorVertex{-1, -1, 0, 255, 0, 0, 255};
-  transferData[1] = PositionColorVertex{1, -1, 0, 0, 255, 0, 255};
-  transferData[2] = PositionColorVertex{0, 1, 0, 0, 0, 255, 255};
+  transferData[0] = PositionColorVertex{{-1, -1, 0}, {255, 0, 0, 255}};
+  transferData[1] = PositionColorVertex{{1, -1, 0}, {0, 255, 0, 255}};
+  transferData[2] = PositionColorVertex{{0, 1, 0}, {0, 0, 255, 255}};
 
   SDL_UnmapGPUTransferBuffer(gpuDevice, transferBuffer);
 
@@ -407,8 +407,6 @@ void drawTriangle(
     AppState* app,
     SDL_GPUTexture* swapChainTexture,
     SDL_GPUCommandBuffer* cmdbuf) {
-  SDL_GPUColorTargetInfo colorTargetInfo = {0};
-
   SDL_GPUColorTargetInfo target_info = {};
   target_info.texture = swapChainTexture;
   target_info.clear_color = SDL_FColor{0, 0, 0, 0};
