@@ -12,6 +12,12 @@
 #include "engine/reflection/reflection.h"
 
 namespace ewok {
+enum class CameraType {
+  FirstPerson,
+  ThirdPerson,
+  Free,
+};
+
 // Fake camera, not a real one, just showing off some component stuff.
 class Camera : public Component<Camera> {
  public:
@@ -44,5 +50,7 @@ class Camera : public Component<Camera> {
   std::vector<Vec3> vecs_;
 
   Transform t_;
+
+  CameraType cameraType_;
 };
 } // namespace ewok

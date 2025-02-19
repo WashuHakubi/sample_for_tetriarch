@@ -20,7 +20,13 @@ EWOK_REGISTRATION {
       .field(&Camera::u64_, "u64")
       .field(&Camera::floats_, "floats")
       .field(&Camera::vecs_, "vecs")
-      .field(&Camera::t_, "t");
+      .field(&Camera::t_, "t")
+      .field(&Camera::cameraType_, "cameraType_");
+
+  Register::enum_<CameraType>("CameraType")
+      .value(CameraType::FirstPerson, "FirstPerson")
+      .value(CameraType::ThirdPerson, "ThirdPerson")
+      .value(CameraType::Free, "Free");
 }
 
 namespace ewok {

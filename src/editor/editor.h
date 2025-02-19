@@ -31,6 +31,7 @@ class FieldWrapper {
  public:
   FieldWrapper(FieldPtr field) : field_(field) {}
 
+  virtual auto type() const -> std::type_index { return field_->type(); }
   virtual auto name() const -> std::string { return field_->name(); }
 
   virtual auto valuePtr(void* instance) const -> void* {
@@ -45,6 +46,8 @@ class ArrayFieldWrapper : public FieldWrapper {
  public:
   ArrayFieldWrapper(FieldPtr field, ArrayFieldPtr ptr, size_t index)
       : FieldWrapper(field), ptr_(ptr), index_(index) {}
+
+  auto type() const -> std::type_index override { return ptr_->getElemType(); }
 
   auto name() const -> std::string override {
     return std::format("{}", index_);

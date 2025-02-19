@@ -20,8 +20,13 @@
 namespace ewok {
 class Class;
 using ClassPtr = Class const*;
+
 class Field;
 using FieldPtr = Field const*;
+
+class Enum;
+using EnumPtr = Enum const*;
+
 struct IArrayField;
 using ArrayFieldPtr = IArrayField const*;
 
@@ -136,6 +141,37 @@ struct IArrayField {
   }
 };
 
+class Enum : public MemberInfo {
+ public:
+  using MemberInfo::name;
+
+  Enum(
+      std::string name,
+      std::type_index type,
+      std::vector<std::pair<size_t, std::string>> valueNames);
+
+  virtual auto name(void* ptr, std::type_index expected) const
+      -> std::optional<std::string> = 0;
+
+  virtual auto value(void* ptr, std::type_index expected) const
+      -> std::optional<size_t> = 0;
+
+  auto name(size_t val) const -> std::optional<std::string>;
+
+  auto value(std::string const& name) const -> std::optional<size_t>;
+
+  auto values() const -> std::span<std::pair<size_t, std::string> const> {
+    return valueNames_;
+  }
+
+  virtual void setValue(void* fieldPtr, size_t value) const = 0;
+
+ private:
+  std::vector<std::pair<size_t, std::string>> valueNames_;
+  std::unordered_map<size_t, std::string> valueToName_;
+  std::unordered_map<std::string, size_t> nameToValue_;
+};
+
 namespace detail {
 template <class C, class T>
 class TMemberField : public Field {
@@ -239,6 +275,37 @@ class TField<std::vector<T> C::*>
 };
 
 template <class T>
+class TEnum : public Enum {
+ public:
+  using Enum::Enum;
+  using Enum::name;
+
+  auto name(void* ptr, std::type_index expected) const
+      -> std::optional<std::string> override {
+    if (typeid(T) != expected) {
+      return std::nullopt;
+    }
+
+    size_t val = static_cast<size_t>(*static_cast<T*>(ptr));
+    return name(val);
+  }
+
+  auto value(void* ptr, std::type_index expected) const
+      -> std::optional<size_t> override {
+    if (typeid(T) != expected) {
+      return std::nullopt;
+    }
+
+    size_t val = static_cast<size_t>(*static_cast<T*>(ptr));
+    return val;
+  }
+
+  void setValue(void* fieldPtr, size_t value) const override {
+    *static_cast<T*>(fieldPtr) = static_cast<T>(value);
+  }
+};
+
+template <class T>
 class TClassBuilder {
  public:
   TClassBuilder(std::string name) : name_(std::move(name)) {}
@@ -256,6 +323,23 @@ class TClassBuilder {
   std::vector<std::unique_ptr<Field>> fields_;
 };
 
+template <class T>
+class TEnumBuilder {
+ public:
+  TEnumBuilder(std::string name) : name_(std::move(name)) {}
+
+  ~TEnumBuilder();
+
+  auto value(T val, std::string name) -> TEnumBuilder& {
+    valueNames_.push_back(
+        std::make_pair(static_cast<size_t>(val), std::move(name)));
+    return *this;
+  }
+
+ private:
+  std::string name_;
+  std::vector<std::pair<size_t, std::string>> valueNames_;
+};
 } // namespace detail
 
 class Reflection {
@@ -263,20 +347,34 @@ class Reflection {
   static auto class_(std::string const& name) -> ClassPtr;
   static auto class_(std::type_index type) -> ClassPtr;
 
+  static auto enum_(std::string const& name) -> EnumPtr;
+  static auto enum_(std::type_index type) -> EnumPtr;
+
  private:
   template <class T>
   friend class detail::TClassBuilder;
+
+  template <class T>
+  friend class detail::TEnumBuilder;
 
   friend struct Register;
 
   static std::unordered_map<std::string, ClassPtr>& nameToClass();
   static std::unordered_map<std::type_index, ClassPtr>& typeToClass();
+
+  static std::unordered_map<std::string, EnumPtr>& nameToEnum();
+  static std::unordered_map<std::type_index, EnumPtr>& typeToEnum();
 };
 
 struct Register {
   template <class T>
   static auto class_(std::string name) -> detail::TClassBuilder<T> {
     return detail::TClassBuilder<T>(std::move(name));
+  }
+
+  template <class T>
+  static auto enum_(std::string name) -> detail::TEnumBuilder<T> {
+    return detail::TEnumBuilder<T>(std::move(name));
   }
 };
 
@@ -296,6 +394,19 @@ TClassBuilder<T>::~TClassBuilder() {
 
   Reflection::nameToClass().emplace(cp->name(), cp);
   Reflection::typeToClass().emplace(typeid(T), cp);
+}
+
+template <class T>
+TEnumBuilder<T>::~TEnumBuilder() {
+  if (name_.empty()) {
+    return;
+  }
+
+  auto cp =
+      new detail::TEnum<T>(std::move(name_), typeid(T), std::move(valueNames_));
+
+  Reflection::nameToEnum().emplace(cp->name(), cp);
+  Reflection::typeToEnum().emplace(typeid(T), cp);
 }
 } // namespace detail
 } // namespace ewok

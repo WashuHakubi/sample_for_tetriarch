@@ -16,7 +16,17 @@ std::unordered_map<std::string, ClassPtr>& Reflection::nameToClass() {
 std::unordered_map<std::type_index, ClassPtr>& Reflection::typeToClass() {
   static std::unordered_map<std::type_index, ClassPtr> typeToClass_;
   return typeToClass_;
-};
+}
+
+std::unordered_map<std::string, EnumPtr>& Reflection::nameToEnum() {
+  static std::unordered_map<std::string, EnumPtr> nameToEnum_;
+  return nameToEnum_;
+}
+
+std::unordered_map<std::type_index, EnumPtr>& Reflection::typeToEnum() {
+  static std::unordered_map<std::type_index, EnumPtr> typeToEnum_;
+  return typeToEnum_;
+}
 
 auto Reflection::class_(std::string const& name) -> ClassPtr {
   auto it = nameToClass().find(name);
@@ -25,6 +35,15 @@ auto Reflection::class_(std::string const& name) -> ClassPtr {
 auto Reflection::class_(std::type_index type) -> ClassPtr {
   auto it = typeToClass().find(type);
   return it == typeToClass().end() ? nullptr : it->second;
+}
+
+auto Reflection::enum_(std::string const& name) -> EnumPtr {
+  auto it = nameToEnum().find(name);
+  return it == nameToEnum().end() ? nullptr : it->second;
+}
+auto Reflection::enum_(std::type_index type) -> EnumPtr {
+  auto it = typeToEnum().find(type);
+  return it == typeToEnum().end() ? nullptr : it->second;
 }
 
 Class::Class(
@@ -46,5 +65,30 @@ Class::~Class() {
   for (auto&& f : fields_) {
     delete f;
   }
+}
+
+Enum::Enum(
+    std::string name,
+    std::type_index type,
+    std::vector<std::pair<size_t, std::string>> valueNames)
+    : MemberInfo(std::move(name), type), valueNames_(std::move(valueNames)) {
+  for (auto&& [value, name] : valueNames_) {
+    valueToName_.emplace(value, name);
+    nameToValue_.emplace(name, value);
+  }
+}
+
+auto Enum::name(size_t val) const -> std::optional<std::string> {
+  if (auto it = valueToName_.find(val); it != valueToName_.end()) {
+    return it->second;
+  }
+  return std::nullopt;
+}
+
+auto Enum::value(std::string const& name) const -> std::optional<size_t> {
+  if (auto it = nameToValue_.find(name); it != nameToValue_.end()) {
+    return it->second;
+  }
+  return std::nullopt;
 }
 } // namespace ewok

@@ -181,13 +181,22 @@ class GameObjectHandlePropertyDrawer
 
 class EnumPropertyDrawer : public PropertyDrawer {
   void onDraw(FieldWrapper const& field, void* instance) override {
-    // auto enumType = Reflection::getEnum(field->type());
-    // assert(enumType);
+    auto enumType = Reflection::enum_(field.type());
+    assert(enumType);
 
-    // auto v = enumType->getValue(field, instance);
-    // enumType->val auto id = std::format("##{}", field->name());
-    // if (ImGui::BeginCombo(id.c_str(), initial.c_str())) {
-    //}
+    auto v = enumType->name(field.valuePtr(instance), field.type());
+    std::string initial = v.value_or("");
+
+    auto id = std::format("##{}", field.name());
+    if (ImGui::BeginCombo(id.c_str(), initial.c_str())) {
+      auto vals = enumType->values();
+      for (auto&& [val, name] : vals) {
+        if (ImGui::Selectable(name.c_str(), name == initial)) {
+          enumType->setValue(field.valuePtr(instance), val);
+        }
+      }
+      ImGui::EndCombo();
+    }
   }
 };
 
@@ -257,7 +266,16 @@ auto PropertyDrawer::getDrawer(std::type_index type) -> PropertyDrawerPtr {
 
   auto it = s_drawerFactories_->find(type);
   if (it == s_drawerFactories_->end()) {
-    return nullptr;
+    auto enumType = Reflection::enum_(type);
+    if (enumType) {
+      // Check if it's an enumeration. If it is register a drawer for it
+      it = s_drawerFactories_
+               ->emplace(type, std::make_shared<EnumPropertyDrawer>())
+               .first;
+    } else {
+      // Otherwise we don't know what this is, so ignore it.
+      return nullptr;
+    }
   }
 
   return it->second;

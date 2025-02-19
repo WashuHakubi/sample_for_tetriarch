@@ -10,23 +10,23 @@
 EWOK_REGISTRATION {
   using namespace ewok;
 
-  //   Register::enum_<DamageType>("DamageType")
-  //       .value(DamageType::None, "None")
-  //       .value(DamageType::Air, "Air")
-  //       .value(DamageType::Earth, "Earth")
-  //       .value(DamageType::Fire, "Fire")
-  //       .value(DamageType::Water, "Water");
+  Register::enum_<DamageType>("DamageType")
+      .value(DamageType::None, "None")
+      .value(DamageType::Air, "Air")
+      .value(DamageType::Earth, "Earth")
+      .value(DamageType::Fire, "Fire")
+      .value(DamageType::Water, "Water");
 
-  //   Register::enum_<ActionType>("ActionType")
-  //       .value(ActionType::Aoe, "Aoe")
-  //       .value(ActionType::Projectile, "Projectile")
-  //       .value(ActionType::PiercingProjectile, "PiercingProjectile")
-  //       .value(ActionType::Target, "Target");
+  Register::enum_<ActionType>("ActionType")
+      .value(ActionType::Aoe, "Aoe")
+      .value(ActionType::Projectile, "Projectile")
+      .value(ActionType::PiercingProjectile, "PiercingProjectile")
+      .value(ActionType::Target, "Target");
 
-  //   Register::enum_<SpellOnHitEffect>("SpellOnHitEffect")
-  //       .value(SpellOnHitEffect::Damage, "Damage")
-  //       .value(SpellOnHitEffect::Dot, "Dot")
-  //       .value(SpellOnHitEffect::Heal, "Heal");
+  Register::enum_<SpellOnHitEffect>("SpellOnHitEffect")
+      .value(SpellOnHitEffect::Damage, "Damage")
+      .value(SpellOnHitEffect::Dot, "Dot")
+      .value(SpellOnHitEffect::Heal, "Heal");
 
   Register::class_<SpellActionOnHit>("SpellActionOnHit")
       .field(&SpellActionOnHit::type, "type")
