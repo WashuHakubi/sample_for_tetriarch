@@ -86,7 +86,6 @@ class Loader {
     if (objectNode.has_child("objects")) {
       for (auto&& objNode : objectNode["objects"]) {
         if (objNode.has_child("scene")) {
-          std::string name;
           objNode["name"] >> name;
 
           // For scene nodes we ignore all other properties and child objects

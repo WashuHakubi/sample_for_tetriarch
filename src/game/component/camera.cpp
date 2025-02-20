@@ -39,7 +39,7 @@ void Camera::attach() {
   std::cout << std::endl;
 
   for (auto i = 0; i < 10; ++i) {
-    floats_.push_back(i);
+    floats_.push_back(static_cast<float>(i));
     if (i % 2) {
       vecs_.push_back({i + 0.f, i + 1.f, i - 1.f});
     }

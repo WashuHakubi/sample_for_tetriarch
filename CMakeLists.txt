@@ -77,7 +77,7 @@ target_include_directories(test PRIVATE ${PROJECT_SOURCE_DIR}/src)
 target_compile_definitions(test PUBLIC SDL_MAIN_USE_CALLBACKS)
 
 if(MSVC)
-  target_compile_options(test PRIVATE /W4 /WX)
+  target_compile_options(test PRIVATE /W4 /WX /wd4100 /wd4996)
 else()
   target_compile_options(test PRIVATE -Wall -Wextra -Werror  -Wno-unused-parameter -Wno-unused-function -Wno-unused-private-field)
 endif()

@@ -72,9 +72,9 @@ Enum::Enum(
     std::type_index type,
     std::vector<std::pair<size_t, std::string>> valueNames)
     : MemberInfo(std::move(name), type), valueNames_(std::move(valueNames)) {
-  for (auto&& [value, name] : valueNames_) {
-    valueToName_.emplace(value, name);
-    nameToValue_.emplace(name, value);
+  for (auto&& [value, valueName] : valueNames_) {
+    valueToName_.emplace(value, valueName);
+    nameToValue_.emplace(valueName, value);
   }
 }
 

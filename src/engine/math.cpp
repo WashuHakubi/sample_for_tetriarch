@@ -26,12 +26,12 @@ Quat fromEuler(Vec3 const& eulerAngles) {
   auto pitch = eulerAngles.v[1];
   auto yaw = eulerAngles.v[2];
 
-  double cr = cos(roll * 0.5);
-  double sr = sin(roll * 0.5);
-  double cp = cos(pitch * 0.5);
-  double sp = sin(pitch * 0.5);
-  double cy = cos(yaw * 0.5);
-  double sy = sin(yaw * 0.5);
+  auto cr = cosf(roll * 0.5f);
+  auto sr = sinf(roll * 0.5f);
+  auto cp = cosf(pitch * 0.5f);
+  auto sp = sinf(pitch * 0.5f);
+  auto cy = cosf(yaw * 0.5f);
+  auto sy = sinf(yaw * 0.5f);
 
   Quat q;
   q.w = cr * cp * cy + sr * sp * sy;
@@ -43,13 +43,13 @@ Quat fromEuler(Vec3 const& eulerAngles) {
 }
 
 Vec3 toEuler(Quat const& q) {
-  const float xx = q.x;
-  const float yy = q.y;
-  const float zz = q.z;
-  const float ww = q.w;
-  const float xsq = xx * xx;
-  const float ysq = yy * yy;
-  const float zsq = zz * zz;
+  const auto xx = q.x;
+  const auto yy = q.y;
+  const auto zz = q.z;
+  const auto ww = q.w;
+  const auto xsq = xx * xx;
+  const auto ysq = yy * yy;
+  const auto zsq = zz * zz;
 
   return {
       std::atan2(2.0f * (xx * ww - yy * zz), 1.0f - 2.0f * (xsq + zsq)),
