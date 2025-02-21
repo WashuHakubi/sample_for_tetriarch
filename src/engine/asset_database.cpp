@@ -5,13 +5,12 @@
  *  file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
  */
 #include "engine/asset_database.h"
-#include "engine/i_component_parser.h"
 #include "engine/i_file_provider.h"
 
 namespace ewok {
 auto AssetDatabase::loadAssetAsync(
-    std::type_index assetType, std::string const& name)
-    -> concurrencpp::result<IAssetPtr> {
+    std::type_index assetType,
+    std::string const& name) -> concurrencpp::result<IAssetPtr> {
   co_await concurrencpp::resume_on(executor_);
 
   if (auto assetIt = weakAssets_.find(name); assetIt != weakAssets_.end()) {
@@ -61,20 +60,4 @@ auto AssetDatabase::registerAssetLoader(
   }
 }
 
-auto AssetDatabase::getComponentParser(std::string const& name) const
-    -> IComponentParserPtr {
-  auto parserIt = componentParsers_.find(name);
-  if (parserIt == componentParsers_.end()) {
-    return nullptr;
-  }
-
-  return parserIt->second;
-}
-
-void AssetDatabase::registerComponentParser(IComponentParserPtr ptr) {
-  auto const& name = ptr->name();
-  if (!componentParsers_.emplace(name, std::move(ptr)).second) {
-    throw std::runtime_error("Component parser already eixsts with that name.");
-  }
-}
 } // namespace ewok

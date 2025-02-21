@@ -23,16 +23,8 @@ EWOK_REGISTRATION {
       .value(ActionType::PiercingProjectile, "PiercingProjectile")
       .value(ActionType::Target, "Target");
 
-  Register::enum_<SpellOnHitEffect>("SpellOnHitEffect")
-      .value(SpellOnHitEffect::Damage, "Damage")
-      .value(SpellOnHitEffect::Dot, "Dot")
-      .value(SpellOnHitEffect::Heal, "Heal");
-
   Register::class_<SpellActionOnHit>("SpellActionOnHit")
-      .field(&SpellActionOnHit::type, "type")
-      .field(&SpellActionOnHit::effect, "effect")
-      .field(&SpellActionOnHit::damageRange, "damageRange")
-      .field(&SpellActionOnHit::duration, "duration");
+      .field(&SpellActionOnHit::damage, "damage");
 
   Register::class_<SpellAction>("SpellAction")
       .field(&SpellAction::type, "type")

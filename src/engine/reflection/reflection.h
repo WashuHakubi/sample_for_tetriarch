@@ -66,6 +66,10 @@ class Class : public MemberInfo {
 
   ~Class() override;
 
+  /// @brief Attempts to default construct an instance of the type. Returns
+  /// nullptr if the type is not default constructible.
+  virtual auto create() const -> std::shared_ptr<void> { return nullptr; }
+
   auto fields() const -> std::span<FieldPtr const> { return fields_; }
 
   auto field(std::string const& name) const -> FieldPtr {
@@ -176,7 +180,7 @@ namespace detail {
 template <class C, class T>
 class TMemberField : public Field {
  public:
-  TMemberField(std::string name, T C::* ptr)
+  TMemberField(std::string name, T C::*ptr)
       : Field(std::move(name), typeid(T)), ptr_(ptr) {}
 
   void getValue(
@@ -207,21 +211,22 @@ class TMemberField : public Field {
   }
 
  protected:
-  T C::* ptr_;
+  T C::*ptr_;
 };
 
 template <class T>
 class TField;
 
 template <class C, class T>
-class TField<T C::*> : public TMemberField<C, T> {
+class TField<T C::*> final : public TMemberField<C, T> {
  public:
   using TMemberField<C, T>::TMemberField;
 };
 
 template <class C, class T>
-class TField<std::vector<T> C::*>
-    : public TMemberField<C, std::vector<T>>, public IArrayField {
+class TField<std::vector<T> C::*> final
+    : public TMemberField<C, std::vector<T>>,
+      public IArrayField {
  public:
   using TMemberField<C, std::vector<T>>::TMemberField;
 
@@ -275,7 +280,21 @@ class TField<std::vector<T> C::*>
 };
 
 template <class T>
-class TEnum : public Enum {
+class TClass final : public Class {
+ public:
+  using Class::Class;
+
+  auto create() const -> std::shared_ptr<void> override {
+    if constexpr (std::is_default_constructible_v<T>) {
+      return std::make_shared<T>();
+    } else {
+      return nullptr;
+    }
+  }
+};
+
+template <class T>
+class TEnum final : public Enum {
  public:
   using Enum::Enum;
   using Enum::name;
@@ -306,7 +325,7 @@ class TEnum : public Enum {
 };
 
 template <class T>
-class TClassBuilder {
+class TClassBuilder final {
  public:
   TClassBuilder(std::string name) : name_(std::move(name)) {}
 
@@ -324,7 +343,7 @@ class TClassBuilder {
 };
 
 template <class T>
-class TEnumBuilder {
+class TEnumBuilder final {
  public:
   TEnumBuilder(std::string name) : name_(std::move(name)) {}
 
@@ -390,7 +409,8 @@ TClassBuilder<T>::~TClassBuilder() {
     return;
   }
 
-  auto cp = new Class(std::move(name_), typeid(T), std::move(fields_));
+  auto cp =
+      new detail::TClass<T>(std::move(name_), typeid(T), std::move(fields_));
 
   Reflection::nameToClass().emplace(cp->name(), cp);
   Reflection::typeToClass().emplace(typeid(T), cp);

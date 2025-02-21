@@ -12,7 +12,7 @@ objects:
     # A list of components on this game object.
     components:
         # This should match the string we registered in AssetLoader
-      - type: ewok::Camera
+      - type: Camera
         # A property on the camera... the parser should read this
         name: my camera
         # Target is the GUID of the game object
@@ -25,14 +25,14 @@ objects:
   - id: 424B8FD8-9488-4A5B-839E-760EBBEC5150
     name: i load another scene
     components:
-      - type: ewok::Prefab
+      - type: Prefab
         prefab: empty.yaml
         loadOnAttach: true
 
   - id: B9EFD733-9492-4C38-815C-87572F671E92
     name: i could load another scene
     components:
-      - type: ewok::Prefab
+      - type: Prefab
         prefab: empty.yaml
 
   # Another game object
@@ -47,7 +47,7 @@ objects:
         name: gameo objecto 2
         active: false
         components:
-          - type: ewok::Camera
+          - type: Camera
             name: thingy!
             # Circular reference using weak pointers is safe
             target: 15F84332-2BB4-4DCF-A7C9-19AB2E09A3FB

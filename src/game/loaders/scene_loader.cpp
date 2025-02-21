@@ -4,16 +4,121 @@
  *  Distributed under the Boost Software License, Version 1.0. (See accompanying
  *  file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
  */
-
-#include "game/loaders/scene_loader.h"
-#include "engine/asset_database.h"
-#include "engine/i_component_parser.h"
-#include "engine/object_database.h"
-
 #include <iostream>
+
+#include "engine/asset_database.h"
+#include "engine/component.h"
+#include "engine/math.h"
+#include "engine/object_database.h"
+#include "engine/reflection/reflection.h"
+#include "game/loaders/scene_loader.h"
+
+#include <ryml.hpp>
+#include <ryml_std.hpp>
 
 namespace ewok {
 namespace {
+
+template <class T>
+void readField(
+    void* instance, FieldPtr field, ryml::ConstNodeRef componentNode) {
+  T value;
+  componentNode[field->name().c_str()] >> value;
+  field->setValue<T>(instance, value);
+}
+
+template <class T, size_t N>
+void readVector(
+    void* instance, FieldPtr field, ryml::ConstNodeRef componentNode) {
+  VectorN<T, N> vec;
+  auto node = componentNode[field->name().c_str()];
+  for (size_t i = 0; i < N; ++i) {
+    node[i] >> vec.v[i];
+  }
+  field->setValue<VectorN<T, N>>(instance, vec);
+}
+
+void readQuaternion(
+    void* instance, FieldPtr field, ryml::ConstNodeRef componentNode) {
+  Quat q;
+  auto node = componentNode[field->name().c_str()];
+  node[0] >> q.x;
+  node[1] >> q.y;
+  node[2] >> q.z;
+  node[3] >> q.w;
+  field->setValue<Quat>(instance, q);
+}
+
+void readObjectField(
+    void* instance, FieldPtr field, ryml::ConstNodeRef componentNode) {
+  std::string value;
+  componentNode[field->name().c_str()] >> value;
+  auto p = objectDatabase()->find(Guid(value));
+  field->setValue<GameObjectHandle>(instance, GameObjectHandle{p});
+}
+
+using ReadFieldMethod = void (*)(void*, FieldPtr, ryml::ConstNodeRef);
+
+void readComponentFields(
+    void* instance, std::type_index type, ryml::ConstNodeRef componentNode) {
+  static const std::unordered_map<std::type_index, ReadFieldMethod> s_readers =
+      {
+          {typeid(int8_t), readField<int8_t>},
+          {typeid(int16_t), readField<int16_t>},
+          {typeid(int32_t), readField<int32_t>},
+          {typeid(int64_t), readField<int64_t>},
+
+          {typeid(uint8_t), readField<uint8_t>},
+          {typeid(uint16_t), readField<uint16_t>},
+          {typeid(uint32_t), readField<uint32_t>},
+          {typeid(uint64_t), readField<uint64_t>},
+
+          {typeid(float), readField<float>},
+          {typeid(double), readField<double>},
+
+          {typeid(Vec2), readVector<float, 2>},
+          {typeid(Vec3), readVector<float, 3>},
+          {typeid(Vec4), readVector<float, 4>},
+
+          {typeid(Int8Vec2), readVector<int8_t, 2>},
+          {typeid(Int8Vec3), readVector<int8_t, 3>},
+          {typeid(Int8Vec4), readVector<int8_t, 4>},
+
+          {typeid(UInt8Vec2), readVector<uint8_t, 2>},
+          {typeid(UInt8Vec3), readVector<uint8_t, 3>},
+          {typeid(UInt8Vec4), readVector<uint8_t, 4>},
+
+          {typeid(Quat), readQuaternion},
+
+          {typeid(bool), readField<bool>},
+          {typeid(std::string), readField<std::string>},
+          {typeid(GameObjectHandle), readObjectField},
+
+      };
+
+  auto classPtr = Reflection::class_(type);
+  if (!classPtr) {
+    std::cerr << "Unable to read component, no reflection data exists.";
+    return;
+  }
+
+  for (auto&& field : classPtr->fields()) {
+    // Only load nodes we have fields for
+    if (componentNode.has_child(field->name().c_str())) {
+      if (auto it = s_readers.find(field->type()); it != s_readers.end()) {
+        it->second(instance, field, componentNode);
+      } else {
+        auto childNode = componentNode[field->name().c_str()];
+        if (childNode.is_map()) {
+          // Recurse into child nodes and try loading them.
+          auto childPtr = field->valuePtr(instance);
+          readComponentFields(childPtr, field->type(), childNode);
+        }
+      }
+    }
+  }
+}
+
 class Loader {
  public:
   // Recursively reads game objects from a YAML tree.
@@ -67,18 +172,23 @@ class Loader {
         std::string type;
         compNode["type"] >> type;
 
-        auto parser = assetDatabase()->getComponentParser(type);
-        if (!parser) {
+        auto classPtr = Reflection::class_(type);
+        if (!classPtr) {
           std::cerr << "Unknown component with type: " << type << std::endl;
           continue;
         }
 
-        auto comp = parser->create();
+        auto comp = std::static_pointer_cast<ComponentBase>(classPtr->create());
+        if (!comp) {
+          std::cerr << "Unable to create " << classPtr->name()
+                    << " type does not have a default constructor.";
+          continue;
+        }
         result->addComponent(comp);
 
         // Map the component to the parser and node, we'll parse the components
         // after we've created all game objects and their components
-        compToParserAndNode_.emplace(comp, std::make_pair(parser, compNode));
+        compToNode_.emplace(comp, compNode);
       }
     }
 
@@ -129,19 +239,14 @@ class Loader {
     // Parse the nodes, loading their data. We do this after creating all game
     // objects and components because a component might reference a game
     // object in the scene and we need to be able to resolve that.
-    for (auto&& compParserNode : compToParserAndNode_) {
-      auto const& [comp, pair] = compParserNode;
-      auto const& [parser, node] = pair;
-
-      parser->parse(comp, node, root);
+    for (auto&& compNode : compToNode_) {
+      auto const& [comp, node] = compNode;
+      readComponentFields(comp.get(), comp->getComponentType(), node);
     }
   }
 
  private:
-  std::unordered_map<
-      ComponentPtr,
-      std::pair<IComponentParserPtr, ryml::ConstNodeRef>>
-      compToParserAndNode_;
+  std::unordered_map<ComponentPtr, ryml::ConstNodeRef> compToNode_;
 
   size_t tmpCount_{0};
 };

@@ -18,8 +18,6 @@ class AssetDatabase : public std::enable_shared_from_this<AssetDatabase> {
       : fileProvider_(std::move(fileProvider)),
         executor_(std::move(executor)) {}
 
-  auto getComponentParser(std::string const& name) const -> IComponentParserPtr;
-
   auto loadAssetAsync(std::type_index assetType, std::string const& name)
       -> concurrencpp::result<IAssetPtr>;
 
@@ -44,8 +42,6 @@ class AssetDatabase : public std::enable_shared_from_this<AssetDatabase> {
     registerAssetLoader(typeid(TAsset), std::move(ptr));
   }
 
-  void registerComponentParser(IComponentParserPtr ptr);
-
   auto getFileProvider() const -> IFileProviderPtr const& {
     return fileProvider_;
   }
@@ -54,7 +50,6 @@ class AssetDatabase : public std::enable_shared_from_this<AssetDatabase> {
   IFileProviderPtr fileProvider_;
   std::shared_ptr<concurrencpp::manual_executor> executor_;
   std::unordered_map<std::type_index, IAssetLoaderPtr> assetLoaders_;
-  std::unordered_map<std::string, IComponentParserPtr> componentParsers_;
   std::unordered_map<std::string, std::weak_ptr<IAsset>> weakAssets_;
 };
 } // namespace ewok

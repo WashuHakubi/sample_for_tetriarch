@@ -9,6 +9,14 @@
 #include "engine/asset_database.h"
 #include "game/go/scene.h"
 
+EWOK_REGISTRATION {
+  using namespace ewok;
+
+  Register::class_<Prefab>("Prefab")
+      .field(&Prefab::loadOnAttach_, "loadOnAttach")
+      .field(&Prefab::prefabName_, "prefab");
+}
+
 namespace ewok {
 auto Prefab::attachAsync() -> concurrencpp::result<void> {
   if (loadOnAttach_) {

@@ -16,8 +16,6 @@
 
 #include "game/component/initial_scene_load_component.h"
 #include "game/loaders/scene_loader.h"
-#include "game/parsers/camera_parser.h"
-#include "game/parsers/prefab_parser.h"
 
 #include "editor/editor.h"
 
@@ -128,10 +126,6 @@ void initializeEngine(AppState* appState) {
   // Register our loaders
   registerRenderables(*assetDatabase());
   assetDatabase()->registerAssetLoader<Scene>(std::make_unique<SceneLoader>());
-
-  // And register our component parsers
-  assetDatabase()->registerComponentParser(std::make_shared<CameraParser>());
-  assetDatabase()->registerComponentParser(std::make_shared<PrefabParser>());
 
   // We're only creating this outside of the thread for the print() method.
   // Otherwise it would be in the thread.

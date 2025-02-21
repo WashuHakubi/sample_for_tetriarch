@@ -35,6 +35,8 @@ class Prefab : public AsyncComponent<Prefab> {
   void unload();
 
  private:
+  EWOK_REFLECTION_DECL
+
   friend struct PrefabParser;
   void setPrefabName(std::string value) { prefabName_ = std::move(value); }
   void setLoadOnAttach(bool value) { loadOnAttach_ = value; }
