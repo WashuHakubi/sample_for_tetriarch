@@ -28,6 +28,17 @@ std::unordered_map<std::type_index, EnumPtr>& Reflection::typeToEnum() {
   return typeToEnum_;
 }
 
+std::unordered_map<
+    std::type_index,
+    std::unordered_map<std::type_index, std::function<void*(void*)>>>&
+Reflection::casts() {
+  static std::unordered_map<
+      std::type_index,
+      std::unordered_map<std::type_index, std::function<void*(void*)>>>
+      casts_;
+  return casts_;
+}
+
 auto Reflection::class_(std::string const& name) -> ClassPtr {
   auto it = nameToClass().find(name);
   return it == nameToClass().end() ? nullptr : it->second;
@@ -49,8 +60,9 @@ auto Reflection::enum_(std::type_index type) -> EnumPtr {
 Class::Class(
     std::string name,
     std::type_index type,
-    std::vector<std::unique_ptr<Field>> fields)
-    : MemberInfo(std::move(name), type) {
+    std::vector<std::unique_ptr<Field>> fields,
+    std::vector<std::type_index> bases)
+    : MemberInfo(std::move(name), type), baseClasses_(std::move(bases)) {
   fields_.reserve(fields.size());
   nameToField_.reserve(fields.size());
 
@@ -90,5 +102,28 @@ auto Enum::value(std::string const& name) const -> std::optional<size_t> {
     return it->second;
   }
   return std::nullopt;
+}
+
+InstancePtr::InstancePtr(void* ptr, std::type_index curType)
+    : curType_(curType), ptr_(ptr) {}
+
+auto InstancePtr::cast(std::type_index type) const -> InstancePtr {
+  if (type == curType_) {
+    return *this;
+  }
+
+  auto classPtr = Reflection::class_(type);
+  if (!classPtr) {
+    throw std::bad_cast();
+  }
+
+  auto const& casts = Reflection::casts();
+  if (auto it = casts.find(curType_); it != casts.end()) {
+    if (auto castIt = it->second.find(type); castIt != it->second.end()) {
+      return {castIt->second(ptr_), type};
+    }
+  }
+
+  throw std::bad_cast();
 }
 } // namespace ewok

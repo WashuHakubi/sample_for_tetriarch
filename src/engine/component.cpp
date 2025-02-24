@@ -6,5 +6,11 @@
  */
 
 #include "engine/component.h"
+#include "engine/reflection/reflection.h"
 
+EWOK_REGISTRATION {
+  using namespace ewok;
+
+  Register::class_<ComponentBase>("Component");
+}
 namespace ewok {} // namespace ewok

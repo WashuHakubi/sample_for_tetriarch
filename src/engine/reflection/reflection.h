@@ -8,6 +8,7 @@
 
 #include <cassert>
 #include <format>
+#include <functional>
 #include <memory>
 #include <optional>
 #include <span>
@@ -34,6 +35,24 @@ namespace detail {
 template <class T>
 class TClassBuilder;
 } // namespace detail
+
+class InstancePtr {
+ public:
+  InstancePtr(void* ptr, std::type_index curType);
+
+  auto cast(std::type_index target) const -> InstancePtr;
+
+  template <class T>
+  auto as() const -> T* {
+    return reinterpret_cast<T*>(cast(typeid(T)).ptr_);
+  }
+
+  auto ptr() const -> void* { return ptr_; }
+
+ private:
+  std::type_index curType_;
+  void* ptr_;
+};
 
 class MemberInfo {
  public:
@@ -62,7 +81,8 @@ class Class : public MemberInfo {
   Class(
       std::string name,
       std::type_index type,
-      std::vector<std::unique_ptr<Field>> fields);
+      std::vector<std::unique_ptr<Field>> fields,
+      std::vector<std::type_index> bases);
 
   ~Class() override;
 
@@ -80,9 +100,14 @@ class Class : public MemberInfo {
     return nullptr;
   }
 
+  auto bases() const -> std::span<std::type_index const> {
+    return baseClasses_;
+  }
+
  private:
   std::vector<FieldPtr> fields_;
   std::unordered_map<std::string, FieldPtr> nameToField_;
+  std::vector<std::type_index> baseClasses_;
 };
 
 class Field : public MemberInfo {
@@ -90,22 +115,26 @@ class Field : public MemberInfo {
   virtual auto asArray() const -> ArrayFieldPtr { return nullptr; }
 
   virtual void getValue(
-      void* instance, std::type_index expected, void* out) const = 0;
+      InstancePtr const& instance,
+      std::type_index expected,
+      void* out) const = 0;
 
   virtual void setValue(
-      void* instance, std::type_index expected, void const* in) const = 0;
+      InstancePtr const& instance,
+      std::type_index expected,
+      void const* in) const = 0;
 
-  virtual auto valuePtr(void* instance) const -> void* = 0;
+  virtual auto valuePtr(InstancePtr const& instance) const -> InstancePtr = 0;
 
   template <class T>
-  T getValue(void* instance) const {
+  T getValue(InstancePtr const& instance) const {
     T val;
     getValue(instance, typeid(T), &val);
     return val;
   }
 
   template <class T>
-  void setValue(void* instance, T val) const {
+  void setValue(InstancePtr const& instance, T val) const {
     setValue(instance, typeid(T), &val);
   }
 
@@ -117,30 +146,38 @@ struct IArrayField {
   virtual auto getElemClass() const -> ClassPtr = 0;
   virtual auto getElemType() const -> std::type_index = 0;
 
-  virtual auto getSize(void* instance) const -> size_t = 0;
+  virtual auto getSize(InstancePtr const& instance) const -> size_t = 0;
 
-  virtual void setSize(void* instance, size_t size) const = 0;
+  virtual void setSize(InstancePtr const& instance, size_t size) const = 0;
 
-  virtual void swapElems(void* instance, size_t aIdx, size_t bIdx) const = 0;
+  virtual void swapElems(
+      InstancePtr const& instance, size_t aIdx, size_t bIdx) const = 0;
 
   virtual void getValueAtIndex(
-      void* instance, size_t index, std::type_index expected, void* out)
-      const = 0;
+      InstancePtr const& instance,
+      size_t index,
+      std::type_index expected,
+      void* out) const = 0;
 
   virtual void setValueAtIndex(
-      void* instance, size_t index, std::type_index expected, void const* in)
-      const = 0;
+      InstancePtr const& instance,
+      size_t index,
+      std::type_index expected,
+      void const* in) const = 0;
 
-  virtual auto valueAtIndexPtr(void* instance, size_t index) const -> void* = 0;
+  virtual auto valueAtIndexPtr(InstancePtr const& instance, size_t index) const
+      -> InstancePtr = 0;
+
   template <class T>
-  T getValueAtIndex(void* instance, size_t index) const {
+  T getValueAtIndex(InstancePtr const& instance, size_t index) const {
     T val;
     getValueAtIndex(instance, index, typeid(T), &val);
     return val;
   }
 
   template <class T>
-  void setValueAtIndex(void* instance, size_t index, T const& val) {
+  void setValueAtIndex(
+      InstancePtr const& instance, size_t index, T const& val) {
     setValueAtIndex(instance, index, typeid(T), &val);
   }
 };
@@ -180,38 +217,42 @@ namespace detail {
 template <class C, class T>
 class TMemberField : public Field {
  public:
-  TMemberField(std::string name, T C::*ptr)
+  TMemberField(std::string name, T C::* ptr)
       : Field(std::move(name), typeid(T)), ptr_(ptr) {}
 
   void getValue(
-      void* instance, std::type_index expected, void* out) const override {
+      InstancePtr const& instance,
+      std::type_index expected,
+      void* out) const override {
     if (expected != this->type()) {
       throw std::runtime_error("Expected was not the correct type");
     }
 
-    auto cp = reinterpret_cast<C const*>(instance);
+    auto cp = instance.as<C>();
     auto tp = reinterpret_cast<T*>(out);
     *tp = cp->*ptr_;
   }
 
   void setValue(
-      void* instance, std::type_index expected, void const* in) const override {
+      InstancePtr const& instance,
+      std::type_index expected,
+      void const* in) const override {
     if (expected != this->type()) {
       throw std::runtime_error("Expected was not the correct type");
     }
 
-    auto cp = reinterpret_cast<C*>(instance);
+    auto cp = instance.as<C>();
     auto tp = reinterpret_cast<T const*>(in);
     cp->*ptr_ = *tp;
   }
 
-  auto valuePtr(void* instance) const -> void* override {
-    auto cp = reinterpret_cast<C*>(instance);
-    return &(cp->*ptr_);
+  auto valuePtr(InstancePtr const& instance) const -> InstancePtr override {
+    auto cp = instance.as<C>();
+    return {&(cp->*ptr_), typeid(T)};
   }
 
  protected:
-  T C::*ptr_;
+  T C::* ptr_;
 };
 
 template <class T>
@@ -236,46 +277,54 @@ class TField<std::vector<T> C::*> final
 
   auto getElemType() const -> std::type_index override { return typeid(T); }
 
-  auto getSize(void* instance) const -> size_t override {
-    auto vp = reinterpret_cast<std::vector<T> const*>(this->valuePtr(instance));
+  auto getSize(InstancePtr const& instance) const -> size_t override {
+    auto vp =
+        reinterpret_cast<std::vector<T> const*>(this->valuePtr(instance).ptr());
     return vp->size();
   }
 
-  void setSize(void* instance, size_t size) const override {
-    auto vp = reinterpret_cast<std::vector<T>*>(this->valuePtr(instance));
+  void setSize(InstancePtr const& instance, size_t size) const override {
+    auto vp = reinterpret_cast<std::vector<T>*>(this->valuePtr(instance).ptr());
     vp->resize(size);
   }
 
-  void swapElems(void* instance, size_t aIdx, size_t bIdx) const override {
-    auto vp = reinterpret_cast<std::vector<T>*>(this->valuePtr(instance));
+  void swapElems(
+      InstancePtr const& instance, size_t aIdx, size_t bIdx) const override {
+    auto vp = reinterpret_cast<std::vector<T>*>(this->valuePtr(instance).ptr());
     std::swap(vp->at(aIdx), vp->at(bIdx));
   }
 
   void getValueAtIndex(
-      void* instance, size_t index, std::type_index expected, void* out)
-      const override {
+      InstancePtr const& instance,
+      size_t index,
+      std::type_index expected,
+      void* out) const override {
     if (expected != typeid(T)) {
       throw std::runtime_error("Array expected was not the correct type");
     }
-    auto vp = reinterpret_cast<std::vector<T> const*>(this->valuePtr(instance));
+    auto vp =
+        reinterpret_cast<std::vector<T> const*>(this->valuePtr(instance).ptr());
     auto tp = reinterpret_cast<T*>(out);
     *tp = vp->at(index);
   }
 
   void setValueAtIndex(
-      void* instance, size_t index, std::type_index expected, void const* in)
-      const override {
+      InstancePtr const& instance,
+      size_t index,
+      std::type_index expected,
+      void const* in) const override {
     if (expected != typeid(T)) {
       throw std::runtime_error("Array expected was not the correct type");
     }
-    auto vp = reinterpret_cast<std::vector<T>*>(this->valuePtr(instance));
+    auto vp = reinterpret_cast<std::vector<T>*>(this->valuePtr(instance).ptr());
     auto tp = reinterpret_cast<T const*>(in);
     vp->at(index) = *tp;
   }
 
-  auto valueAtIndexPtr(void* instance, size_t index) const -> void* override {
-    auto vp = reinterpret_cast<std::vector<T>*>(this->valuePtr(instance));
-    return &vp->at(index);
+  auto valueAtIndexPtr(InstancePtr const& instance, size_t index) const
+      -> InstancePtr override {
+    auto vp = reinterpret_cast<std::vector<T>*>(this->valuePtr(instance).ptr());
+    return {&vp->at(index), typeid(T)};
   }
 };
 
@@ -337,9 +386,34 @@ class TClassBuilder final {
     return *this;
   }
 
+  template <class B>
+    requires(std::is_base_of_v<B, T>)
+  auto addBaseClass() -> TClassBuilder& {
+    // Add a method to cast from T to B
+    auto p = casts_.emplace(
+        typeid(B),
+        std::make_pair(
+            [](void* ptr) -> void* {
+              return static_cast<B*>(reinterpret_cast<T*>(ptr));
+            },
+            [](void* ptr) -> void* {
+              return dynamic_cast<T*>(reinterpret_cast<B*>(ptr));
+            }));
+
+    if (!p.second) {
+      throw std::runtime_error("Base already registered");
+    }
+
+    return *this;
+  }
+
  private:
   std::string name_;
   std::vector<std::unique_ptr<Field>> fields_;
+  std::unordered_map<
+      std::type_index,
+      std::pair<std::function<void*(void*)>, std::function<void*(void*)>>>
+      casts_;
 };
 
 template <class T>
@@ -378,11 +452,18 @@ class Reflection {
 
   friend struct Register;
 
+  friend class InstancePtr;
+
   static std::unordered_map<std::string, ClassPtr>& nameToClass();
   static std::unordered_map<std::type_index, ClassPtr>& typeToClass();
 
   static std::unordered_map<std::string, EnumPtr>& nameToEnum();
   static std::unordered_map<std::type_index, EnumPtr>& typeToEnum();
+
+  static std::unordered_map<
+      std::type_index,
+      std::unordered_map<std::type_index, std::function<void*(void*)>>>&
+  casts();
 };
 
 struct Register {
@@ -409,8 +490,15 @@ TClassBuilder<T>::~TClassBuilder() {
     return;
   }
 
-  auto cp =
-      new detail::TClass<T>(std::move(name_), typeid(T), std::move(fields_));
+  std::vector<std::type_index> bases;
+  for (auto&& [b, f] : casts_) {
+    bases.push_back(b);
+    Reflection::casts()[b][typeid(T)] = std::move(f.first);
+    Reflection::casts()[typeid(T)][b] = std::move(f.second);
+  }
+
+  auto cp = new detail::TClass<T>(
+      std::move(name_), typeid(T), std::move(fields_), std::move(bases));
 
   Reflection::nameToClass().emplace(cp->name(), cp);
   Reflection::typeToClass().emplace(typeid(T), cp);

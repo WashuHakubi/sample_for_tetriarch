@@ -13,6 +13,7 @@ EWOK_REGISTRATION {
   using namespace ewok;
 
   Register::class_<Prefab>("Prefab")
+      .addBaseClass<ComponentBase>()
       .field(&Prefab::loadOnAttach_, "loadOnAttach")
       .field(&Prefab::prefabName_, "prefab");
 }

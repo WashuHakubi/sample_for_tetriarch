@@ -13,6 +13,7 @@ EWOK_REGISTRATION {
   using namespace ewok;
 
   Register::class_<Camera>("Camera")
+      .addBaseClass<ComponentBase>()
       .field(&Camera::name_, "name")
       .field(&Camera::target_, "target")
       .field(&Camera::f_, "f")

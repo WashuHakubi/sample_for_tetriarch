@@ -21,7 +21,9 @@ namespace {
 
 template <class T>
 void readField(
-    void* instance, FieldPtr field, ryml::ConstNodeRef componentNode) {
+    InstancePtr const& instance,
+    FieldPtr field,
+    ryml::ConstNodeRef componentNode) {
   T value;
   componentNode[field->name().c_str()] >> value;
   field->setValue<T>(instance, value);
@@ -29,7 +31,9 @@ void readField(
 
 template <class T, size_t N>
 void readVector(
-    void* instance, FieldPtr field, ryml::ConstNodeRef componentNode) {
+    InstancePtr const& instance,
+    FieldPtr field,
+    ryml::ConstNodeRef componentNode) {
   VectorN<T, N> vec;
   auto node = componentNode[field->name().c_str()];
   for (size_t i = 0; i < N; ++i) {
@@ -39,7 +43,9 @@ void readVector(
 }
 
 void readQuaternion(
-    void* instance, FieldPtr field, ryml::ConstNodeRef componentNode) {
+    InstancePtr const& instance,
+    FieldPtr field,
+    ryml::ConstNodeRef componentNode) {
   Quat q;
   auto node = componentNode[field->name().c_str()];
   node[0] >> q.x;
@@ -50,17 +56,22 @@ void readQuaternion(
 }
 
 void readObjectField(
-    void* instance, FieldPtr field, ryml::ConstNodeRef componentNode) {
+    InstancePtr const& instance,
+    FieldPtr field,
+    ryml::ConstNodeRef componentNode) {
   std::string value;
   componentNode[field->name().c_str()] >> value;
   auto p = objectDatabase()->find(Guid(value));
   field->setValue<GameObjectHandle>(instance, GameObjectHandle{p});
 }
 
-using ReadFieldMethod = void (*)(void*, FieldPtr, ryml::ConstNodeRef);
+using ReadFieldMethod =
+    void (*)(InstancePtr const&, FieldPtr, ryml::ConstNodeRef);
 
 void readComponentFields(
-    void* instance, std::type_index type, ryml::ConstNodeRef componentNode) {
+    InstancePtr const& instance,
+    std::type_index type,
+    ryml::ConstNodeRef componentNode) {
   static const std::unordered_map<std::type_index, ReadFieldMethod> s_readers =
       {
           {typeid(int8_t), readField<int8_t>},
@@ -241,7 +252,8 @@ class Loader {
     // object in the scene and we need to be able to resolve that.
     for (auto&& compNode : compToNode_) {
       auto const& [comp, node] = compNode;
-      readComponentFields(comp.get(), comp->getComponentType(), node);
+      readComponentFields(
+          {comp.get(), typeid(ComponentBase)}, comp->getComponentType(), node);
     }
   }
 

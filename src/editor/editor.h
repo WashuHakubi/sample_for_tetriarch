@@ -34,7 +34,7 @@ class FieldWrapper {
   virtual auto type() const -> std::type_index { return field_->type(); }
   virtual auto name() const -> std::string { return field_->name(); }
 
-  virtual auto valuePtr(void* instance) const -> void* {
+  virtual auto valuePtr(InstancePtr const& instance) const -> InstancePtr {
     return field_->valuePtr(instance);
   }
 
@@ -53,7 +53,7 @@ class ArrayFieldWrapper : public FieldWrapper {
     return std::format("{}", index_);
   }
 
-  auto valuePtr(void* instance) const -> void* override {
+  auto valuePtr(InstancePtr const& instance) const -> InstancePtr override {
     return ptr_->valueAtIndexPtr(instance, index_);
   }
 
@@ -69,10 +69,11 @@ class PropertyDrawer {
 
   virtual ~PropertyDrawer() = default;
 
-  virtual void draw(FieldWrapper const& field, void* instance);
+  virtual void draw(FieldWrapper const& field, InstancePtr const& instance);
 
  protected:
-  virtual void onDraw(FieldWrapper const& field, void* instance) = 0;
+  virtual void onDraw(
+      FieldWrapper const& field, InstancePtr const& instance) = 0;
 
  private:
   friend class Editor;

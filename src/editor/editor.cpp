@@ -13,7 +13,7 @@
 #include "misc/cpp/imgui_stdlib.h"
 
 namespace ewok {
-void drawComplexObject(ClassPtr const& class_, void* instance);
+void drawComplexObject(ClassPtr const& class_, InstancePtr const& instance);
 
 Editor::Editor() {
   PropertyDrawer::initialize();
@@ -64,12 +64,12 @@ void Editor::drawSelectedObjectComponents(GameObjectPtr const& node) {
   }
 
   auto transformClass = Reflection::class_(typeid(Transform));
-  drawComplexObject(transformClass, &node->transform_);
+  drawComplexObject(transformClass, {&node->transform_, typeid(Transform)});
 
   for (auto&& comp : node->components()) {
     auto compClass = Reflection::class_(comp->getComponentType());
     if (compClass) {
-      drawComplexObject(compClass, comp.get());
+      drawComplexObject(compClass, {comp.get(), typeid(ComponentBase)});
     }
   }
 }
@@ -112,8 +112,8 @@ struct InternalTypedPropertyDrawer : public PropertyDrawer {
 
 class StringPropertyDrawer : public InternalTypedPropertyDrawer<std::string> {
  public:
-  void onDraw(FieldWrapper const& field, void* instance) override {
-    auto v = reinterpret_cast<std::string*>(field.valuePtr(instance));
+  void onDraw(FieldWrapper const& field, InstancePtr const& instance) override {
+    auto v = reinterpret_cast<std::string*>(field.valuePtr(instance).ptr());
     auto id = std::format("##{}", field.name());
     ImGui::InputText(id.c_str(), v);
   }
@@ -121,8 +121,8 @@ class StringPropertyDrawer : public InternalTypedPropertyDrawer<std::string> {
 
 class BoolPropertyDrawer : public InternalTypedPropertyDrawer<bool> {
  public:
-  void onDraw(FieldWrapper const& field, void* instance) override {
-    auto v = reinterpret_cast<bool*>(field.valuePtr(instance));
+  void onDraw(FieldWrapper const& field, InstancePtr const& instance) override {
+    auto v = reinterpret_cast<bool*>(field.valuePtr(instance).ptr());
     auto id = std::format("##{}", field.name());
     ImGui::Checkbox(id.c_str(), v);
   }
@@ -131,8 +131,8 @@ class BoolPropertyDrawer : public InternalTypedPropertyDrawer<bool> {
 template <class T, int V, int N = 1>
 class ScalarPropertyDrawer : public InternalTypedPropertyDrawer<T> {
  public:
-  void onDraw(FieldWrapper const& field, void* instance) override {
-    auto v = reinterpret_cast<T*>(field.valuePtr(instance));
+  void onDraw(FieldWrapper const& field, InstancePtr const& instance) override {
+    auto v = reinterpret_cast<T*>(field.valuePtr(instance).ptr());
     auto id = std::format("##{}", field.name());
     ImGui::InputScalarN(id.c_str(), V, v, N);
   }
@@ -140,8 +140,8 @@ class ScalarPropertyDrawer : public InternalTypedPropertyDrawer<T> {
 
 class QuaternionPropertyDrawer : public InternalTypedPropertyDrawer<Quat> {
  public:
-  void onDraw(FieldWrapper const& field, void* instance) override {
-    auto q = reinterpret_cast<Quat*>(field.valuePtr(instance));
+  void onDraw(FieldWrapper const& field, InstancePtr const& instance) override {
+    auto q = reinterpret_cast<Quat*>(field.valuePtr(instance).ptr());
     Vec3 v = toEuler(*q);
     auto id = std::format("##{}", field.name());
     if (ImGui::InputScalarN(id.c_str(), ImGuiDataType_Float, &v, 3)) {
@@ -153,8 +153,9 @@ class QuaternionPropertyDrawer : public InternalTypedPropertyDrawer<Quat> {
 class GameObjectHandlePropertyDrawer
     : public InternalTypedPropertyDrawer<GameObjectHandle> {
  protected:
-  void onDraw(FieldWrapper const& field, void* instance) override {
-    auto v = reinterpret_cast<GameObjectHandle*>(field.valuePtr(instance));
+  void onDraw(FieldWrapper const& field, InstancePtr const& instance) override {
+    auto v =
+        reinterpret_cast<GameObjectHandle*>(field.valuePtr(instance).ptr());
     auto target = v->lock();
     auto initial = target ? target->name() : "<null>";
 
@@ -180,11 +181,11 @@ class GameObjectHandlePropertyDrawer
 };
 
 class EnumPropertyDrawer : public PropertyDrawer {
-  void onDraw(FieldWrapper const& field, void* instance) override {
+  void onDraw(FieldWrapper const& field, InstancePtr const& instance) override {
     auto enumType = Reflection::enum_(field.type());
     assert(enumType);
 
-    auto v = enumType->name(field.valuePtr(instance), field.type());
+    auto v = enumType->name(field.valuePtr(instance).ptr(), field.type());
     std::string initial = v.value_or("");
 
     auto id = std::format("##{}", field.name());
@@ -192,7 +193,7 @@ class EnumPropertyDrawer : public PropertyDrawer {
       auto vals = enumType->values();
       for (auto&& [val, name] : vals) {
         if (ImGui::Selectable(name.c_str(), name == initial)) {
-          enumType->setValue(field.valuePtr(instance), val);
+          enumType->setValue(field.valuePtr(instance).ptr(), val);
         }
       }
       ImGui::EndCombo();
@@ -281,7 +282,8 @@ auto PropertyDrawer::getDrawer(std::type_index type) -> PropertyDrawerPtr {
   return it->second;
 }
 
-void PropertyDrawer::draw(FieldWrapper const& field, void* instance) {
+void PropertyDrawer::draw(
+    FieldWrapper const& field, InstancePtr const& instance) {
   ImGui::TableNextRow();
   ImGui::TableSetColumnIndex(0);
   ImGui::Text("%s", field.name().c_str());
@@ -291,8 +293,8 @@ void PropertyDrawer::draw(FieldWrapper const& field, void* instance) {
   onDraw(field, instance);
 }
 
-void drawComplexObject(ClassPtr const& class_, void* instance) {
-  auto id = std::format("##{}", reinterpret_cast<size_t>(instance));
+void drawComplexObject(ClassPtr const& class_, InstancePtr const& instance) {
+  auto id = std::format("##{}", reinterpret_cast<size_t>(instance.ptr()));
   if (ImGui::CollapsingHeader(
           class_->name().c_str(), ImGuiTreeNodeFlags_DefaultOpen)) {
     auto tableFlags =
