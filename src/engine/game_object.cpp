@@ -57,8 +57,8 @@ void GameObject::addComponent(ComponentPtr component) {
     return;
   }
 
-  assert(component->parent_ == nullptr);
-  component->parent_ = this;
+  assert(component->parent_.expired());
+  component->parent_ = shared_from_this();
 
   if (component->hasUpdate()) {
     updateComponents_.insert(component.get());
@@ -74,6 +74,10 @@ void GameObject::addComponent(ComponentPtr component) {
 
   components_.push_back(component);
 
+  // This does mean we can only have one component per component type per game
+  // object.
+  typeToComponent_.emplace(component->getComponentType(), component);
+
   if (!lazyAttach_) {
     // Notify the component that it has a new parent.
     component->attach();
@@ -86,6 +90,14 @@ void GameObject::applyPostUpdateActions() {
     action(this);
   }
   postUpdateActions_ = {};
+}
+
+auto GameObject::component(std::type_index type) const -> ComponentPtr {
+  if (auto it = typeToComponent_.find(type); it != typeToComponent_.end()) {
+    return it->second;
+  } else {
+    return nullptr;
+  }
 }
 
 void GameObject::fireAttached() {
@@ -223,8 +235,9 @@ void GameObject::removeComponent(ComponentPtr const& component) {
     return;
   }
 
-  assert(component->parent_ == this);
-  component->parent_ = nullptr;
+  assert(component->object() == shared_from_this());
+  component->parent_.reset();
+
   components_.erase(
       std::remove(components_.begin(), components_.end(), component),
       components_.end());

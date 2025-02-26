@@ -15,7 +15,7 @@ class ComponentBase {
 
   // Gets the game object that owns this component, or null if this component is
   // not owned.
-  auto object() const noexcept -> GameObject* { return parent_; }
+  auto object() const noexcept -> GameObjectPtr { return parent_.lock(); }
 
   // called when a component is added to a game object
   virtual void attach() {}
@@ -48,7 +48,7 @@ class ComponentBase {
   // Require users to derive from Component<T>
   ComponentBase() = default;
 
-  GameObject* parent_{nullptr};
+  GameObjectHandle parent_;
 
   enum OverrideFlags {
     HasUpdate = 0x01,

@@ -113,6 +113,7 @@
         "string_view": "cpp",
         "strstream": "cpp",
         "valarray": "cpp",
-        "*.ipp": "cpp"
+        "*.ipp": "cpp",
+        "ranges": "cpp"
     }
 }

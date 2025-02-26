@@ -36,18 +36,29 @@ template <class T>
 class TClassBuilder;
 } // namespace detail
 
+/// @brief Wraps a pointer and a type, exposing cast operations.
 class InstancePtr {
  public:
   InstancePtr(void* ptr, std::type_index curType);
 
+  /// @brief Performs a cast to `target` from the current type. If the cast
+  /// fails std::bad_cast is thrown. This does not support primitive type
+  /// conversions. Only casts using class types registered in reflection are
+  /// supported.
   auto cast(std::type_index target) const -> InstancePtr;
 
+  /// @brief Calls `cast` and returns the pointer.
   template <class T>
   auto as() const -> T* {
-    return reinterpret_cast<T*>(cast(typeid(T)).ptr_);
+    return reinterpret_cast<T*>(cast(typeid(T)).ptr());
   }
 
+  /// @brief Gets the raw pointer held in this instance.
   auto ptr() const -> void* { return ptr_; }
+
+  bool operator==(std::nullptr_t) const { return ptr_ == nullptr; }
+
+  bool operator!=(std::nullptr_t) const { return ptr_ != nullptr; }
 
  private:
   std::type_index curType_;
@@ -217,7 +228,7 @@ namespace detail {
 template <class C, class T>
 class TMemberField : public Field {
  public:
-  TMemberField(std::string name, T C::* ptr)
+  TMemberField(std::string name, T C::*ptr)
       : Field(std::move(name), typeid(T)), ptr_(ptr) {}
 
   void getValue(
@@ -252,7 +263,7 @@ class TMemberField : public Field {
   }
 
  protected:
-  T C::* ptr_;
+  T C::*ptr_;
 };
 
 template <class T>
@@ -393,10 +404,12 @@ class TClassBuilder final {
     auto p = casts_.emplace(
         typeid(B),
         std::make_pair(
-            [](void* ptr) -> void* {
+            [](void* ptr) -> void* { // Convert from derived T to base B
+              // Static cast because it's always safe to cast to a base class
               return static_cast<B*>(reinterpret_cast<T*>(ptr));
             },
-            [](void* ptr) -> void* {
+            [](void* ptr) -> void* { // Convert from base B to derived T
+              // Dynamic cast because we cannot be sure ptr is actually a T
               return dynamic_cast<T*>(reinterpret_cast<B*>(ptr));
             }));
 

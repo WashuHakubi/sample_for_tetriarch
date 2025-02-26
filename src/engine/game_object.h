@@ -42,6 +42,14 @@ class GameObject : public std::enable_shared_from_this<GameObject> {
     return components_;
   }
 
+  // Gets the component matching type.
+  auto component(std::type_index type) const -> ComponentPtr;
+
+  template <class T>
+  auto component() const -> std::shared_ptr<T> {
+    return std::static_pointer_cast<T>(component(typeid(T)));
+  }
+
   constexpr auto id() const noexcept -> Guid const& { return id_; }
 
   constexpr auto name() const noexcept -> std::string const& { return name_; }
@@ -131,6 +139,7 @@ class GameObject : public std::enable_shared_from_this<GameObject> {
   std::unordered_set<ComponentBase*> renderables_;
   std::unordered_set<ComponentBase*> updateComponents_;
   std::unordered_set<ComponentBase*> postUpdateComponents_;
+  std::unordered_map<std::type_index, ComponentPtr> typeToComponent_;
   std::vector<std::function<void(GameObject*)>> postUpdateActions_;
   std::string name_;
   Transform transform_;
