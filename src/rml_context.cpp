@@ -7,8 +7,9 @@
 
 #include "rml_context.h"
 
-#include <utility>
 #include <cstdio>
+#include <filesystem>
+#include <utility>
 
 #include <RmlUi/Debugger.h>
 #include <ng-log/logging.h>
@@ -17,9 +18,7 @@
 #include "engine/forward.h"
 
 namespace ewok {
-bool LocalSystemInterface::LogMessage(
-    Rml::Log::Type type,
-    const Rml::String& message) {
+bool LocalSystemInterface::LogMessage(Rml::Log::Type type, const Rml::String& message) {
   switch (type) {
     case Rml::Log::LT_ALWAYS:
       LOG(FATAL) << message;
@@ -48,9 +47,9 @@ bool LocalSystemInterface::LogMessage(
 }
 
 class AssetFileInterface : public Rml::FileInterface {
-public:
-  explicit AssetFileInterface(std::string basePath)
-    : basePath_(std::move(basePath)) {
+ public:
+  explicit AssetFileInterface(std::string basePath) {
+    basePath_ = std::filesystem::absolute(std::filesystem::path(basePath)).generic_string();
     if (basePath_.ends_with('/')) {
       return;
     }
@@ -59,7 +58,7 @@ public:
   }
 
   Rml::FileHandle Open(const Rml::String& path) override {
-    if (path.starts_with("/") || path.starts_with("assets/")) {
+    if (path.starts_with("/")) {
       return reinterpret_cast<Rml::FileHandle>(fopen(path.c_str(), "rb"));
     }
 
@@ -67,9 +66,7 @@ public:
     return reinterpret_cast<Rml::FileHandle>(fopen(rootedPath.c_str(), "rb"));
   }
 
-  void Close(Rml::FileHandle file) override {
-    fclose(reinterpret_cast<FILE*>(file));
-  }
+  void Close(Rml::FileHandle file) override { fclose(reinterpret_cast<FILE*>(file)); }
 
   size_t Read(void* buffer, size_t size, Rml::FileHandle file) override {
     return fread(buffer, 1, size, reinterpret_cast<FILE*>(file));
@@ -79,22 +76,17 @@ public:
     return fseek(reinterpret_cast<FILE*>(file), offset, origin) == 0;
   }
 
-  size_t Tell(Rml::FileHandle file) override {
-    return ftell(reinterpret_cast<FILE*>(file));
-  }
+  size_t Tell(Rml::FileHandle file) override { return ftell(reinterpret_cast<FILE*>(file)); }
 
-private:
+ private:
   std::string basePath_;
 };
 
-RmlContext::RmlContext(
-    SDL_Window* mainWindow,
-    SDL_Renderer* renderer,
-    std::pair<int, int> size)
-  : window_{mainWindow},
-    rmlRenderInterface_{renderer},
-    // This should really use IFileProvider
-    fileInterface_(std::make_unique<AssetFileInterface>("assets/")) {
+RmlContext::RmlContext(SDL_Window* mainWindow, SDL_Renderer* renderer, std::pair<int, int> size)
+    : window_{mainWindow},
+      rmlRenderInterface_{renderer},
+      // This should really use IFileProvider
+      fileInterface_(std::make_unique<AssetFileInterface>("assets/")) {
   rmlSystemInterface_.SetWindow(mainWindow);
 
   Rml::SetFileInterface(fileInterface_.get());
@@ -106,7 +98,7 @@ RmlContext::RmlContext(
     abort();
   }
 
-  const Rml::String directory = "assets/fonts/";
+  const Rml::String directory = "fonts/";
 
   struct FontFace {
     const char* filename;
@@ -187,11 +179,8 @@ bool RmlContext::processEvent(SDL_Event& ev) const {
 }
 
 bool RmlContext::onKeyDown(
-    const Rml::Input::KeyIdentifier key,
-    const int keyModifier,
-    const float nativeDisplayScale,
-    const bool highPriority)
-const {
+    const Rml::Input::KeyIdentifier key, const int keyModifier, const float nativeDisplayScale, const bool highPriority)
+    const {
   bool result = false;
   if (highPriority) {
     if (key == Rml::Input::KI_F12) {
@@ -203,8 +192,7 @@ const {
     if (key == Rml::Input::KI_F5) {
       for (int i = 0; i < context_->GetNumDocuments(); i++) {
         Rml::ElementDocument* document = context_->GetDocument(i);
-        if (Rml::String const& src = document->GetSourceURL(); src.size() > 4 &&
-          src.substr(src.size() - 4) == ".rml") {
+        if (Rml::String const& src = document->GetSourceURL(); src.size() > 4 && src.substr(src.size() - 4) == ".rml") {
           document->ReloadStyleSheet();
         }
       }
@@ -214,4 +202,4 @@ const {
   }
   return result;
 }
-} // namespace wix
+} // namespace ewok
