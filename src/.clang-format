@@ -37,7 +37,7 @@ BreakBeforeTernaryOperators: true
 BreakConstructorInitializers: BeforeColon
 BreakAfterJavaFieldAnnotations: false
 BreakStringLiterals: false
-ColumnLimit: 80
+ColumnLimit: 120
 CommentPragmas: '^ IWYU pragma:'
 CompactNamespaces: false
 ConstructorInitializerAllOnOneLineOrOnePerLine: true
@@ -54,18 +54,18 @@ ForEachMacros:
   - FOR_EACH_RANGE
 IncludeBlocks: Preserve
 IncludeCategories:
-  - Regex:           '^<(sodium|Python)\.h>$'
-    Priority:        3
-  - Regex:           '^<((arpa|net|netinet|sys|linux)\/)?[-_[:alnum:]]+\.h>$'
-    Priority:        1
-  - Regex:           '^<[\/-_[:alnum:]]+>$'
-    Priority:        2
-  - Regex:           '^<((bistro|caffe2|cachelib|fatal|fb303|faiss|fbmeshd|fboss|fbzmq|fizz|folly|gloo|hphp|logdevice|magma|mcrouter|openr|proxygen|quic|rsocket|scape|squangle|tensorpipe|thrift|wangle|wdt|yarpl)\/).*>$'
-    Priority:        4
-  - Regex:           '^<.*>$'
-    Priority:        3
-  - Regex:           '.*'
-    Priority:        5
+  - Regex: '^<(sodium|Python)\.h>$'
+    Priority: 3
+  - Regex: '^<((arpa|net|netinet|sys|linux)\/)?[-_[:alnum:]]+\.h>$'
+    Priority: 1
+  - Regex: '^<[\/-_[:alnum:]]+>$'
+    Priority: 2
+  - Regex: '^<((bistro|caffe2|cachelib|fatal|fb303|faiss|fbmeshd|fboss|fbzmq|fizz|folly|gloo|hphp|logdevice|magma|mcrouter|openr|proxygen|quic|rsocket|scape|squangle|tensorpipe|thrift|wangle|wdt|yarpl)\/).*>$'
+    Priority: 4
+  - Regex: '^<.*>$'
+    Priority: 3
+  - Regex: '.*'
+    Priority: 5
 IncludeIsMainRegex: '((Test|Tests|_test|Bench|Benchmark|Performance)[0-9]*)?$'
 IndentCaseLabels: true
 IndentCaseBlocks: false

@@ -1,0 +1,249 @@
+<rml>
+<head>
+<link type="text/template" href="window.rml"/>
+<title>Demo Sample</title>
+<style>
+@spritesheet demo-sheet
+{
+	src: invader.tga;
+
+	window-outer: 0px 0px 144px 151px;
+
+	tableheader-l: 127px 192px 16px 31px;
+	tableheader-c: 143px 192px 2px 31px;
+	tableheader-r: 145px 192px 15px 31px;
+
+    window-tl: 0px 0px 133px 140px;
+    window-t:  134px 0px 1px 140px;
+    window-tr: 136px 0px 10px 140px;
+    window-l:  0px 139px 10px 1px;
+    window-c:  11px 139px 1px 1px;
+    window-r:  10px 139px -10px 1px; /* mirrored left */
+    window-bl: 0px 140px 11px 11px;
+    window-b:  11px 140px 1px 11px;
+    window-br: 136px 140px 10px 11px;
+
+	title-bar-l: 147px 0px 82px 85px;
+	title-bar-c: 229px 0px  1px 85px;
+	title-bar-r: 231px 0px 15px 85px;
+}
+
+
+body
+{
+	font-family: LatoLatin;
+	font-weight: normal;
+	font-style: normal;
+	font-size: 15dp;
+	color: white;
+	nav: auto;
+}
+
+body.window
+{
+	padding-top: 43dp;
+	padding-bottom: 20dp;
+
+	min-width: 250dp;
+	max-width: 800dp;
+
+	min-height: 135dp;
+	max-height: 700dp;
+}
+
+div#title_bar
+{
+	z-index: 1;
+
+	position: absolute;
+	top: 7dp;
+	left: 0;
+
+	text-align: left;
+	vertical-align: bottom;
+}
+
+div#title_bar div#icon
+{
+	position: absolute;
+	left: 15dp;
+	top: -4dp;
+
+	width: 51dp;
+	height: 39dp;
+}
+
+
+div#title_bar span
+{
+	padding-left: 85dp;
+	padding-right: 25dp;
+	padding-top: 18dp;
+	padding-bottom: 43dp;
+
+	vertical-align: top;
+
+	line-height: 24dp;
+	font-size: 20dp;
+	font-weight: bold;
+
+	font-effect: glow(1dp black);
+	decorator: tiled-horizontal( title-bar-l, title-bar-c, title-bar-r );
+}
+
+div#window
+{
+	width: auto;
+	height: 100%;
+	padding: 10dp 15dp;
+
+	decorator: tiled-box(
+		window-tl, window-t, window-tr,
+		window-l, window-c, window-r,
+		window-bl, window-b, window-br
+	);
+}
+
+div#content
+{
+	z-index: 2;
+
+	width: auto;
+	height: 100%;
+
+	overflow: hidden auto;
+
+	text-align: center;
+}
+
+
+
+p
+{
+	text-align: left;
+	margin-bottom: 1em;
+}
+
+h1
+{
+	margin-left: 0.4em;
+	margin-bottom: 0.4em;
+
+	text-align: left;
+	font-size: 16dp;
+	font-weight: bold;
+
+	font-effect: glow(1dp 1dp 1dp 1dp #1117);
+}
+
+
+body.window
+{
+	left: 80dp;
+	right: 80dp;
+	top: 50dp;
+	bottom: 50dp;
+	min-width: 1040dp;
+	min-height: 300dp;
+	max-width: none;
+	max-height: none;
+}
+div#title_bar div#icon
+{
+	display: none;
+}
+div#content
+{
+	position: relative;
+	/* background-color: #bbb; */
+}
+tabset
+{
+	display: block;
+}
+tabs
+{
+	display: block;
+	position: fixed;
+	clip: none;
+	text-align: right;
+	top: -47dp;
+	left: 205dp;
+	right: 10dp;
+}
+tab
+{
+	width: 90dp;
+	padding: 0 20dp;
+	line-height: 40dp;
+	display: inline-block;
+
+	font-size: 15dp;
+	color: #ddd;
+	text-align: center;
+
+	decorator: tiled-horizontal( tableheader-l, tableheader-c, tableheader-r );
+	image-color: #cffc;
+}
+tab:hover
+{
+	image-color: #fffe;
+	color: #fff;
+}
+tab:active, tab:selected
+{
+	image-color: #fff;
+	color: #fff;
+}
+panels
+{
+	display: block;
+}
+panel
+{
+	display: block;
+	padding: 30dp;
+	margin-left: auto;
+	margin-right: auto;
+	max-width: 500dp;
+}
+panel#welcome
+{
+	display: inline-block;
+}
+h1
+{
+	margin: 1.4em 0 0.7em;
+	font-size: 18dp;
+}
+p.title
+{
+	font-size: 35dp;
+	color: #b33;
+	font-effect: glow(2dp #ed5);
+}
+.center {
+	text-align: center;
+}
+.clickable
+{
+	cursor: pointer;
+}
+</style>
+</head>
+<body template="window">
+    <tabset id="menu">
+        <tab>Welcome</tab>
+        <panel id="welcome">
+            <p class="title" style="margin-top: 1.8em;">RmlUi 😍</p>
+            <p>Have fun fiddling about in this demo.</p>
+            <p>Press 'F12' to open up the debugger.</p>
+            <p class="title" style="margin-top: 1em;">🎉</p>
+        </panel>
+        <tab>Main</tab>
+                <panel id="welcome">
+                    <p>Main menu goes here?</p>
+                </panel>
+    </tabset>
+</body>
+</rml>

@@ -22,10 +22,13 @@
 
 #include <concurrencpp/concurrencpp.h>
 #include <crossguid/guid.hpp>
+
 namespace ewok {
 using xg::Guid;
 
 class AssetDatabase;
+using AssetDatabasePtr = std::shared_ptr<AssetDatabase>;
+
 class ComponentBase;
 class GameObject;
 class ObjectDatabase;

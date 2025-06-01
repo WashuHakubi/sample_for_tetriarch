@@ -23,6 +23,8 @@
 #include "backends/imgui_impl_sdlgpu3.h"
 #include "imgui.h"
 
+#include "rml_context.h"
+
 #include <filesystem>
 #include <format>
 #include <iostream>
@@ -40,9 +42,11 @@ constexpr uint32_t windowStartWidth = 1280;
 constexpr uint32_t windowStartHeight = 720;
 
 class RootGameObject : public GameObject {
- public:
-  static auto create(Guid id, bool lazyAttach = false)
-      -> std::shared_ptr<RootGameObject> {
+public:
+  static auto create(
+      Guid id,
+      bool lazyAttach = false)
+    -> std::shared_ptr<RootGameObject> {
     return std::make_shared<RootGameObject>(ProtectedOnly{}, id, lazyAttach);
   }
 
@@ -58,7 +62,7 @@ class RootGameObject : public GameObject {
     postUpdate();
   }
 
- private:
+private:
   bool once_{false};
 };
 
@@ -71,43 +75,17 @@ struct AppState {
   concurrencpp::runtime runtime;
   std::shared_ptr<concurrencpp::manual_executor> executor;
 
-  SDL_Window* sdlWindow;
-  SDL_GPUDevice* gpuDevice;
-  SDL_GPUGraphicsPipeline* sdlPipeline;
-  SDL_GPUBuffer* vertexBuffer;
+  std::unique_ptr<SDL_Window, decltype(&SDL_DestroyWindow)> sdlWindow;
+  std::unique_ptr<SDL_Renderer, decltype(&SDL_DestroyRenderer)> sdlRenderer;
 
+  std::unique_ptr<RmlContext> rmlContext;
   std::shared_ptr<Renderer> renderer;
   std::shared_ptr<RootGameObject> root;
   std::shared_ptr<Editor> editor;
 
   bool run{true};
-  bool showDemoWindow{true};
-  bool showImguiUI{true};
   uint64_t prevTime{};
 };
-
-SDL_GPUShader* buildShader(
-    SDL_GPUDevice* gpuDevice,
-    std::string const& name,
-    SDL_ShaderCross_ShaderStage stage) {
-  // Compile a shader
-  auto const& sfp = assetDatabase()->getFileProvider();
-  auto source = sfp->blockingReadFile(name).value();
-
-  SDL_ShaderCross_SPIRV_Info info = {
-      .bytecode = reinterpret_cast<uint8_t const*>(source.data()),
-      .bytecode_size = source.size(),
-      .entrypoint = "main",
-      .shader_stage = stage,
-      .enable_debug = false,
-      .name = nullptr,
-      .props = 0,
-  };
-
-  SDL_ShaderCross_GraphicsShaderMetadata metadata;
-  return SDL_ShaderCross_CompileGraphicsShaderFromSPIRV(
-      gpuDevice, &info, &metadata);
-}
 
 void initializeEngine(AppState* appState) {
   auto ioExecutor = appState->runtime.background_executor();
@@ -133,6 +111,8 @@ void initializeEngine(AppState* appState) {
 
   // Startup the game by loading the initial scene.
   appState->root->addComponent(std::make_shared<InitialSceneLoadComponent>());
+
+  appState->rmlContext->loadDocument("rml/test.rml");
 }
 
 SDL_AppResult SDL_Fail() {
@@ -141,7 +121,7 @@ SDL_AppResult SDL_Fail() {
 }
 
 SDL_AppResult SDL_AppInit(void** appstate, int argc, char* argv[]) {
-  if (not SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO)) {
+  if (not SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS)) {
     return SDL_Fail();
   }
 
@@ -154,181 +134,21 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char* argv[]) {
     return SDL_Fail();
   }
 
-  // create a renderer
-  SDL_GPUDevice* gpuDevice = SDL_CreateGPUDevice(
-      SDL_GPU_SHADERFORMAT_SPIRV | SDL_GPU_SHADERFORMAT_METALLIB,
-      true,
-      nullptr);
-  if (gpuDevice == nullptr) {
-    return SDL_Fail();
-  }
-
-  if (!SDL_ClaimWindowForGPUDevice(gpuDevice, window)) {
-    return SDL_Fail();
-  }
-
-  SDL_SetGPUSwapchainParameters(
-      gpuDevice,
-      window,
-      SDL_GPU_SWAPCHAINCOMPOSITION_SDR,
-      SDL_GPU_PRESENTMODE_MAILBOX);
-
-  ImGui::CreateContext();
-  ImGuiIO& io = ImGui::GetIO();
-  io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard |
-      ImGuiConfigFlags_DockingEnable; // Enable Keyboard Controls
-
-  ImGui::StyleColorsDark();
-  auto& style = ImGui::GetStyle();
-  style.AntiAliasedFill = true;
-  style.AntiAliasedLines = true;
-
-  ImGui_ImplSDL3_InitForSDLGPU(window);
-  ImGui_ImplSDLGPU3_InitInfo init_info = {};
-  init_info.Device = gpuDevice;
-  init_info.ColorTargetFormat =
-      SDL_GetGPUSwapchainTextureFormat(gpuDevice, window);
-  init_info.MSAASamples = SDL_GPU_SAMPLECOUNT_1;
-  ImGui_ImplSDLGPU3_Init(&init_info);
-
+  auto renderer = SDL_CreateRenderer(window, "opengl");
   auto appState = new AppState{
-      .sdlWindow = window,
-      .gpuDevice = gpuDevice,
+      .sdlWindow = {window, &SDL_DestroyWindow},
+      .sdlRenderer = {renderer, &SDL_DestroyRenderer},
+      .rmlContext = std::make_unique<RmlContext>(window, renderer, std::make_pair(windowStartHeight, windowStartWidth)),
   };
   initializeEngine(appState);
-
-  auto vertShader = buildShader(
-      gpuDevice,
-      "shaders/position_color.vert.spv",
-      SDL_ShaderCross_ShaderStage::SDL_SHADERCROSS_SHADERSTAGE_VERTEX);
-  assert(vertShader);
-
-  auto fragShader = buildShader(
-      gpuDevice,
-      "shaders/solid_color.frag.spv",
-      SDL_ShaderCross_ShaderStage::SDL_SHADERCROSS_SHADERSTAGE_FRAGMENT);
-  assert(fragShader);
-
-  SDL_GPUColorTargetDescription colorTargetDescs[] = {
-      {
-          .format = SDL_GetGPUSwapchainTextureFormat(gpuDevice, window),
-      },
-  };
-
-  SDL_GPUVertexBufferDescription vertexBufferDesc[] = {
-      {
-          .slot = 0,
-          .pitch = sizeof(PositionColorVertex),
-          .input_rate = SDL_GPU_VERTEXINPUTRATE_VERTEX,
-          .instance_step_rate = 0,
-      },
-  };
-
-  SDL_GPUVertexAttribute vertexAttributes[] = {
-      {
-          .location = 0,
-          .buffer_slot = 0,
-          .format = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT3,
-          .offset = 0,
-      },
-      {
-          .location = 1,
-          .buffer_slot = 0,
-          .format = SDL_GPU_VERTEXELEMENTFORMAT_UBYTE4_NORM,
-          .offset = sizeof(float) * 3,
-      },
-  };
-
-  // Create
-  SDL_GPUGraphicsPipelineCreateInfo pipelineCreateInfo = {
-      .vertex_shader = vertShader,
-      .fragment_shader = fragShader,
-      .vertex_input_state =
-          {
-              .vertex_buffer_descriptions = vertexBufferDesc,
-              .num_vertex_buffers = 1,
-              .vertex_attributes = vertexAttributes,
-              .num_vertex_attributes = 2,
-          },
-      .primitive_type = SDL_GPU_PRIMITIVETYPE_TRIANGLELIST,
-      .target_info =
-          {
-              .color_target_descriptions = colorTargetDescs,
-              .num_color_targets = 1,
-          },
-      // This is set up to match the vertex shader layout!
-  };
-
-  appState->sdlPipeline =
-      SDL_CreateGPUGraphicsPipeline(gpuDevice, &pipelineCreateInfo);
-  if (!appState->sdlPipeline) {
-    return SDL_Fail();
-  }
-
-  SDL_ReleaseGPUShader(gpuDevice, vertShader);
-  SDL_ReleaseGPUShader(gpuDevice, fragShader);
-
-  auto bufferCreateInfo = SDL_GPUBufferCreateInfo{
-      .usage = SDL_GPU_BUFFERUSAGE_VERTEX,
-      .size = sizeof(PositionColorVertex) * 3,
-  };
-
-  // Create the vertex buffer
-  appState->vertexBuffer = SDL_CreateGPUBuffer(gpuDevice, &bufferCreateInfo);
-
-  auto transferBufferCreateInfo = SDL_GPUTransferBufferCreateInfo{
-      .usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD,
-      .size = sizeof(PositionColorVertex) * 3,
-  };
-
-  SDL_GPUTransferBuffer* transferBuffer =
-      SDL_CreateGPUTransferBuffer(gpuDevice, &transferBufferCreateInfo);
-
-  PositionColorVertex* transferData = reinterpret_cast<PositionColorVertex*>(
-      SDL_MapGPUTransferBuffer(gpuDevice, transferBuffer, false));
-
-  transferData[0] = PositionColorVertex{{-1, -1, 0}, {255, 0, 0, 255}};
-  transferData[1] = PositionColorVertex{{1, -1, 0}, {0, 255, 0, 255}};
-  transferData[2] = PositionColorVertex{{0, 1, 0}, {0, 0, 255, 255}};
-
-  SDL_UnmapGPUTransferBuffer(gpuDevice, transferBuffer);
-
-  // Upload the transfer data to the vertex buffer
-  SDL_GPUCommandBuffer* uploadCmdBuf = SDL_AcquireGPUCommandBuffer(gpuDevice);
-  SDL_GPUCopyPass* copyPass = SDL_BeginGPUCopyPass(uploadCmdBuf);
-
-  auto transferBufferLoc = SDL_GPUTransferBufferLocation{
-      .transfer_buffer = transferBuffer,
-      .offset = 0,
-  };
-  auto bufferRegion = SDL_GPUBufferRegion{
-      .buffer = appState->vertexBuffer,
-      .offset = 0,
-      .size = sizeof(PositionColorVertex) * 3,
-  };
-  SDL_UploadToGPUBuffer(copyPass, &transferBufferLoc, &bufferRegion, false);
-
-  SDL_EndGPUCopyPass(copyPass);
-  SDL_SubmitGPUCommandBuffer(uploadCmdBuf);
-  SDL_ReleaseGPUTransferBuffer(gpuDevice, transferBuffer);
 
   *appstate = appState;
   return SDL_APP_CONTINUE;
 }
 
 void SDL_AppQuit(void* appstate, SDL_AppResult result) {
-  auto* app = reinterpret_cast<AppState*>(appstate);
+  auto* app = static_cast<AppState*>(appstate);
   if (app) {
-    SDL_WaitForGPUIdle(app->gpuDevice);
-    ImGui_ImplSDL3_Shutdown();
-    ImGui_ImplSDLGPU3_Shutdown();
-    ImGui::DestroyContext();
-
-    SDL_ReleaseGPUGraphicsPipeline(app->gpuDevice, app->sdlPipeline);
-    SDL_ReleaseGPUBuffer(app->gpuDevice, app->vertexBuffer);
-    SDL_ReleaseWindowFromGPUDevice(app->gpuDevice, app->sdlWindow);
-    SDL_DestroyGPUDevice(app->gpuDevice);
-    SDL_DestroyWindow(app->sdlWindow);
     delete app;
   }
 
@@ -336,94 +156,17 @@ void SDL_AppQuit(void* appstate, SDL_AppResult result) {
 }
 
 SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* event) {
-  auto* app = reinterpret_cast<AppState*>(appstate);
+  auto* app = static_cast<AppState*>(appstate);
 
   if (event->type == SDL_EVENT_QUIT) {
     app->run = false;
   }
 
-  ImGui_ImplSDL3_ProcessEvent(event);
-
-  return SDL_APP_CONTINUE;
-}
-
-void RenderImgui(
-    AppState* app,
-    SDL_GPUTexture* swapChainTexture,
-    SDL_GPUCommandBuffer* commandBuffer) {
-  if (!app->showImguiUI) {
-    return;
+  if (!app->rmlContext->processEvent(*event)) {
+    // Event was not handled by RML, so we should handle it.
   }
 
-  ImGui_ImplSDLGPU3_NewFrame();
-  ImGui_ImplSDL3_NewFrame();
-  ImGui::NewFrame();
-
-  ImGui::DockSpaceOverViewport(
-      0, nullptr, ImGuiDockNodeFlags_PassthruCentralNode);
-
-  // Do your imgui rendering here...
-  // if (app->showDemoWindow) {
-  // ImGui::ShowDemoWindow(&app->showDemoWindow);
-  // }
-
-  // draw returns true to exit. But we may have tried to close the window
-  // so we merge run with the return of draw.
-  app->run = app->run && !app->editor->draw(app->root);
-
-  // Render any game object components.
-  app->root->renderUI();
-
-  ImGui::Render();
-
-  // Draw the imgui UI to the screen. This is taken mostly from imgui sample
-  // code.
-  ImDrawData* drawData = ImGui::GetDrawData();
-
-  // This is mandatory: call Imgui_ImplSDLGPU3_PrepareDrawData() to upload the
-  // vertex/index buffer!
-  Imgui_ImplSDLGPU3_PrepareDrawData(drawData, commandBuffer);
-
-  SDL_GPUColorTargetInfo target_info = {};
-  target_info.texture = swapChainTexture;
-  target_info.load_op = SDL_GPU_LOADOP_LOAD;
-  target_info.store_op = SDL_GPU_STOREOP_STORE;
-  SDL_GPURenderPass* renderPass =
-      SDL_BeginGPURenderPass(commandBuffer, &target_info, 1, nullptr);
-
-  ImGui_ImplSDLGPU3_RenderDrawData(
-      ImGui::GetDrawData(), commandBuffer, renderPass);
-
-  SDL_EndGPURenderPass(renderPass);
-}
-
-void drawTriangle(
-    AppState* app,
-    SDL_GPUTexture* swapChainTexture,
-    SDL_GPUCommandBuffer* cmdbuf) {
-  SDL_GPUColorTargetInfo target_info = {};
-  target_info.texture = swapChainTexture;
-  target_info.clear_color = SDL_FColor{0, 0, 0, 0};
-  target_info.load_op = SDL_GPU_LOADOP_CLEAR;
-  target_info.store_op = SDL_GPU_STOREOP_STORE;
-  target_info.mip_level = 0;
-  target_info.layer_or_depth_plane = 0;
-  target_info.cycle = false;
-  SDL_GPURenderPass* renderPass =
-      SDL_BeginGPURenderPass(cmdbuf, &target_info, 1, nullptr);
-
-  SDL_BindGPUGraphicsPipeline(renderPass, app->sdlPipeline);
-
-  auto bufferBinding = SDL_GPUBufferBinding{
-      .buffer = app->vertexBuffer,
-      .offset = 0,
-  };
-
-  SDL_BindGPUVertexBuffers(renderPass, 0, &bufferBinding, 1);
-  SDL_DrawGPUPrimitives(renderPass, 3, 1, 0, 0);
-
-  SDL_EndGPURenderPass(renderPass);
-  return;
+  return app->run ? SDL_APP_CONTINUE : SDL_APP_SUCCESS;
 }
 
 SDL_AppResult SDL_AppIterate(void* appstate) {
@@ -454,23 +197,9 @@ SDL_AppResult SDL_AppIterate(void* appstate) {
   root->render(*app->renderer, delta);
   app->renderer->present();
 
-  SDL_GPUTexture* swapChainTexture;
-
-  SDL_GPUCommandBuffer* cmdbuf = SDL_AcquireGPUCommandBuffer(app->gpuDevice);
-  SDL_WaitAndAcquireGPUSwapchainTexture(
-      cmdbuf,
-      app->sdlWindow,
-      &swapChainTexture,
-      nullptr,
-      nullptr); // Acquire a swapchain texture
-
-  if (swapChainTexture != nullptr) {
-    drawTriangle(app, swapChainTexture, cmdbuf);
-    RenderImgui(app, swapChainTexture, cmdbuf);
-  }
-
-  // Submit the command buffer
-  SDL_SubmitGPUCommandBuffer(cmdbuf);
+  app->rmlContext->render();
+  SDL_RenderPresent(app->sdlRenderer.get());
 
   return app->run ? SDL_APP_CONTINUE : SDL_APP_SUCCESS;
 }
+
