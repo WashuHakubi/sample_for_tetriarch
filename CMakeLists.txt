@@ -75,7 +75,7 @@ fetch_dependency(
 fetch_dependency(
         RmlUi
         GIT_REPOSITORY https://github.com/mikke89/RmlUi.git
-        GIT_TAG 6.1
+        GIT_TAG cdff6ad9dcf04989275ef5c88f792c488f80a508 # Using 6.2 instead of 6.1 to fix Mac mouse positions
         CONFIGURATION ${CMAKE_BUILD_TYPE}
         GENERATE_OPTIONS
         -DRMLUI_SAMPLES=OFF

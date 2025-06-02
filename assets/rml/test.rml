@@ -5,13 +5,13 @@
 <style>
 @spritesheet demo-sheet
 {
-	src: invader.tga;
+    src: invader.tga;
 
-	window-outer: 0px 0px 144px 151px;
+    window-outer: 0px 0px 144px 151px;
 
-	tableheader-l: 127px 192px 16px 31px;
-	tableheader-c: 143px 192px 2px 31px;
-	tableheader-r: 145px 192px 15px 31px;
+    tableheader-l: 127px 192px 16px 31px;
+    tableheader-c: 143px 192px 2px 31px;
+    tableheader-r: 145px 192px 15px 31px;
 
     window-tl: 0px 0px 133px 140px;
     window-t:  134px 0px 1px 140px;
@@ -23,9 +23,18 @@
     window-b:  11px 140px 1px 11px;
     window-br: 136px 140px 10px 11px;
 
-	title-bar-l: 147px 0px 82px 85px;
-	title-bar-c: 229px 0px  1px 85px;
-	title-bar-r: 231px 0px 15px 85px;
+    title-bar-l: 147px 0px 82px 85px;
+    title-bar-c: 229px 0px  1px 85px;
+    title-bar-r: 231px 0px 15px 85px;
+
+    button: 247px 0px 159px 45px;
+    button-hover:  247px 45px 159px 45px;
+    button-active: 247px 90px 159px 45px;
+
+    button-inner: 259px 19px 135px 1px;
+    button-inner-hover:  259px 64px 135px 1px;
+    button-inner-active: 259px 109px 135px 1px;
+
 }
 
 
@@ -229,21 +238,63 @@ p.title
 {
 	cursor: pointer;
 }
+
+input, button, select {
+	nav: auto;
+}
+
+button,
+input.submit
+{
+	display: inline-block;
+
+	width: 159dp;
+	height: 33dp;
+	padding-top: 12dp;
+
+	font-size: 16dp;
+	text-align: center;
+	tab-index: auto;
+
+	decorator: image(button);
+}
+
+button:focus,
+input.submit:focus
+{
+	font-effect: blur(3dp #fff);
+}
+
+button:hover, button:focus-visible,
+input.submit:hover, input.submit:focus-visible
+{
+	decorator: image(button-hover);
+}
+
+button:active,
+input.submit:active
+{
+	decorator: image(button-active);
+}
 </style>
 </head>
 <body template="window">
-    <tabset id="menu">
-        <tab>Welcome</tab>
-        <panel id="welcome">
-            <p class="title" style="margin-top: 1.8em;">RmlUi 😍</p>
-            <p>Have fun fiddling about in this demo.</p>
-            <p>Press 'F12' to open up the debugger.</p>
-            <p class="title" style="margin-top: 1em;">🎉</p>
-        </panel>
-        <tab>Main</tab>
-                <panel id="welcome">
-                    <p>Main menu goes here?</p>
-                </panel>
-    </tabset>
+    <div data-model="sampleBindings">
+        <p>Frame: {{frameNumber}}</p>
+        <tabset id="menu">
+            <tab>Welcome</tab>
+            <panel id="welcome">
+                <p class="title" style="margin-top: 1.8em;">RmlUi 😍</p>
+                <p>Have fun fiddling about in this demo.</p>
+                <p>Press 'F12' to open up the debugger.</p>
+                <p class="title" style="margin-top: 1em;">🎉</p>
+            </panel>
+            <tab>Main Menu</tab>
+            <panel id="welcome">
+                <p>Main menu goes here?</p>
+                <button data-event-click="doQuit">Exit!</button>
+            </panel>
+        </tabset>
+    </div>
 </body>
 </rml>

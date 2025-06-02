@@ -135,6 +135,13 @@ void RmlContext::loadDocument(std::string const& filename) {
   doc->Show();
 }
 
+Rml::DataModelHandle RmlContext::bind(
+    std::string const& name, std::function<void(Rml::DataModelConstructor& constructor)> const& fn) {
+  auto constructor = context_->CreateDataModel(name);
+  fn(constructor);
+  return constructor.GetModelHandle();
+}
+
 void RmlContext::render() {
   context_->Update();
 
@@ -184,6 +191,7 @@ bool RmlContext::onKeyDown(
   bool result = false;
   if (highPriority) {
     if (key == Rml::Input::KI_F12) {
+      LOG(INFO) << "Showing RML debugger: " << !Rml::Debugger::IsVisible();
       Rml::Debugger::SetVisible(!Rml::Debugger::IsVisible());
     } else {
       result = true;
