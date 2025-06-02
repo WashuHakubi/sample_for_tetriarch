@@ -34,19 +34,14 @@
 #include <SDL3/SDL_init.h>
 #include <SDL3/SDL_main.h>
 
-#include <SDL3_shadercross/SDL_shadercross.h>
-
 using namespace ewok;
 
 constexpr uint32_t windowStartWidth = 1280;
 constexpr uint32_t windowStartHeight = 720;
 
 class RootGameObject : public GameObject {
-public:
-  static auto create(
-      Guid id,
-      bool lazyAttach = false)
-    -> std::shared_ptr<RootGameObject> {
+ public:
+  static auto create(Guid id, bool lazyAttach = false) -> std::shared_ptr<RootGameObject> {
     return std::make_shared<RootGameObject>(ProtectedOnly{}, id, lazyAttach);
   }
 
@@ -62,7 +57,7 @@ public:
     postUpdate();
   }
 
-private:
+ private:
   bool once_{false};
 };
 
@@ -126,19 +121,19 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char* argv[]) {
   }
 
   SDL_Window* window = SDL_CreateWindow(
-      "SDL Minimal Sample",
-      windowStartWidth,
-      windowStartHeight,
-      SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY);
+      "SDL Minimal Sample", windowStartWidth, windowStartHeight, SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY);
   if (not window) {
     return SDL_Fail();
   }
+
+  int w, h;
+  SDL_GetWindowSize(window, &w, &h);
 
   auto renderer = SDL_CreateRenderer(window, "opengl");
   auto appState = new AppState{
       .sdlWindow = {window, &SDL_DestroyWindow},
       .sdlRenderer = {renderer, &SDL_DestroyRenderer},
-      .rmlContext = std::make_unique<RmlContext>(window, renderer, std::make_pair(windowStartHeight, windowStartWidth)),
+      .rmlContext = std::make_unique<RmlContext>(window, renderer, std::make_pair(w, h)),
   };
   initializeEngine(appState);
 
@@ -202,4 +197,3 @@ SDL_AppResult SDL_AppIterate(void* appstate) {
 
   return app->run ? SDL_APP_CONTINUE : SDL_APP_SUCCESS;
 }
-

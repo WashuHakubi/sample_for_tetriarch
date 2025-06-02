@@ -41,16 +41,9 @@ fetch_dependency(
         GIT_REPOSITORY https://github.com/libsdl-org/SDL.git
         GIT_TAG release-3.2.10
         CONFIGURATION ${CMAKE_BUILD_TYPE}
+        GENERATE_OPTIONS -DSDL_SHARED=OFF -DSDL_STATIC=ON -DBUILD_SHARED_LIBS=OFF
         ROOT ${PROJECT_SOURCE_DIR}/ext
 )
-
-# fetch_dependency(
-#         SDL3_ttf
-#         GIT_REPOSITORY https://github.com/libsdl-org/SDL_ttf.git
-#         # Update when SDL3_ttf is properly released
-#         GIT_TAG 51adc815b2959dd918c5c3970eb05d87dc0b5e56
-#         CONFIGURATION ${CMAKE_BUILD_TYPE}
-# )
 
 fetch_dependency(
         crossguid
@@ -75,7 +68,7 @@ fetch_dependency(
         GIT_REPOSITORY https://github.com/libsdl-org/SDL_image.git
         GIT_TAG release-3.2.4
         CONFIGURATION ${CMAKE_BUILD_TYPE}
-        GENERATE_OPTIONS -DENABLE_ARC=OFF
+        GENERATE_OPTIONS -DENABLE_ARC=OFF -DBUILD_SHARED_LIBS=OFF
         ROOT ${PROJECT_SOURCE_DIR}/ext
 )
 
@@ -102,10 +95,6 @@ fetch_dependency(
         GENERATE_OPTIONS -DBUILD_SHARED_LIBS=OFF
         ROOT ${PROJECT_SOURCE_DIR}/ext
 )
-
-set(SDLSHADERCROSS_DXC OFF)
-set(SDLSHADERCROSS_VENDORED ON)
-add_subdirectory(external/SDL_shadercross)
 
 add_subdirectory(imgui)
 
@@ -140,9 +129,7 @@ target_link_libraries(test
         concurrencpp::concurrencpp
         ryml::ryml
         SDL3::SDL3
-        # SDL3_ttf::SDL3_ttf
         imgui
-        SDL3_shadercross::SDL3_shadercross
         freetype
         RmlUi::RmlUi
         RmlSdlBackend
@@ -172,9 +159,6 @@ if (CMAKE_HOST_WIN32)
     )
 endif ()
 
-add_custom_target(copy_assets
-        COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_LIST_DIR}/assets ${CMAKE_CURRENT_BINARY_DIR}/assets
+add_custom_command(TARGET test POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_LIST_DIR}/assets $<TARGET_FILE_DIR:test>/assets
 )
-
-add_dependencies(test copy_assets)
-
