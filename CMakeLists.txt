@@ -159,6 +159,8 @@ if (CMAKE_HOST_WIN32)
     )
 endif ()
 
-add_custom_command(TARGET test POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_LIST_DIR}/assets $<TARGET_FILE_DIR:test>/assets
+add_custom_target(copy_all_assets 
+        COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_LIST_DIR}/assets ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/assets
 )
+
+add_dependencies(test copy_all_assets)
