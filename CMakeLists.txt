@@ -15,69 +15,69 @@ FetchContent_MakeAvailable(FetchDependency)
 include(${fetchdependency_SOURCE_DIR}/FetchDependency.cmake)
 
 # fetch_dependency(Catch2
-#         GIT_REPOSITORY https://github.com/catchorg/Catch2.git
+#         GIT_SOURCE https://github.com/catchorg/Catch2.git
 #         GIT_TAG v3.8.0
 #         CONFIGURATION ${CMAKE_BUILD_TYPE}
 # )
 
 fetch_dependency(
         concurrencpp
-        GIT_REPOSITORY https://github.com/WashuHakubi/concurrencpp.git
-        GIT_TAG origin/master
+        GIT_SOURCE https://github.com/WashuHakubi/concurrencpp.git
+        VERSION origin/master
         CONFIGURATION ${CMAKE_BUILD_TYPE}
         ROOT ${PROJECT_SOURCE_DIR}/ext
 )
 
 fetch_dependency(
         ryml
-        GIT_REPOSITORY https://github.com/biojppm/rapidyaml.git
-        GIT_TAG v0.9.0
+        GIT_SOURCE https://github.com/biojppm/rapidyaml.git
+        VERSION v0.9.0
         CONFIGURATION ${CMAKE_BUILD_TYPE}
         ROOT ${PROJECT_SOURCE_DIR}/ext
 )
 
 fetch_dependency(
         SDL3
-        GIT_REPOSITORY https://github.com/libsdl-org/SDL.git
-        GIT_TAG release-3.2.10
+        GIT_SOURCE https://github.com/libsdl-org/SDL.git
+        VERSION release-3.2.10
         CONFIGURATION ${CMAKE_BUILD_TYPE}
-        GENERATE_OPTIONS -DSDL_SHARED=OFF -DSDL_STATIC=ON -DBUILD_SHARED_LIBS=OFF
+        CONFIGURE_OPTIONS -DSDL_SHARED=OFF -DSDL_STATIC=ON -DBUILD_SHARED_LIBS=OFF
         ROOT ${PROJECT_SOURCE_DIR}/ext
 )
 
 fetch_dependency(
         crossguid
-        GIT_REPOSITORY https://github.com/WashuHakubi/crossguid.git
-        GIT_TAG origin/master
+        GIT_SOURCE https://github.com/WashuHakubi/crossguid.git
+        VERSION origin/master
         CONFIGURATION ${CMAKE_BUILD_TYPE}
         ROOT ${PROJECT_SOURCE_DIR}/ext
-        GENERATE_OPTIONS -DCROSSGUID_TESTS=OFF
+        CONFIGURE_OPTIONS -DCROSSGUID_TESTS=OFF
 )
 
 fetch_dependency(
         freetype
-        GIT_REPOSITORY https://github.com/freetype/freetype.git
-        GIT_TAG VER-2-13-3
+        GIT_SOURCE https://github.com/freetype/freetype.git
+        VERSION VER-2-13-3
         CONFIGURATION ${CMAKE_BUILD_TYPE}
-        GENERATE_OPTIONS
+        CONFIGURE_OPTIONS
         ROOT ${PROJECT_SOURCE_DIR}/ext
 )
 
 fetch_dependency(
         SDL3_image
-        GIT_REPOSITORY https://github.com/libsdl-org/SDL_image.git
-        GIT_TAG release-3.2.4
+        GIT_SOURCE https://github.com/libsdl-org/SDL_image.git
+        VERSION release-3.2.4
         CONFIGURATION ${CMAKE_BUILD_TYPE}
-        GENERATE_OPTIONS -DENABLE_ARC=OFF -DBUILD_SHARED_LIBS=OFF
+        CONFIGURE_OPTIONS -DENABLE_ARC=OFF -DBUILD_SHARED_LIBS=OFF
         ROOT ${PROJECT_SOURCE_DIR}/ext
 )
 
 fetch_dependency(
         RmlUi
-        GIT_REPOSITORY https://github.com/mikke89/RmlUi.git
-        GIT_TAG cdff6ad9dcf04989275ef5c88f792c488f80a508 # Using 6.2 instead of 6.1 to fix Mac mouse positions
+        GIT_SOURCE https://github.com/mikke89/RmlUi.git
+        VERSION cdff6ad9dcf04989275ef5c88f792c488f80a508 # Using 6.2 instead of 6.1 to fix Mac mouse positions
         CONFIGURATION ${CMAKE_BUILD_TYPE}
-        GENERATE_OPTIONS
+        CONFIGURE_OPTIONS
         -DRMLUI_SAMPLES=OFF
         -DRMLUI_BACKEND=native
         -DRMLUI_FONT_ENGINE=freetype
@@ -89,10 +89,10 @@ fetch_dependency(
 
 fetch_dependency(
         ng-log
-        GIT_REPOSITORY https://github.com/ng-log/ng-log.git
-        GIT_TAG v0.8.0
+        GIT_SOURCE https://github.com/ng-log/ng-log.git
+        VERSION v0.8.0
         CONFIGURATION ${CMAKE_BUILD_TYPE}
-        GENERATE_OPTIONS -DBUILD_SHARED_LIBS=OFF
+        CONFIGURE_OPTIONS -DBUILD_SHARED_LIBS=OFF
         ROOT ${PROJECT_SOURCE_DIR}/ext
 )
 
