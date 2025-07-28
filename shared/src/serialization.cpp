@@ -11,72 +11,81 @@
 #include <string>
 
 struct CoutWriter {
-  auto enter(std::string_view name) -> std::expected<void, ewok::shared::SerializeError> {
+  auto enter(std::string_view name) -> ewok::shared::SerializeResult {
+    indent();
     std::cout << "enter " << name << "\n";
+    ++level_;
     return {};
   }
 
-  auto leave(std::string_view name) -> std::expected<void, ewok::shared::SerializeError> {
+  auto leave(std::string_view name) -> ewok::shared::SerializeResult {
+    --level_;
+    indent();
     std::cout << "leave " << name << "\n";
     return {};
   }
 
-  auto write(std::string_view name, uint8_t value) -> std::expected<void, ewok::shared::SerializeError> {
-    std::cout << "write " << name << " " << value << "\n";
-    return {};
+  auto write(std::string_view name, uint8_t value) -> ewok::shared::SerializeResult {
+    return write_internal(name, value);
   }
 
-  auto write(std::string_view name, uint16_t value) -> std::expected<void, ewok::shared::SerializeError> {
-    std::cout << "write " << name << " " << value << "\n";
-    return {};
+  auto write(std::string_view name, uint16_t value) -> ewok::shared::SerializeResult {
+    return write_internal(name, value);
   }
 
-  auto write(std::string_view name, uint32_t value) -> std::expected<void, ewok::shared::SerializeError> {
-    std::cout << "write " << name << " " << value << "\n";
-    return {};
+  auto write(std::string_view name, uint32_t value) -> ewok::shared::SerializeResult {
+    return write_internal(name, value);
   }
 
-  auto write(std::string_view name, uint64_t value) -> std::expected<void, ewok::shared::SerializeError> {
-    std::cout << "write " << name << " " << value << "\n";
-    return {};
+  auto write(std::string_view name, uint64_t value) -> ewok::shared::SerializeResult {
+    return write_internal(name, value);
   }
 
-  auto write(std::string_view name, int8_t value) -> std::expected<void, ewok::shared::SerializeError> {
-    std::cout << "write " << name << " " << value << "\n";
-    return {};
+  auto write(std::string_view name, int8_t value) -> ewok::shared::SerializeResult {
+    return write_internal(name, value);
   }
 
-  auto write(std::string_view name, int16_t value) -> std::expected<void, ewok::shared::SerializeError> {
-    std::cout << "write " << name << " " << value << "\n";
-    return {};
+  auto write(std::string_view name, int16_t value) -> ewok::shared::SerializeResult {
+    return write_internal(name, value);
   }
 
-  auto write(std::string_view name, int32_t value) -> std::expected<void, ewok::shared::SerializeError> {
-    std::cout << "write " << name << " " << value << "\n";
-    return {};
+  auto write(std::string_view name, int32_t value) -> ewok::shared::SerializeResult {
+    return write_internal(name, value);
   }
 
-  auto write(std::string_view name, int64_t value) -> std::expected<void, ewok::shared::SerializeError> {
-    std::cout << "write " << name << " " << value << "\n";
-    return {};
+  auto write(std::string_view name, int64_t value) -> ewok::shared::SerializeResult {
+    return write_internal(name, value);
   }
 
-  auto write(std::string_view name, float value) -> std::expected<void, ewok::shared::SerializeError> {
-    std::cout << "write " << name << " " << value << "\n";
-    return {};
+  auto write(std::string_view name, float value) -> ewok::shared::SerializeResult {
+    return write_internal(name, value);
   }
 
-  auto write(std::string_view name, double value) -> std::expected<void, ewok::shared::SerializeError> {
-    std::cout << "write " << name << " " << value << "\n";
-    return {};
+  auto write(std::string_view name, double value) -> ewok::shared::SerializeResult {
+    return write_internal(name, value);
   }
 
   auto write(
       std::string_view name,
-      std::string_view value) -> std::expected<void, ewok::shared::SerializeError> {
+      std::string_view value) -> ewok::shared::SerializeResult {
+    return write_internal(name, value);
+  }
+
+private:
+  void indent() const {
+    for (auto i = 0; i < level_; ++i) {
+      std::cout << "  ";
+    }
+  }
+
+  template <class T>
+  auto write_internal(std::string_view name, T value) -> ewok::shared::SerializeResult {
+    indent();
     std::cout << "write " << name << " " << value << "\n";
     return {};
   }
+
+  int level_{0};
 };
 
 struct B {
@@ -123,10 +132,7 @@ struct A {
 
 void test() {
   A a{1, 2, "3", {42}, {6, 7}};
-  B b{3};
 
   CoutWriter writer;
   ewok::shared::Serializer::serialize(writer, a);
-
-  ewok::shared::Serializer::serialize(writer, b);
 }

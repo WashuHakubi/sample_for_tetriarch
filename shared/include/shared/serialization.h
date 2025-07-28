@@ -20,31 +20,33 @@ enum class SerializeError {
   None,
 };
 
+using SerializeResult = std::expected<void, SerializeError>;
+
 /// Base class which is useful for knowing the core set of members to implement
 struct ISerializeWriter {
   virtual ~ISerializeWriter() = default;
 
-  virtual auto enter(std::string_view name) -> std::expected<void, SerializeError> = 0;
-  virtual auto leave() -> std::expected<void, SerializeError> = 0;
+  virtual auto enter(std::string_view name) -> SerializeResult = 0;
+  virtual auto leave() -> SerializeResult = 0;
 
-  virtual auto write(std::string_view name, uint8_t value) -> std::expected<void, SerializeError> = 0;
-  virtual auto write(std::string_view name, uint16_t value) -> std::expected<void, SerializeError> = 0;
-  virtual auto write(std::string_view name, uint32_t value) -> std::expected<void, SerializeError> = 0;
-  virtual auto write(std::string_view name, uint64_t value) -> std::expected<void, SerializeError> = 0;
-  virtual auto write(std::string_view name, int8_t value) -> std::expected<void, SerializeError> = 0;
-  virtual auto write(std::string_view name, int16_t value) -> std::expected<void, SerializeError> = 0;
-  virtual auto write(std::string_view name, int32_t value) -> std::expected<void, SerializeError> = 0;
-  virtual auto write(std::string_view name, int64_t value) -> std::expected<void, SerializeError> = 0;
-  virtual auto write(std::string_view name, float value) -> std::expected<void, SerializeError> = 0;
-  virtual auto write(std::string_view name, double value) -> std::expected<void, SerializeError> = 0;
-  virtual auto write(std::string_view name, std::string_view value) -> std::expected<void, SerializeError> = 0;
+  virtual auto write(std::string_view name, uint8_t value) -> SerializeResult = 0;
+  virtual auto write(std::string_view name, uint16_t value) -> SerializeResult = 0;
+  virtual auto write(std::string_view name, uint32_t value) -> SerializeResult = 0;
+  virtual auto write(std::string_view name, uint64_t value) -> SerializeResult = 0;
+  virtual auto write(std::string_view name, int8_t value) -> SerializeResult = 0;
+  virtual auto write(std::string_view name, int16_t value) -> SerializeResult = 0;
+  virtual auto write(std::string_view name, int32_t value) -> SerializeResult = 0;
+  virtual auto write(std::string_view name, int64_t value) -> SerializeResult = 0;
+  virtual auto write(std::string_view name, float value) -> SerializeResult = 0;
+  virtual auto write(std::string_view name, double value) -> SerializeResult = 0;
+  virtual auto write(std::string_view name, std::string_view value) -> SerializeResult = 0;
 };
 
 namespace detail {
 template <class T, class U>
 concept THasSerializeWrite = requires(T& t, std::string_view name, U u)
 {
-  { t.write(name, u) } -> std::same_as<std::expected<void, SerializeError>>;
+  { t.write(name, u) } -> std::same_as<SerializeResult>;
 };
 }
 
@@ -64,16 +66,17 @@ concept TSerializeWriter =
     detail::THasSerializeWrite<T, double> &&
     detail::THasSerializeWrite<T, std::string_view> && requires(T& t, std::string_view name)
     {
-      { t.enter(name) } -> std::same_as<std::expected<void, SerializeError>>;
-      { t.leave(name) } -> std::same_as<std::expected<void, SerializeError>>;
+      { t.enter(name) } -> std::same_as<SerializeResult>;
+      { t.leave(name) } -> std::same_as<SerializeResult>;
     };
 
-
+/// Specialize this for types that have a <tt>SerializeResult serialize(TSerializeWriter auto& writer)</tt> method.
 template <class T>
 struct IsCustomSerializable : std::false_type {
 };
 
 namespace detail {
+/// Checks if we have a valid member tuple
 template <class T>
 struct IsMemberTuple : std::false_type {
 };
@@ -85,12 +88,23 @@ struct IsMemberTuple<std::tuple<std::pair<char const*, Ts>...>> : std::true_type
 template <class T>
 concept TMemberTuple = IsMemberTuple<T>::value;
 
+/// Checks if we have a static serializeMembers method that returns a valid tuple.
+/// We expect this to return something like:
+/// @code
+/// static auto serializeMembers() {
+///   return std::tuple {
+///     std::make_pair("a", &A::a),
+///   };
+/// }
+/// @endcode
 template <class T>
 concept HasSerializeMembers = requires { { T::serializeMembers() } -> TMemberTuple; };
 
+/// Checks if a type is either a custom serializable type or has a valid serializeMembers method.
 template <class T>
 concept TSerializable = IsCustomSerializable<T>::value || HasSerializeMembers<T>;
 
+/// Utility template to get the type from a member pointer
 template <class T>
 struct MemberType;
 
@@ -104,7 +118,7 @@ class Serializer {
 public:
   static auto serialize(
       TSerializeWriter auto& writer,
-      detail::TSerializable auto const& value) -> std::expected<void, SerializeError> {
+      detail::TSerializable auto const& value) -> SerializeResult {
     if constexpr (IsCustomSerializable<std::remove_cvref_t<decltype(value)>>::value) {
       // If the type is a custom serializable type then as it to serialize its self
       return value.serialize(writer);
@@ -136,7 +150,7 @@ private:
   static auto serializeMember(
       TSerializeWriter auto& writer,
       detail::TSerializable auto const& value,
-      auto const& memberPtrTuple) -> std::expected<void, SerializeError> {
+      auto const& memberPtrTuple) -> SerializeResult {
     if constexpr (I < N) {
       auto [name, ptr] = std::get<I>(memberPtrTuple);
       using MemberType = typename detail::MemberType<decltype(ptr)>::type;
