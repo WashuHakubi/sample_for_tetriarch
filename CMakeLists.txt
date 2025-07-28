@@ -14,11 +14,12 @@ FetchContent_Declare(FetchDependency
 FetchContent_MakeAvailable(FetchDependency)
 include(${fetchdependency_SOURCE_DIR}/FetchDependency.cmake)
 
-# fetch_dependency(Catch2
-#         GIT_SOURCE https://github.com/catchorg/Catch2.git
-#         GIT_TAG v3.8.0
-#         CONFIGURATION ${CMAKE_BUILD_TYPE}
-# )
+fetch_dependency(Catch2
+        GIT_SOURCE https://github.com/catchorg/Catch2.git
+        VERSION v3.8.0
+        CONFIGURATION ${CMAKE_BUILD_TYPE}
+        ROOT ${PROJECT_SOURCE_DIR}/ext
+)
 
 fetch_dependency(
         concurrencpp
@@ -41,7 +42,9 @@ fetch_dependency(
         GIT_SOURCE https://github.com/libsdl-org/SDL.git
         VERSION release-3.2.10
         CONFIGURATION ${CMAKE_BUILD_TYPE}
-        CONFIGURE_OPTIONS -DSDL_SHARED=OFF -DSDL_STATIC=ON -DBUILD_SHARED_LIBS=OFF
+        CONFIGURE_OPTIONS -DSDL_SHARED=OFF
+        -DSDL_STATIC=ON
+        -DBUILD_SHARED_LIBS=OFF
         ROOT ${PROJECT_SOURCE_DIR}/ext
 )
 
@@ -68,7 +71,8 @@ fetch_dependency(
         GIT_SOURCE https://github.com/libsdl-org/SDL_image.git
         VERSION release-3.2.4
         CONFIGURATION ${CMAKE_BUILD_TYPE}
-        CONFIGURE_OPTIONS -DENABLE_ARC=OFF -DBUILD_SHARED_LIBS=OFF
+        CONFIGURE_OPTIONS -DENABLE_ARC=OFF
+        -DBUILD_SHARED_LIBS=OFF
         ROOT ${PROJECT_SOURCE_DIR}/ext
 )
 
@@ -77,8 +81,7 @@ fetch_dependency(
         GIT_SOURCE https://github.com/mikke89/RmlUi.git
         VERSION cdff6ad9dcf04989275ef5c88f792c488f80a508 # Using 6.2 instead of 6.1 to fix Mac mouse positions
         CONFIGURATION ${CMAKE_BUILD_TYPE}
-        CONFIGURE_OPTIONS
-        -DRMLUI_SAMPLES=OFF
+        CONFIGURE_OPTIONS -DRMLUI_SAMPLES=OFF
         -DRMLUI_BACKEND=native
         -DRMLUI_FONT_ENGINE=freetype
         -DRMLUI_THIRDPARTY_CONTAINERS=OFF
@@ -95,8 +98,6 @@ fetch_dependency(
         CONFIGURE_OPTIONS -DBUILD_SHARED_LIBS=OFF
         ROOT ${PROJECT_SOURCE_DIR}/ext
 )
-
-add_subdirectory(imgui)
 
 # Add the RmlUi SDL backend. This can be tweaked to support any of the SDL backends.
 add_library(RmlSdlBackend STATIC
@@ -117,14 +118,20 @@ target_link_libraries(RmlSdlBackend PRIVATE
         SDL3_image::SDL3_image
 )
 
-file(GLOB_RECURSE test_FILES CONFIGURE_DEPENDS "src/**.cpp")
-add_executable(test
-        ${test_FILES}
-        src/rml_context.h
-        src/rml_context.cpp
+add_subdirectory(ext)
+
+add_subdirectory(shared)
+add_subdirectory(client)
+add_subdirectory(server)
+
+#[[
+
+file(GLOB_RECURSE sample_FILES CONFIGURE_DEPENDS "src/**.cpp")
+add_executable(sample
+        ${sample_FILES}
 )
 
-target_link_libraries(test
+target_link_libraries(sample
         crossguid
         concurrencpp::concurrencpp
         ryml::ryml
@@ -135,13 +142,13 @@ target_link_libraries(test
         RmlSdlBackend
         ng-log::ng-log)
 
-target_include_directories(test PRIVATE ${PROJECT_SOURCE_DIR}/src)
-target_compile_definitions(test PUBLIC SDL_MAIN_USE_CALLBACKS)
+target_include_directories(sample PRIVATE ${PROJECT_SOURCE_DIR}/src)
+target_compile_definitions(sample PUBLIC SDL_MAIN_USE_CALLBACKS)
 
 if (MSVC)
-    target_compile_options(test PRIVATE /W4 /WX /wd4100 /wd4996)
+    target_compile_options(sample PRIVATE /W4 /WX /wd4100 /wd4996)
 else ()
-    target_compile_options(test PRIVATE
+    target_compile_options(sample PRIVATE
             -Wall
             -Wextra
             -Werror
@@ -153,14 +160,14 @@ endif ()
 
 
 if (CMAKE_HOST_WIN32)
-    add_custom_command(TARGET test POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_RUNTIME_DLLS:test> $<TARGET_FILE_DIR:test>
+    add_custom_command(TARGET sample POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_RUNTIME_DLLS:sample> $<TARGET_FILE_DIR:sample>
             COMMAND_EXPAND_LISTS
     )
 endif ()
 
-add_custom_target(copy_all_assets 
+add_custom_target(copy_all_assets
         COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_LIST_DIR}/assets ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/assets
 )
 
-add_dependencies(test copy_all_assets)
+add_dependencies(sample copy_all_assets)]]
