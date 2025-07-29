@@ -8,91 +8,136 @@
 #include "shared/serialization.h"
 
 #include <iostream>
+#include <sstream>
 #include <string>
+#include <stack>
 
-struct CoutWriter {
-  auto enter(std::string_view name) -> ewok::shared::SerializeResult {
-    indent();
-    std::cout << "enter " << name << "\n";
-    ++level_;
+#include "nlohmann/json.hpp"
+
+namespace ewok::shared {
+struct JsonWriter : ISerializeWriter {
+  JsonWriter()
+    : root_({}) {
+    json_.push(&root_);
+  }
+
+  auto enter(std::string_view name) -> SerializeResult override {
+    auto& top = *json_.top();
+    auto& next = top[name];
+    json_.push(&next);
     return {};
   }
 
-  auto leave(std::string_view name) -> ewok::shared::SerializeResult {
-    --level_;
-    indent();
-    std::cout << "leave " << name << "\n";
+  auto leave(std::string_view name) -> SerializeResult override {
+    json_.pop();
     return {};
   }
 
-  auto write(std::string_view name, uint8_t value) -> ewok::shared::SerializeResult {
+  auto write(std::string_view name, uint8_t value) -> SerializeResult override {
     return write_internal(name, value);
   }
 
-  auto write(std::string_view name, uint16_t value) -> ewok::shared::SerializeResult {
+  auto write(std::string_view name, uint16_t value) -> SerializeResult override {
     return write_internal(name, value);
   }
 
-  auto write(std::string_view name, uint32_t value) -> ewok::shared::SerializeResult {
+  auto write(std::string_view name, uint32_t value) -> SerializeResult override {
     return write_internal(name, value);
   }
 
-  auto write(std::string_view name, uint64_t value) -> ewok::shared::SerializeResult {
+  auto write(std::string_view name, uint64_t value) -> SerializeResult override {
     return write_internal(name, value);
   }
 
-  auto write(std::string_view name, int8_t value) -> ewok::shared::SerializeResult {
+  auto write(std::string_view name, int8_t value) -> SerializeResult override {
     return write_internal(name, value);
   }
 
-  auto write(std::string_view name, int16_t value) -> ewok::shared::SerializeResult {
+  auto write(std::string_view name, int16_t value) -> SerializeResult override {
     return write_internal(name, value);
   }
 
-  auto write(std::string_view name, int32_t value) -> ewok::shared::SerializeResult {
+  auto write(std::string_view name, int32_t value) -> SerializeResult override {
     return write_internal(name, value);
   }
 
-  auto write(std::string_view name, int64_t value) -> ewok::shared::SerializeResult {
+  auto write(std::string_view name, int64_t value) -> SerializeResult override {
     return write_internal(name, value);
   }
 
-  auto write(std::string_view name, float value) -> ewok::shared::SerializeResult {
+  auto write(std::string_view name, float value) -> SerializeResult override {
     return write_internal(name, value);
   }
 
-  auto write(std::string_view name, double value) -> ewok::shared::SerializeResult {
+  auto write(std::string_view name, double value) -> SerializeResult override {
     return write_internal(name, value);
   }
 
   auto write(
       std::string_view name,
-      std::string_view value) -> ewok::shared::SerializeResult {
+      std::string_view value) -> SerializeResult override {
     return write_internal(name, value);
   }
 
-private:
-  void indent() const {
-    for (auto i = 0; i < level_; ++i) {
-      std::cout << "  ";
-    }
+  auto data() -> std::string override {
+    return root_.dump();
   }
 
+private:
   template <class T>
-  auto write_internal(std::string_view name, T value) -> ewok::shared::SerializeResult {
-    indent();
-    std::cout << "write " << name << " " << value << "\n";
+  auto write_internal(std::string_view name, T value) -> SerializeResult {
+    (*json_.top())[name] = value;
     return {};
   }
 
-  int level_{0};
+  std::stack<nlohmann::json*> json_;
+  nlohmann::json root_;
 };
+
+struct JsonReader {
+  JsonReader(nlohmann::json j)
+    : root_(std::move(j)) {
+    json_.push(&root_);
+  }
+
+  auto enter(std::string_view name) -> SerializeResult {
+    auto& top = *json_.top();
+    auto& next = top.at(name);
+    json_.push(&next);
+    return {};
+  }
+
+  auto leave(std::string_view name) -> SerializeResult {
+    json_.pop();
+    return {};
+  }
+
+  template <class T>
+  auto read(std::string_view name, T& value) -> SerializeResult {
+    auto& top = *json_.top();
+    value = top[name];
+    return {};
+  }
+
+private:
+  std::stack<nlohmann::json*> json_;
+  nlohmann::json root_;
+};
+
+std::shared_ptr<ISerializeWriter> createJsonWriter() {
+  return std::make_shared<JsonWriter>();
+}
+}
 
 struct B {
   int a;
 
   auto serialize(ewok::shared::TSerializeWriter auto& writer) const {
     return writer.write("a", a);
+  }
+
+  auto deserialize(ewok::shared::TSerializeReader auto& reader) {
+    return reader.read("a", a);
   }
 };
 
@@ -133,6 +178,22 @@ struct A {
 void test() {
   A a{1, 2, "3", {42}, {6, 7}};
 
-  CoutWriter writer;
-  ewok::shared::Serializer::serialize(writer, a);
+  ewok::shared::JsonWriter writer;
+  [[maybe_unused]] auto r = ewok::shared::Serializer::serialize(writer, a);
+  assert(!!r);
+
+  std::cout << writer.data() << std::endl;
+
+  nlohmann::json j = nlohmann::json::parse(writer.data());
+  std::cout << j.dump() << std::endl;
+
+  ewok::shared::JsonReader reader(j);
+  A a2;
+  ewok::shared::Serializer::deserialize(reader, a2);
+  assert(a2.a == a.a);
+  assert(a2.f == a.f);
+  assert(a2.s == a.s);
+  assert(a2.b.a == a.b.a);
+  assert(a2.v.x == a2.v.x);
+  assert(a2.v.y == a2.v.y);
 }

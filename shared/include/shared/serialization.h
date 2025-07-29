@@ -11,6 +11,7 @@
 #include <cstdint>
 #include <expected>
 #include <functional>
+#include <memory>
 #include <string_view>
 #include <tuple>
 #include <type_traits>
@@ -27,7 +28,7 @@ struct ISerializeWriter {
   virtual ~ISerializeWriter() = default;
 
   virtual auto enter(std::string_view name) -> SerializeResult = 0;
-  virtual auto leave() -> SerializeResult = 0;
+  virtual auto leave(std::string_view name) -> SerializeResult = 0;
 
   virtual auto write(std::string_view name, uint8_t value) -> SerializeResult = 0;
   virtual auto write(std::string_view name, uint16_t value) -> SerializeResult = 0;
@@ -40,13 +41,23 @@ struct ISerializeWriter {
   virtual auto write(std::string_view name, float value) -> SerializeResult = 0;
   virtual auto write(std::string_view name, double value) -> SerializeResult = 0;
   virtual auto write(std::string_view name, std::string_view value) -> SerializeResult = 0;
+
+  virtual auto data() -> std::string = 0;
 };
+
+std::shared_ptr<ISerializeWriter> createJsonWriter();
 
 namespace detail {
 template <class T, class U>
 concept THasSerializeWrite = requires(T& t, std::string_view name, U u)
 {
   { t.write(name, u) } -> std::same_as<SerializeResult>;
+};
+
+template <class T, class U>
+concept THasSerializeRead = requires(T& t, std::string_view name, U& u)
+{
+  { t.read(name, u) } -> std::same_as<SerializeResult>;
 };
 }
 
@@ -65,6 +76,24 @@ concept TSerializeWriter =
     detail::THasSerializeWrite<T, float> &&
     detail::THasSerializeWrite<T, double> &&
     detail::THasSerializeWrite<T, std::string_view> && requires(T& t, std::string_view name)
+    {
+      { t.enter(name) } -> std::same_as<SerializeResult>;
+      { t.leave(name) } -> std::same_as<SerializeResult>;
+    };
+
+template <class T>
+concept TSerializeReader =
+    detail::THasSerializeRead<T, uint8_t> &&
+    detail::THasSerializeRead<T, uint16_t> &&
+    detail::THasSerializeRead<T, uint32_t> &&
+    detail::THasSerializeRead<T, uint64_t> &&
+    detail::THasSerializeRead<T, int8_t> &&
+    detail::THasSerializeRead<T, int16_t> &&
+    detail::THasSerializeRead<T, int32_t> &&
+    detail::THasSerializeRead<T, int64_t> &&
+    detail::THasSerializeRead<T, float> &&
+    detail::THasSerializeRead<T, double> &&
+    detail::THasSerializeRead<T, std::string_view> && requires(T& t, std::string_view name)
     {
       { t.enter(name) } -> std::same_as<SerializeResult>;
       { t.leave(name) } -> std::same_as<SerializeResult>;
@@ -116,7 +145,7 @@ struct MemberType<T C::*> {
 
 class Serializer {
 public:
-  static auto serialize(
+  [[nodiscard]] static auto serialize(
       TSerializeWriter auto& writer,
       detail::TSerializable auto const& value) -> SerializeResult {
     if constexpr (IsCustomSerializable<std::remove_cvref_t<decltype(value)>>::value) {
@@ -132,7 +161,64 @@ public:
     }
   }
 
+  [[nodiscard]] static auto deserialize(
+      TSerializeReader auto& reader,
+      detail::TSerializable auto& value) -> SerializeResult {
+    if constexpr (IsCustomSerializable<std::remove_cvref_t<decltype(value)>>::value) {
+      return value.deserialize(reader);
+    } else {
+      auto members = value.serializeMembers();
+      return deserializeMembers(reader, value, members);
+    }
+  }
+
 private:
+  static auto deserializeMembers(
+      TSerializeReader auto& reader,
+      detail::TSerializable auto& value,
+      auto const& memberPtrTuple) {
+    // Get the number of name/member function pointer pairs in the tuple
+    constexpr auto MemberCount = std::tuple_size_v<std::remove_cvref_t<decltype(memberPtrTuple)>>;
+    return deserializeMember<MemberCount, 0>(
+        reader,
+        value,
+        memberPtrTuple);
+  }
+
+  template <size_t N, size_t I>
+  static auto deserializeMember(
+      TSerializeReader auto& reader,
+      detail::TSerializable auto& value,
+      auto const& memberPtrTuple) -> SerializeResult {
+    if constexpr (I < N) {
+      auto [name, ptr] = std::get<I>(memberPtrTuple);
+      using MemberType = typename detail::MemberType<decltype(ptr)>::type;
+
+      if constexpr (IsCustomSerializable<MemberType>::value || detail::HasSerializeMembers<MemberType>) {
+        // If the member is a custom serializable type or supports serializeMembers() then deserialize it recursively
+        auto r = reader.enter(name);
+        if (!r)
+          return r;
+
+        r = deserialize(reader, value.*ptr);
+        if (!r)
+          return r;
+
+        r = reader.leave(name);
+        if (!r)
+          return r;
+      } else {
+        // Otherwise we expect the serialize writer to handle it (as it should be a primitive)
+        auto r = reader.read(name, value.*ptr);
+        if (!r)
+          return r;
+      }
+
+      return deserializeMember<N, I + 1>(reader, value, memberPtrTuple);
+    }
+    return {};
+  }
+
   static auto serializeMembers(
       TSerializeWriter auto& writer,
       detail::TSerializable auto const& value,

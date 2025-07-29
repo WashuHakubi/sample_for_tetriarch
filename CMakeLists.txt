@@ -11,7 +11,15 @@ FetchContent_Declare(FetchDependency
         GIT_REPOSITORY https://github.com/jpetrie/fetch-dependency.git
         GIT_TAG origin/main
 )
-FetchContent_MakeAvailable(FetchDependency)
+
+# header only
+FetchContent_Declare(
+        nlohmann_json
+        GIT_REPOSITORY https://github.com/nlohmann/json.git
+        GIT_TAG v3.11.3
+)
+
+FetchContent_MakeAvailable(FetchDependency nlohmann_json)
 include(${fetchdependency_SOURCE_DIR}/FetchDependency.cmake)
 
 fetch_dependency(Catch2
