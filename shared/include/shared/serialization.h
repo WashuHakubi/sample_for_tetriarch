@@ -19,6 +19,8 @@
 namespace ewok::shared {
 enum class SerializeError {
   None,
+  FieldNotFound,
+  InvalidFormat,
 };
 
 using SerializeResult = std::expected<void, SerializeError>;
@@ -45,7 +47,27 @@ struct ISerializeWriter {
   virtual auto data() -> std::string = 0;
 };
 
+struct ISerializeReader {
+  virtual ~ISerializeReader() = default;
+
+  virtual auto enter(std::string_view name) -> SerializeResult = 0;
+  virtual auto leave(std::string_view name) -> SerializeResult = 0;
+
+  virtual auto read(std::string_view name, uint8_t& value) -> SerializeResult = 0;
+  virtual auto read(std::string_view name, uint16_t& value) -> SerializeResult = 0;
+  virtual auto read(std::string_view name, uint32_t& value) -> SerializeResult = 0;
+  virtual auto read(std::string_view name, uint64_t& value) -> SerializeResult = 0;
+  virtual auto read(std::string_view name, int8_t& value) -> SerializeResult = 0;
+  virtual auto read(std::string_view name, int16_t& value) -> SerializeResult = 0;
+  virtual auto read(std::string_view name, int32_t& value) -> SerializeResult = 0;
+  virtual auto read(std::string_view name, int64_t& value) -> SerializeResult = 0;
+  virtual auto read(std::string_view name, float& value) -> SerializeResult = 0;
+  virtual auto read(std::string_view name, double& value) -> SerializeResult = 0;
+  virtual auto read(std::string_view name, std::string& value) -> SerializeResult = 0;
+};
+
 std::shared_ptr<ISerializeWriter> createJsonWriter();
+std::shared_ptr<ISerializeReader> createJsonReader(std::string const& json);
 
 namespace detail {
 template <class T, class U>
@@ -75,7 +97,8 @@ concept TSerializeWriter =
     detail::THasSerializeWrite<T, int64_t> &&
     detail::THasSerializeWrite<T, float> &&
     detail::THasSerializeWrite<T, double> &&
-    detail::THasSerializeWrite<T, std::string_view> && requires(T& t, std::string_view name)
+    detail::THasSerializeWrite<T, std::string_view> &&
+    requires(T& t, std::string_view name)
     {
       { t.enter(name) } -> std::same_as<SerializeResult>;
       { t.leave(name) } -> std::same_as<SerializeResult>;
@@ -93,7 +116,8 @@ concept TSerializeReader =
     detail::THasSerializeRead<T, int64_t> &&
     detail::THasSerializeRead<T, float> &&
     detail::THasSerializeRead<T, double> &&
-    detail::THasSerializeRead<T, std::string_view> && requires(T& t, std::string_view name)
+    detail::THasSerializeRead<T, std::string> &&
+    requires(T& t, std::string_view name)
     {
       { t.enter(name) } -> std::same_as<SerializeResult>;
       { t.leave(name) } -> std::same_as<SerializeResult>;
