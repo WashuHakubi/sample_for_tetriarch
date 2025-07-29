@@ -8,5 +8,4 @@
 #include "shared/serialization.h"
 
 int main() {
-  test();
 }
