@@ -78,47 +78,88 @@ TEST_CASE("Can serialize/deserialize json") {
   REQUIRE(b.v.y == 7.0);
 }
 
-namespace ewok::shared::serialization {
-auto serialize_field(
-    TSerializeWriter auto& writer,
-    std::string_view name,
-    std::unique_ptr<int> const& value) -> Result {
-  return writer.write("p", *value);
-}
+struct JustForwardWriter final : serialization::Writer<JustForwardWriter> {
+  JustForwardWriter()
+    : writer_(serialization::createJsonWriter()) {
+  }
 
-auto deserialize_field(
-    TSerializeReader auto& reader,
-    std::string_view name,
-    std::unique_ptr<int>& value) -> Result {
-  int val;
-  auto r = reader.read("p", val);
-  if (!r)
-    return r;
-  value = std::make_unique<int>(val);
-  return {};
-}
-}
+  template <class T>
+  auto write(std::string_view name, T value) -> serialization::Result {
+    return writer_->write(name, value);
+  }
+
+  auto write(std::string_view name, std::shared_ptr<int> const& p) -> serialization::Result {
+    return writer_->write(name, *p);
+  }
+
+  auto write(std::string_view name, std::unique_ptr<int> const& p) -> serialization::Result {
+    return writer_->write(name, *p);
+  }
+
+  auto data() -> std::string override {
+    return writer_->data();
+  }
+
+private:
+  std::shared_ptr<serialization::IWriter> writer_;
+};
+
+struct JustForwardReader : serialization::Reader<JustForwardReader> {
+  explicit JustForwardReader(std::string const& data)
+    : reader_(serialization::createJsonReader(data)) {
+  }
+
+  template <class T>
+  auto read(std::string_view name, T& value) -> serialization::Result {
+    return reader_->read(name, value);
+  }
+
+  auto read(std::string_view name, std::shared_ptr<int>& p) -> serialization::Result {
+    int v;
+    auto r = reader_->read(name, v);
+    if (!r)
+      return r;
+
+    p = std::make_shared<int>(v);
+    return {};
+  }
+
+  auto read(std::string_view name, std::unique_ptr<int>& p) -> serialization::Result {
+    int v;
+    auto r = reader_->read(name, v);
+    if (!r)
+      return r;
+
+    p = std::make_unique<int>(v);
+    return {};
+  }
+
+private:
+  std::shared_ptr<serialization::IReader> reader_;
+};
 
 struct C {
   std::unique_ptr<int> p;
+  std::shared_ptr<int> s;
 
   static auto serializeMembers() {
-    return std::make_tuple(std::make_pair("p", &C::p));
+    return std::make_tuple(std::make_pair("p", &C::p), std::make_pair("s", &C::s));
   }
 };
 
 TEST_CASE("Can specialize serialization") {
-  C c{std::make_unique<int>(1)};
-  auto writer = serialization::createJsonWriter();
-  auto r = serialization::serialize(*writer, c);
+  C c{std::make_unique<int>(1), std::make_shared<int>(42)};
+  auto writer = JustForwardWriter{};
+  auto r = serialization::serialize(writer, c);
   REQUIRE(r.has_value());
 
-  auto data = writer->data();
-  REQUIRE(data == R"({"p":1})");
+  auto data = writer.data();
+  REQUIRE(data == R"({"p":1,"s":42})");
 
   C c2;
-  auto reader = serialization::createJsonReader(data);
-  r = serialization::deserialize(*reader, c2);
+  auto reader = JustForwardReader{data};
+  r = serialization::deserialize(reader, c2);
   REQUIRE(r.has_value());
   REQUIRE(*c2.p == 1);
+  REQUIRE(*c2.s == 42);
 }
