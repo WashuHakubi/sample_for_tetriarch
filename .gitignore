@@ -91,3 +91,9 @@ fabric.properties
 *.vsix
 
 .DS_store
+
+# Specific ignores
+ext/*
+!ext/.gitignore
+!ext/imgui
+!ext/CMakeLists.txt
