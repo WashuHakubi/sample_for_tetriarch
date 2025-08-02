@@ -168,9 +168,13 @@ struct Reader : IReader {
 std::shared_ptr<IWriter> createJsonWriter();
 std::shared_ptr<IReader> createJsonReader(std::string const& json);
 
+/// Used in place of IWriter. This allows the code to know the concrete writer and elide the virtual function
+/// calls entirely.
 template <class T>
 concept TSerializeWriter = std::is_base_of_v<IWriter, T>;
 
+/// Used in place of IReader. This allows the code to know the concrete reader and elide the virtual function
+/// calls entirely.
 template <class T>
 concept TSerializeReader = std::is_base_of_v<IReader, T>;
 
@@ -229,6 +233,7 @@ auto deserialize(
     detail::TSerializable auto& value) -> Result;
 
 namespace detail {
+/// Deserialize the Ith member of the tuple of member pointers.
 template <size_t N, size_t I>
 auto deserializeMember(
     TSerializeReader auto& reader,
@@ -275,6 +280,7 @@ auto deserializeMembers(
       memberPtrTuple);
 }
 
+/// Serialize the Ith member of the tuple of member pointers.
 template <size_t N, size_t I>
 auto serializeMember(
     TSerializeWriter auto& writer,
@@ -347,5 +353,3 @@ auto serializeMembers(
   }
 }
 }
-
-void test();
