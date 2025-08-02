@@ -7,15 +7,13 @@
 
 #include "shared/serialization.h"
 
-#include <iostream>
-#include <sstream>
 #include <string>
 #include <stack>
 
 #include "nlohmann/json.hpp"
 
 namespace ewok::shared::serialization {
-struct JsonWriter : IWriter {
+struct JsonWriter : Writer<JsonWriter> {
   JsonWriter()
     : root_({}) {
     json_.push(&root_);
@@ -33,59 +31,11 @@ struct JsonWriter : IWriter {
     return {};
   }
 
-  auto write(std::string_view name, uint8_t value) -> Result override {
-    return write_internal(name, value);
-  }
-
-  auto write(std::string_view name, uint16_t value) -> Result override {
-    return write_internal(name, value);
-  }
-
-  auto write(std::string_view name, uint32_t value) -> Result override {
-    return write_internal(name, value);
-  }
-
-  auto write(std::string_view name, uint64_t value) -> Result override {
-    return write_internal(name, value);
-  }
-
-  auto write(std::string_view name, int8_t value) -> Result override {
-    return write_internal(name, value);
-  }
-
-  auto write(std::string_view name, int16_t value) -> Result override {
-    return write_internal(name, value);
-  }
-
-  auto write(std::string_view name, int32_t value) -> Result override {
-    return write_internal(name, value);
-  }
-
-  auto write(std::string_view name, int64_t value) -> Result override {
-    return write_internal(name, value);
-  }
-
-  auto write(std::string_view name, float value) -> Result override {
-    return write_internal(name, value);
-  }
-
-  auto write(std::string_view name, double value) -> Result override {
-    return write_internal(name, value);
-  }
-
-  auto write(
-      std::string_view name,
-      std::string_view value) -> Result override {
-    return write_internal(name, value);
-  }
-
   auto data() -> std::string override {
     return root_.dump();
   }
 
-private:
-  template <class T>
-  auto write_internal(std::string_view name, T value) -> Result {
+  auto write(std::string_view name, auto value) -> Result {
     (*json_.top())[name] = value;
     return {};
   }
@@ -94,7 +44,7 @@ private:
   nlohmann::json root_;
 };
 
-struct JsonReader : IReader {
+struct JsonReader : Reader<JsonReader> {
   explicit JsonReader(std::string const& jsonStr)
     : root_(nlohmann::json::parse(jsonStr)) {
     json_.push(&root_);
@@ -119,53 +69,7 @@ struct JsonReader : IReader {
     return {};
   }
 
-  auto read(std::string_view name, uint8_t& value) -> Result override {
-    return read_internal(name, value);
-  }
-
-  auto read(std::string_view name, uint16_t& value) -> Result override {
-    return read_internal(name, value);
-  }
-
-  auto read(std::string_view name, uint32_t& value) -> Result override {
-    return read_internal(name, value);
-  }
-
-  auto read(std::string_view name, uint64_t& value) -> Result override {
-    return read_internal(name, value);
-  }
-
-  auto read(std::string_view name, int8_t& value) -> Result override {
-    return read_internal(name, value);
-  }
-
-  auto read(std::string_view name, int16_t& value) -> Result override {
-    return read_internal(name, value);
-  }
-
-  auto read(std::string_view name, int32_t& value) -> Result override {
-    return read_internal(name, value);
-  }
-
-  auto read(std::string_view name, int64_t& value) -> Result override {
-    return read_internal(name, value);
-  }
-
-  auto read(std::string_view name, float& value) -> Result override {
-    return read_internal(name, value);
-  }
-
-  auto read(std::string_view name, double& value) -> Result override {
-    return read_internal(name, value);
-  }
-
-  auto read(std::string_view name, std::string& value) -> Result override {
-    return read_internal(name, value);
-  }
-
-private:
-  template <class T>
-  auto read_internal(std::string_view name, T& value) -> Result {
+  auto read(std::string_view name, auto& value) -> Result {
     auto& top = *json_.top();
     if (!top.contains(name)) {
       return std::unexpected{Error::FieldNotFound};

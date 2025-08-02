@@ -25,7 +25,7 @@ enum class Error {
 
 using Result = std::expected<void, Error>;
 
-/// Base class which is useful for knowing the core set of members to implement
+/// Base class for serializing fields.
 struct IWriter {
   virtual ~IWriter() = default;
 
@@ -47,16 +47,10 @@ struct IWriter {
   virtual auto data() -> std::string = 0;
 };
 
+/// Utility class that forwards calls to a derived type without requiring the derived type to implement all the methods
+/// of IWriter.
 template <class TDerived>
 struct Writer : IWriter {
-  auto enter(std::string_view name) -> Result override {
-    return static_cast<TDerived*>(this)->enter(name);
-  }
-
-  auto leave(std::string_view name) -> Result override {
-    return static_cast<TDerived*>(this)->leave(name);
-  }
-
   auto write(std::string_view name, uint8_t value) -> Result override {
     return static_cast<TDerived*>(this)->write(name, value);
   }
@@ -100,12 +94,9 @@ struct Writer : IWriter {
   auto write(std::string_view name, std::string_view value) -> Result override {
     return static_cast<TDerived*>(this)->write(name, value);
   }
-
-  auto data() -> std::string override {
-    return static_cast<TDerived*>(this)->data();
-  }
 };
 
+/// Base class for deserializing fields
 struct IReader {
   virtual ~IReader() = default;
 
@@ -125,16 +116,10 @@ struct IReader {
   virtual auto read(std::string_view name, std::string& value) -> Result = 0;
 };
 
+/// Utility class that forwards calls to a derived type without requiring the derived type to implement all the methods
+/// of IReader.
 template <class TDerived>
 struct Reader : IReader {
-  auto enter(std::string_view name) -> Result override {
-    return static_cast<TDerived*>(this)->enter(name);
-  }
-
-  auto leave(std::string_view name) -> Result override {
-    return static_cast<TDerived*>(this)->leave(name);
-  }
-
   auto read(std::string_view name, uint8_t& value) -> Result override {
     return static_cast<TDerived*>(this)->read(name, value);
   }

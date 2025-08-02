@@ -12,7 +12,7 @@
 using namespace ewok::shared;
 
 struct B {
-  int a;
+  int a{};
 
   auto serialize(serialization::TSerializeWriter auto& writer) const {
     return writer.write("a", a);
@@ -40,8 +40,8 @@ struct Vec2 {
 };
 
 struct A {
-  int a;
-  float f;
+  int a{};
+  float f{};
   std::string s;
   B b;
   Vec2 v;
@@ -83,6 +83,14 @@ struct TestAdditionalFieldTypesWriter final : serialization::Writer<TestAddition
     : writer_(serialization::createJsonWriter()) {
   }
 
+  auto enter(std::string_view name) -> serialization::Result override {
+    return writer_->enter(name);
+  }
+
+  auto leave(std::string_view name) -> serialization::Result override {
+    return writer_->leave(name);
+  }
+
   template <class T>
   auto write(std::string_view name, T value) -> serialization::Result {
     return writer_->write(name, value);
@@ -113,6 +121,14 @@ struct TestAdditionalFieldTypesReader : serialization::Reader<TestAdditionalFiel
     : reader_(serialization::createJsonReader(data)) {
   }
 
+  auto enter(std::string_view name) -> serialization::Result override {
+    return reader_->enter(name);
+  }
+
+  auto leave(std::string_view name) -> serialization::Result override {
+    return reader_->leave(name);
+  }
+
   template <class T>
   auto read(std::string_view name, T& value) -> serialization::Result {
     return reader_->read(name, value);
@@ -120,8 +136,7 @@ struct TestAdditionalFieldTypesReader : serialization::Reader<TestAdditionalFiel
 
   auto read(std::string_view name, std::shared_ptr<int>& p) -> serialization::Result {
     int v{0};
-    auto r = reader_->read(name, v);
-    if (!r) {
+    if (auto r = reader_->read(name, v); !r) {
       if (r.error() != serialization::Error::FieldNotFound) {
         return r;
       }
@@ -136,8 +151,7 @@ struct TestAdditionalFieldTypesReader : serialization::Reader<TestAdditionalFiel
 
   auto read(std::string_view name, std::unique_ptr<int>& p) -> serialization::Result {
     int v;
-    auto r = reader_->read(name, v);
-    if (!r) {
+    if (auto r = reader_->read(name, v); !r) {
       if (r.error() != serialization::Error::FieldNotFound) {
         return r;
       }
@@ -163,7 +177,7 @@ struct C {
   }
 };
 
-TEST_CASE("Can specialize serialization") {
+TEST_CASE("Can have user defined serialization of fields") {
   C c{std::make_unique<int>(1)};
   auto writer = TestAdditionalFieldTypesWriter{};
   auto r = serialization::serialize(writer, c);
