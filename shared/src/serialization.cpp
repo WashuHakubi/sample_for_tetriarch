@@ -35,6 +35,7 @@ struct JsonWriter : Writer<JsonWriter> {
     return root_.dump();
   }
 
+  /// Template method, this is called by the various write methods in Writer<T>
   auto write(std::string_view name, auto value) -> Result {
     (*json_.top())[name] = value;
     return {};
@@ -69,6 +70,7 @@ struct JsonReader : Reader<JsonReader> {
     return {};
   }
 
+  /// Template method, this is called by the various read methods in Reader<T>
   auto read(std::string_view name, auto& value) -> Result {
     auto& top = *json_.top();
     if (!top.contains(name)) {
