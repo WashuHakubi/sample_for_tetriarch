@@ -13,18 +13,17 @@ using namespace ewok::shared;
 
 struct B {
   int a{};
-
-  auto serialize(serialization::TSerializeWriter auto& writer) const {
-    return writer.write("a", a);
-  }
-
-  auto deserialize(serialization::TSerializeReader auto& reader) {
-    return reader.read("a", a);
-  }
 };
 
 template <>
-struct serialization::IsCustomSerializable<B> : std::true_type {
+struct serialization::CustomSerializable<B> : std::true_type {
+  static auto serialize(TSerializeWriter auto& writer, B const& value) {
+    return writer.write("a", value.a);
+  }
+
+  static auto deserialize(TSerializeReader auto& reader, B& value) {
+    return reader.read("a", value.a);
+  }
 };
 
 struct Vec2 {
