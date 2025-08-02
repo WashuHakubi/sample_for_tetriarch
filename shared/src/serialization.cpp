@@ -102,13 +102,13 @@ struct JsonReader : IReader {
 
   auto enter(std::string_view name) -> Result override {
     auto& top = *json_.top();
-    if (top.contains(name)) {
-      std::unexpected{Error::FieldNotFound};
+    if (!top.contains(name)) {
+      return std::unexpected{Error::FieldNotFound};
     }
 
     auto& next = top.at(name);
     if (!next.is_object()) {
-      std::unexpected{Error::InvalidFormat};
+      return std::unexpected{Error::InvalidFormat};
     }
     json_.push(&next);
     return {};
@@ -168,7 +168,7 @@ private:
   auto read_internal(std::string_view name, T& value) -> Result {
     auto& top = *json_.top();
     if (!top.contains(name)) {
-      std::unexpected{Error::FieldNotFound};
+      return std::unexpected{Error::FieldNotFound};
     }
 
     value = top.at(name);

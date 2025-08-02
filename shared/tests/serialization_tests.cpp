@@ -78,8 +78,8 @@ TEST_CASE("Can serialize/deserialize json") {
   REQUIRE(b.v.y == 7.0);
 }
 
-struct JustForwardWriter final : serialization::Writer<JustForwardWriter> {
-  JustForwardWriter()
+struct TestAdditionalFieldTypesWriter final : serialization::Writer<TestAdditionalFieldTypesWriter> {
+  TestAdditionalFieldTypesWriter()
     : writer_(serialization::createJsonWriter()) {
   }
 
@@ -89,10 +89,14 @@ struct JustForwardWriter final : serialization::Writer<JustForwardWriter> {
   }
 
   auto write(std::string_view name, std::shared_ptr<int> const& p) -> serialization::Result {
+    if (!p)
+      return {};
     return writer_->write(name, *p);
   }
 
   auto write(std::string_view name, std::unique_ptr<int> const& p) -> serialization::Result {
+    if (!p)
+      return {};
     return writer_->write(name, *p);
   }
 
@@ -104,8 +108,8 @@ private:
   std::shared_ptr<serialization::IWriter> writer_;
 };
 
-struct JustForwardReader : serialization::Reader<JustForwardReader> {
-  explicit JustForwardReader(std::string const& data)
+struct TestAdditionalFieldTypesReader : serialization::Reader<TestAdditionalFieldTypesReader> {
+  explicit TestAdditionalFieldTypesReader(std::string const& data)
     : reader_(serialization::createJsonReader(data)) {
   }
 
@@ -115,10 +119,16 @@ struct JustForwardReader : serialization::Reader<JustForwardReader> {
   }
 
   auto read(std::string_view name, std::shared_ptr<int>& p) -> serialization::Result {
-    int v;
+    int v{0};
     auto r = reader_->read(name, v);
-    if (!r)
-      return r;
+    if (!r) {
+      if (r.error() != serialization::Error::FieldNotFound) {
+        return r;
+      }
+
+      // If the field does not exist then the pointer was null.
+      return {};
+    }
 
     p = std::make_shared<int>(v);
     return {};
@@ -127,8 +137,14 @@ struct JustForwardReader : serialization::Reader<JustForwardReader> {
   auto read(std::string_view name, std::unique_ptr<int>& p) -> serialization::Result {
     int v;
     auto r = reader_->read(name, v);
-    if (!r)
-      return r;
+    if (!r) {
+      if (r.error() != serialization::Error::FieldNotFound) {
+        return r;
+      }
+
+      // If the field does not exist then the pointer was null.
+      return {};
+    }
 
     p = std::make_unique<int>(v);
     return {};
@@ -148,18 +164,18 @@ struct C {
 };
 
 TEST_CASE("Can specialize serialization") {
-  C c{std::make_unique<int>(1), std::make_shared<int>(42)};
-  auto writer = JustForwardWriter{};
+  C c{std::make_unique<int>(1)};
+  auto writer = TestAdditionalFieldTypesWriter{};
   auto r = serialization::serialize(writer, c);
   REQUIRE(r.has_value());
 
   auto data = writer.data();
-  REQUIRE(data == R"({"p":1,"s":42})");
+  REQUIRE(data == R"({"p":1})");
 
   C c2;
-  auto reader = JustForwardReader{data};
+  auto reader = TestAdditionalFieldTypesReader{data};
   r = serialization::deserialize(reader, c2);
   REQUIRE(r.has_value());
   REQUIRE(*c2.p == 1);
-  REQUIRE(*c2.s == 42);
+  REQUIRE(c2.s == nullptr);
 }
