@@ -60,14 +60,6 @@ struct IWriter {
   virtual auto write(std::string_view name, std::string_view value) -> Result = 0;
 
   virtual auto data() -> std::string = 0;
-
-  template <class T>
-  auto write(std::string_view name, std::span<T const> values) -> Result;
-
-  template <class T>
-  auto write(std::string_view name, std::vector<T> const& values) {
-    return write(name, std::span{values});
-  }
 };
 
 /// Utility class that forwards calls to a derived type without requiring the derived type to implement all the methods
@@ -140,9 +132,6 @@ struct IReader {
   virtual auto read(std::string_view name, float& value) -> Result = 0;
   virtual auto read(std::string_view name, double& value) -> Result = 0;
   virtual auto read(std::string_view name, std::string& value) -> Result = 0;
-
-  template <class T>
-  auto read(std::string_view name, std::vector<T>& values) -> Result;
 };
 
 /// Utility class that forwards calls to a derived type without requiring the derived type to implement all the methods
@@ -249,6 +238,20 @@ template <class C, class T>
 struct MemberType<T C::*> {
   using type = std::remove_cvref_t<T>;
 };
+
+template <class T>
+struct ArrayHandler : std::false_type {
+};
+
+template <class T>
+struct ArrayHandler<std::vector<T>> : std::true_type {
+  using item_type = T;
+
+  static auto size(std::vector<T> const& v) { return v.size(); }
+  static auto at(std::vector<T> const& v, size_t idx) { return v[idx]; }
+  static auto reserve(std::vector<T>& v, size_t size) { return v.reserve(size); }
+  static auto push(std::vector<T>& v, T&& i) { v.push_back(std::forward<T>(i)); }
+};
 }
 
 /// Serializes @c value to @c writer
@@ -281,6 +284,28 @@ auto deserializeItem(TSerializeReader auto& reader, std::string_view name, auto&
     if (!r) {
       return r;
     }
+  } else if constexpr (ArrayHandler<MemberType>::value) {
+    size_t count{};
+    auto r = reader.array(name, count);
+    if (!r) {
+      return r;
+    }
+
+    ArrayHandler<MemberType>::reserve(value, count);
+    for (size_t i = 0; i < count; ++i) {
+      typename ArrayHandler<MemberType>::item_type item;
+      r = deserializeItem(reader, name, item);
+      if (!r) {
+        return r;
+      }
+
+      ArrayHandler<MemberType>::push(value, std::move(item));
+    }
+
+    r = reader.leave(name);
+    if (!r) {
+      return r;
+    }
   } else {
     // Otherwise we expect the serialize writer to handle it (as it should be a primitive)
     auto r = reader.read(name, value);
@@ -305,6 +330,24 @@ auto serializeItem(TSerializeWriter auto& writer, std::string_view name, auto co
     r = serialize(writer, value);
     if (!r) {
       return r;
+    }
+
+    r = writer.leave(name);
+    if (!r) {
+      return r;
+    }
+  } else if constexpr (ArrayHandler<MemberType>::value) {
+    size_t count = ArrayHandler<MemberType>::size(value);
+    auto r = writer.array(name, count);
+    if (!r) {
+      return r;
+    }
+
+    for (size_t i = 0; i < count; ++i) {
+      r = serializeItem(writer, name, ArrayHandler<MemberType>::at(value, i));
+      if (!r) {
+        return r;
+      }
     }
 
     r = writer.leave(name);
@@ -411,43 +454,5 @@ auto serializeMembers(
     auto members = value.serializeMembers();
     return detail::deserializeMembers(reader, value, members);
   }
-}
-
-template <class T>
-auto IWriter::write(std::string_view name, std::span<T const> values) -> Result {
-  if (auto result = array(name, values.size()); !result) {
-    return result;
-  }
-
-  for (auto&& value : values) {
-    auto r = detail::serializeItem(*this, name, value);
-    if (!r) {
-      return r;
-    }
-  }
-
-  return leave(name);
-}
-
-template <class T>
-auto IReader::read(std::string_view name, std::vector<T>& values) -> Result {
-  size_t expected = 0;
-  if (auto result = array(name, expected); !result) {
-    return result;
-  }
-
-  size_t i = 0;
-  for (; i < expected; ++i) {
-    T value;
-    auto r = detail::deserializeItem(*this, name, value);
-    if (!r) {
-      return r;
-    }
-
-    values.push_back(std::move(value));
-  }
-  assert(i == expected);
-
-  return leave(name);
 }
 }
