@@ -61,14 +61,13 @@ struct IWriter {
 
   virtual auto data() -> std::string = 0;
 
-  template<class T>
+  template <class T>
   auto write(std::string_view name, std::span<T const> values) -> Result;
 
-  template<class T>
+  template <class T>
   auto write(std::string_view name, std::vector<T> const& values) {
     return write(name, std::span{values});
   }
-
 };
 
 /// Utility class that forwards calls to a derived type without requiring the derived type to implement all the methods
@@ -142,7 +141,7 @@ struct IReader {
   virtual auto read(std::string_view name, double& value) -> Result = 0;
   virtual auto read(std::string_view name, std::string& value) -> Result = 0;
 
-  template<class T>
+  template <class T>
   auto read(std::string_view name, std::vector<T>& values) -> Result;
 };
 
@@ -263,6 +262,66 @@ auto deserialize(
     detail::TSerializable auto& value) -> Result;
 
 namespace detail {
+auto deserializeItem(TSerializeReader auto& reader, std::string_view name, auto& value) -> Result {
+  using MemberType = std::remove_cvref_t<decltype(value)>;
+
+  if constexpr (CustomSerializable<MemberType>::value || detail::HasSerializeMembers<MemberType>) {
+    // If the member is a custom serializable type or supports serializeMembers() then deserialize it recursively
+    auto r = reader.enter(name);
+    if (!r) {
+      return r;
+    }
+
+    r = deserialize(reader, value);
+    if (!r) {
+      return r;
+    }
+
+    r = reader.leave(name);
+    if (!r) {
+      return r;
+    }
+  } else {
+    // Otherwise we expect the serialize writer to handle it (as it should be a primitive)
+    auto r = reader.read(name, value);
+    if (!r) {
+      return r;
+    }
+  }
+
+  return {};
+}
+
+auto serializeItem(TSerializeWriter auto& writer, std::string_view name, auto const& value) -> Result {
+  using MemberType = std::remove_cvref_t<decltype(value)>;
+
+  if constexpr (CustomSerializable<MemberType>::value || detail::HasSerializeMembers<MemberType>) {
+    // If the member is a custom serializable type or supports serializeMembers() then serialize it recursively
+    auto r = writer.enter(name);
+    if (!r) {
+      return r;
+    }
+
+    r = serialize(writer, value);
+    if (!r) {
+      return r;
+    }
+
+    r = writer.leave(name);
+    if (!r) {
+      return r;
+    }
+  } else {
+    // Otherwise we expect the serialize writer to handle it (as it should be a primitive)
+    auto r = writer.write(name, value);
+    if (!r) {
+      return r;
+    }
+  }
+
+  return {};
+}
+
 /// Deserialize the Ith member of the tuple of member pointers.
 template <size_t N, size_t I>
 auto deserializeMember(
@@ -271,26 +330,10 @@ auto deserializeMember(
     auto const& memberPtrTuple) -> Result {
   if constexpr (I < N) {
     auto [name, ptr] = std::get<I>(memberPtrTuple);
-    using MemberType = typename MemberType<decltype(ptr)>::type;
 
-    if constexpr (CustomSerializable<MemberType>::value || detail::HasSerializeMembers<MemberType>) {
-      // If the member is a custom serializable type or supports serializeMembers() then deserialize it recursively
-      auto r = reader.enter(name);
-      if (!r)
-        return r;
-
-      r = deserialize(reader, value.*ptr);
-      if (!r)
-        return r;
-
-      r = reader.leave(name);
-      if (!r)
-        return r;
-    } else {
-      // Otherwise we expect the serialize writer to handle it (as it should be a primitive)
-      auto r = reader.read(name, value.*ptr);
-      if (!r)
-        return r;
+    auto r = deserializeItem(reader, name, value.*ptr);
+    if (!r) {
+      return r;
     }
 
     return deserializeMember<N, I + 1>(reader, value, memberPtrTuple);
@@ -318,26 +361,10 @@ auto serializeMember(
     auto const& memberPtrTuple) -> Result {
   if constexpr (I < N) {
     auto [name, ptr] = std::get<I>(memberPtrTuple);
-    using MemberType = typename MemberType<decltype(ptr)>::type;
 
-    if constexpr (CustomSerializable<MemberType>::value || detail::HasSerializeMembers<MemberType>) {
-      // If the member is a custom serializable type or supports serializeMembers() then serialize it recursively
-      auto r = writer.enter(name);
-      if (!r)
-        return r;
-
-      r = serialize(writer, value.*ptr);
-      if (!r)
-        return r;
-
-      r = writer.leave(name);
-      if (!r)
-        return r;
-    } else {
-      // Otherwise we expect the serialize writer to handle it (as it should be a primitive)
-      auto r = writer.write(name, value.*ptr);
-      if (!r)
-        return r;
+    auto r = serializeItem(writer, name, value.*ptr);
+    if (!r) {
+      return r;
     }
 
     return serializeMember<N, I + 1>(writer, value, memberPtrTuple);
@@ -392,30 +419,10 @@ auto IWriter::write(std::string_view name, std::span<T const> values) -> Result 
     return result;
   }
 
-  for (auto && value : values) {
-    using MemberType = std::remove_cvref_t<T>;
-    if constexpr (CustomSerializable<MemberType>::value || detail::HasSerializeMembers<MemberType>) {
-      // If the member is a custom serializable type or supports serializeMembers() then serialize it recursively
-      auto r = enter(name);
-      if (!r) {
-        return r;
-      }
-
-      r = serialize(*this, value);
-      if (!r) {
-        return r;
-      }
-
-      r = leave(name);
-      if (!r) {
-        return r;
-      }
-    } else {
-      // Otherwise we expect the serialize writer to handle it (as it should be a primitive)
-      auto r = write(name, value);
-      if (!r) {
-        return r;
-      }
+  for (auto&& value : values) {
+    auto r = detail::serializeItem(*this, name, value);
+    if (!r) {
+      return r;
     }
   }
 
@@ -429,32 +436,12 @@ auto IReader::read(std::string_view name, std::vector<T>& values) -> Result {
     return result;
   }
 
-  T value;
   size_t i = 0;
   for (; i < expected; ++i) {
-    using MemberType = std::remove_cvref_t<T>;
-    if constexpr (CustomSerializable<MemberType>::value || detail::HasSerializeMembers<MemberType>) {
-      // If the member is a custom serializable type or supports serializeMembers() then deserialize it recursively
-      auto r = enter(name);
-      if (!r) {
-        return r;
-      }
-
-      r = deserialize(*this, value);
-      if (!r) {
-        return r;
-      }
-
-      r = leave(name);
-      if (!r) {
-        return r;
-      }
-    } else {
-      // Otherwise we expect the serialize writer to handle it (as it should be a primitive)
-      auto r = read(name, value);
-      if (!r) {
-        return r;
-      }
+    T value;
+    auto r = detail::deserializeItem(*this, name, value);
+    if (!r) {
+      return r;
     }
 
     values.push_back(std::move(value));
@@ -463,5 +450,4 @@ auto IReader::read(std::string_view name, std::vector<T>& values) -> Result {
 
   return leave(name);
 }
-
 }
