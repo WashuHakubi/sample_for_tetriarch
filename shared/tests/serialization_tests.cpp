@@ -5,7 +5,9 @@
  *  file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
  */
 
+#include <compare>
 #include <tuple>
+
 #include <catch2/catch_all.hpp>
 #include <shared/serialization.h>
 
@@ -13,6 +15,8 @@ using namespace ewok::shared;
 
 struct B {
   int a{};
+
+  auto operator<=>(const B&) const = default;
 };
 
 template <>
@@ -36,6 +40,8 @@ struct Vec2 {
         std::make_pair("y", &Vec2::y),
     };
   }
+
+  auto operator<=>(const Vec2&) const = default;
 };
 
 struct A {
@@ -54,6 +60,8 @@ struct A {
         std::make_pair("v", &A::v),
     };
   }
+
+  auto operator<=>(const A&) const = default;
 };
 
 TEST_CASE("Can serialize/deserialize json") {
@@ -80,6 +88,10 @@ TEST_CASE("Can serialize/deserialize json") {
 struct TestAdditionalFieldTypesWriter final : serialization::Writer<TestAdditionalFieldTypesWriter> {
   TestAdditionalFieldTypesWriter()
     : writer_(serialization::createJsonWriter()) {
+  }
+
+  auto array(std::string_view name, size_t count) -> serialization::Result override {
+    return writer_->array(name, count);
   }
 
   auto enter(std::string_view name) -> serialization::Result override {
@@ -118,6 +130,10 @@ private:
 struct TestAdditionalFieldTypesReader : serialization::Reader<TestAdditionalFieldTypesReader> {
   explicit TestAdditionalFieldTypesReader(std::string const& data)
     : reader_(serialization::createJsonReader(data)) {
+  }
+
+  auto array(std::string_view name, size_t& count) -> serialization::Result override {
+    return reader_->array(name, count);
   }
 
   auto enter(std::string_view name) -> serialization::Result override {
@@ -191,4 +207,58 @@ TEST_CASE("Can have user defined serialization of fields") {
   REQUIRE(r.has_value());
   REQUIRE(*c2.p == 1);
   REQUIRE(c2.s == nullptr);
+}
+
+TEST_CASE("Can serialzie primitive arrays") {
+  struct S {
+    std::vector<int> a;
+
+    static auto serializeMembers() {
+      return std::make_tuple(
+        std::make_pair("a", &S::a));
+    }
+  };
+
+  S s{{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}};
+  const auto writer = serialization::createJsonWriter();
+  auto r = serialization::serialize(*writer, s);
+  REQUIRE(r.has_value());
+
+  auto data = writer->data();
+  REQUIRE(data == R"({"a":[1,2,3,4,5,6,7,8,9,10]})");
+
+  S s2{};
+  const auto reader = serialization::createJsonReader(data);
+  r = serialization::deserialize(*reader, s2);
+  REQUIRE(r.has_value());
+  REQUIRE(s2.a == std::vector{1, 2, 3, 4, 5, 6, 7, 8, 9, 10});
+}
+
+TEST_CASE("Can serialize complex arrays") {
+  struct S {
+    std::vector<A> a;
+
+    static auto serializeMembers() {
+      return std::make_tuple(
+        std::make_pair("a", &S::a));
+    }
+  };
+
+  S s{{
+    {1, 2, "3", {42}, {6, 7}},
+    {2, 3, "4", {84}, {7, 8}}
+  }};
+
+  const auto writer = serialization::createJsonWriter();
+  auto r = serialization::serialize(*writer, s);
+  REQUIRE(r.has_value());
+
+  auto data = writer->data();
+  REQUIRE(data == R"({"a":[{"a":1,"b":{"a":42},"f":2.0,"s":"3","v":{"x":6.0,"y":7.0}},{"a":2,"b":{"a":84},"f":3.0,"s":"4","v":{"x":7.0,"y":8.0}}]})");
+
+  S s2{};
+  const auto reader = serialization::createJsonReader(data);
+  r = serialization::deserialize(*reader, s2);
+  REQUIRE(r.has_value());
+  REQUIRE(s2.a == s.a);
 }

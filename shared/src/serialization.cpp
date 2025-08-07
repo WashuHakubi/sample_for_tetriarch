@@ -19,10 +19,24 @@ struct JsonWriter : Writer<JsonWriter> {
     json_.push(&root_);
   }
 
+  auto array(std::string_view name, size_t count) -> Result override {
+    auto& top = *json_.top();
+    auto& next = top[name] = nlohmann::json::array();
+    json_.push(&next);
+    return {};
+  }
+
   auto enter(std::string_view name) -> Result override {
     auto& top = *json_.top();
-    auto& next = top[name];
-    json_.push(&next);
+    if (top.is_array()) {
+      top.push_back(nlohmann::json::object());
+      auto& next = top.back();
+      json_.push(&next);
+    }
+    else {
+      auto& next = top[name];
+      json_.push(&next);
+    }
     return {};
   }
 
@@ -37,7 +51,13 @@ struct JsonWriter : Writer<JsonWriter> {
 
   /// Template method, this is called by the various write methods in Writer<T>
   auto write(std::string_view name, auto value) -> Result {
-    (*json_.top())[name] = value;
+    auto& top = *json_.top();
+    if (top.is_array()) {
+      top.push_back(value);
+    }
+    else {
+      top[name] = value;
+    }
     return {};
   }
 
@@ -48,20 +68,47 @@ struct JsonWriter : Writer<JsonWriter> {
 struct JsonReader : Reader<JsonReader> {
   explicit JsonReader(std::string const& jsonStr)
     : root_(nlohmann::json::parse(jsonStr)) {
-    json_.push(&root_);
+    json_.emplace(&root_, SIZE_T_MAX);
   }
 
-  auto enter(std::string_view name) -> Result override {
-    auto& top = *json_.top();
+  auto array(std::string_view name, size_t& count) -> Result override {
+    auto& top = *json_.top().first;
     if (!top.contains(name)) {
       return std::unexpected{Error::FieldNotFound};
     }
 
     auto& next = top.at(name);
-    if (!next.is_object()) {
+    if (!next.is_array()) {
       return std::unexpected{Error::InvalidFormat};
     }
-    json_.push(&next);
+
+    json_.emplace(&next, 0);
+    count = next.size();
+    return {};
+  }
+
+  auto enter(std::string_view name) -> Result override {
+    auto& top = *json_.top().first;
+    if (top.is_array()) {
+      auto& next = top.at(json_.top().second++);
+      if (!next.is_object()) {
+        return std::unexpected{Error::InvalidFormat};
+      }
+
+      json_.emplace(&next, SIZE_T_MAX);
+    }
+    else {
+      if (!top.contains(name)) {
+        return std::unexpected{Error::FieldNotFound};
+      }
+
+      auto& next = top.at(name);
+      if (!next.is_object()) {
+        return std::unexpected{Error::InvalidFormat};
+      }
+      json_.emplace(&next, SIZE_T_MAX);
+    }
+
     return {};
   }
 
@@ -72,16 +119,21 @@ struct JsonReader : Reader<JsonReader> {
 
   /// Template method, this is called by the various read methods in Reader<T>
   auto read(std::string_view name, auto& value) -> Result {
-    auto& top = *json_.top();
-    if (!top.contains(name)) {
-      return std::unexpected{Error::FieldNotFound};
+    auto& top = *json_.top().first;
+    if (top.is_array()) {
+      value = top.at(json_.top().second++);
     }
+    else {
+      if (!top.contains(name)) {
+        return std::unexpected{Error::FieldNotFound};
+      }
 
-    value = top.at(name);
+      value = top.at(name);
+    }
     return {};
   }
 
-  std::stack<nlohmann::json*> json_;
+  std::stack<std::pair<nlohmann::json*, size_t>> json_;
   nlohmann::json root_;
 };
 

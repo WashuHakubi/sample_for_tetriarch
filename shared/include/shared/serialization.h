@@ -6,12 +6,14 @@
  */
 #pragma once
 
-#include <cstdint>
+#include <cassert>
 #include <concepts>
 #include <cstdint>
 #include <expected>
+#include <filesystem>
 #include <functional>
 #include <memory>
+#include <span>
 #include <string_view>
 #include <tuple>
 #include <type_traits>
@@ -29,7 +31,20 @@ using Result = std::expected<void, Error>;
 struct IWriter {
   virtual ~IWriter() = default;
 
+  /**
+   * Begins an array. Count is expected to be the number of elements in the array. All calls to @c write, up to @c
+   * count, should write an entry into the array.
+   */
+  virtual auto array(std::string_view name, size_t count) -> Result = 0;
+
+  /**
+   * Begins an object, each call to write should write a named value into the object
+   */
   virtual auto enter(std::string_view name) -> Result = 0;
+
+  /**
+   * Ends the current array or object.
+   */
   virtual auto leave(std::string_view name) -> Result = 0;
 
   virtual auto write(std::string_view name, uint8_t value) -> Result = 0;
@@ -45,6 +60,15 @@ struct IWriter {
   virtual auto write(std::string_view name, std::string_view value) -> Result = 0;
 
   virtual auto data() -> std::string = 0;
+
+  template<class T>
+  auto write(std::string_view name, std::span<T const> values) -> Result;
+
+  template<class T>
+  auto write(std::string_view name, std::vector<T> const& values) {
+    return write(name, std::span{values});
+  }
+
 };
 
 /// Utility class that forwards calls to a derived type without requiring the derived type to implement all the methods
@@ -100,7 +124,10 @@ struct Writer : IWriter {
 struct IReader {
   virtual ~IReader() = default;
 
+  virtual auto array(std::string_view name, size_t& count) -> Result = 0;
+
   virtual auto enter(std::string_view name) -> Result = 0;
+
   virtual auto leave(std::string_view name) -> Result = 0;
 
   virtual auto read(std::string_view name, uint8_t& value) -> Result = 0;
@@ -114,6 +141,9 @@ struct IReader {
   virtual auto read(std::string_view name, float& value) -> Result = 0;
   virtual auto read(std::string_view name, double& value) -> Result = 0;
   virtual auto read(std::string_view name, std::string& value) -> Result = 0;
+
+  template<class T>
+  auto read(std::string_view name, std::vector<T>& values) -> Result;
 };
 
 /// Utility class that forwards calls to a derived type without requiring the derived type to implement all the methods
@@ -327,7 +357,7 @@ auto serializeMembers(
       value,
       memberPtrTuple);
 }
-}
+} // namespace detail
 
 [[nodiscard]] auto serialize(
     TSerializeWriter auto& writer,
@@ -355,4 +385,83 @@ auto serializeMembers(
     return detail::deserializeMembers(reader, value, members);
   }
 }
+
+template <class T>
+auto IWriter::write(std::string_view name, std::span<T const> values) -> Result {
+  if (auto result = array(name, values.size()); !result) {
+    return result;
+  }
+
+  for (auto && value : values) {
+    using MemberType = std::remove_cvref_t<T>;
+    if constexpr (CustomSerializable<MemberType>::value || detail::HasSerializeMembers<MemberType>) {
+      // If the member is a custom serializable type or supports serializeMembers() then serialize it recursively
+      auto r = enter(name);
+      if (!r) {
+        return r;
+      }
+
+      r = serialize(*this, value);
+      if (!r) {
+        return r;
+      }
+
+      r = leave(name);
+      if (!r) {
+        return r;
+      }
+    } else {
+      // Otherwise we expect the serialize writer to handle it (as it should be a primitive)
+      auto r = write(name, value);
+      if (!r) {
+        return r;
+      }
+    }
+  }
+
+  return leave(name);
+}
+
+template <class T>
+auto IReader::read(std::string_view name, std::vector<T>& values) -> Result {
+  size_t expected = 0;
+  if (auto result = array(name, expected); !result) {
+    return result;
+  }
+
+  T value;
+  size_t i = 0;
+  for (; i < expected; ++i) {
+    using MemberType = std::remove_cvref_t<T>;
+    if constexpr (CustomSerializable<MemberType>::value || detail::HasSerializeMembers<MemberType>) {
+      // If the member is a custom serializable type or supports serializeMembers() then deserialize it recursively
+      auto r = enter(name);
+      if (!r) {
+        return r;
+      }
+
+      r = deserialize(*this, value);
+      if (!r) {
+        return r;
+      }
+
+      r = leave(name);
+      if (!r) {
+        return r;
+      }
+    } else {
+      // Otherwise we expect the serialize writer to handle it (as it should be a primitive)
+      auto r = read(name, value);
+      if (!r) {
+        return r;
+      }
+    }
+
+    values.push_back(std::move(value));
+  }
+  assert(i == expected);
+
+  return leave(name);
+}
+
 }
