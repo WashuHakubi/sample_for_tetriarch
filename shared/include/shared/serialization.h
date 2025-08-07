@@ -239,10 +239,13 @@ struct MemberType<T C::*> {
   using type = std::remove_cvref_t<T>;
 };
 
+/// Checks if we handle the type T by deriving from std::true_type, and is expected to provide
+/// size(), at(), reserve() and push() methods for the type to enable serialization and deserialization.
 template <class T>
 struct ArrayHandler : std::false_type {
 };
 
+/// Trait for handling array's of type std::vector<T>
 template <class T>
 struct ArrayHandler<std::vector<T>> : std::true_type {
   using item_type = T;
@@ -285,12 +288,14 @@ auto deserializeItem(TSerializeReader auto& reader, std::string_view name, auto&
       return r;
     }
   } else if constexpr (ArrayHandler<MemberType>::value) {
+    // If we're an array type then get the count of items to deserialize
     size_t count{};
     auto r = reader.array(name, count);
     if (!r) {
       return r;
     }
 
+    // Attempt to reserve that much space and then deserialize each item into the array.
     ArrayHandler<MemberType>::reserve(value, count);
     for (size_t i = 0; i < count; ++i) {
       typename ArrayHandler<MemberType>::item_type item;
@@ -337,12 +342,14 @@ auto serializeItem(TSerializeWriter auto& writer, std::string_view name, auto co
       return r;
     }
   } else if constexpr (ArrayHandler<MemberType>::value) {
+    // If we have an array member then get the count of items to serialize
     size_t count = ArrayHandler<MemberType>::size(value);
     auto r = writer.array(name, count);
     if (!r) {
       return r;
     }
 
+    // Write out each item from the array.
     for (size_t i = 0; i < count; ++i) {
       r = serializeItem(writer, name, ArrayHandler<MemberType>::at(value, i));
       if (!r) {

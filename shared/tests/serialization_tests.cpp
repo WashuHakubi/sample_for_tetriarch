@@ -209,13 +209,13 @@ TEST_CASE("Can have user defined serialization of fields") {
   REQUIRE(c2.s == nullptr);
 }
 
-TEST_CASE("Can serialzie primitive arrays") {
+TEST_CASE("Can serialize primitive arrays") {
   struct S {
     std::vector<int> a;
 
     static auto serializeMembers() {
       return std::make_tuple(
-        std::make_pair("a", &S::a));
+          std::make_pair("a", &S::a));
     }
   };
 
@@ -240,13 +240,13 @@ TEST_CASE("Can serialize complex arrays") {
 
     static auto serializeMembers() {
       return std::make_tuple(
-        std::make_pair("a", &S::a));
+          std::make_pair("a", &S::a));
     }
   };
 
   S s{{
-    {1, 2, "3", {42}, {6, 7}},
-    {2, 3, "4", {84}, {7, 8}}
+      {1, 2, "3", {42}, {6, 7}},
+      {2, 3, "4", {84}, {7, 8}}
   }};
 
   const auto writer = serialization::createJsonWriter();
@@ -254,7 +254,10 @@ TEST_CASE("Can serialize complex arrays") {
   REQUIRE(r.has_value());
 
   auto data = writer->data();
-  REQUIRE(data == R"({"a":[{"a":1,"b":{"a":42},"f":2.0,"s":"3","v":{"x":6.0,"y":7.0}},{"a":2,"b":{"a":84},"f":3.0,"s":"4","v":{"x":7.0,"y":8.0}}]})");
+  REQUIRE(
+      data ==
+      R"({"a":[{"a":1,"b":{"a":42},"f":2.0,"s":"3","v":{"x":6.0,"y":7.0}},{"a":2,"b":{"a":84},"f":3.0,"s":"4","v":{"x":7.0,"y":8.0}}]})")
+  ;
 
   S s2{};
   const auto reader = serialization::createJsonReader(data);
