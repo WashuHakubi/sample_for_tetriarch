@@ -13,7 +13,7 @@
 #include "nlohmann/json.hpp"
 
 namespace ewok::shared::serialization {
-struct JsonWriter : Writer<JsonWriter> {
+struct JsonWriter final : Writer<JsonWriter> {
   JsonWriter()
     : root_({}) {
     json_.push(&root_);
@@ -65,7 +65,7 @@ struct JsonWriter : Writer<JsonWriter> {
   nlohmann::json root_;
 };
 
-struct JsonReader : Reader<JsonReader> {
+struct JsonReader final : Reader<JsonReader> {
   explicit JsonReader(std::string const& jsonStr)
     : root_(nlohmann::json::parse(jsonStr)) {
     json_.emplace(&root_, SIZE_T_MAX);
