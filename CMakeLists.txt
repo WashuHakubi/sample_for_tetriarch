@@ -12,15 +12,15 @@ FetchContent_Declare(FetchDependency
         GIT_TAG origin/main
 )
 
-# header only
-FetchContent_Declare(
-        nlohmann_json
-        GIT_REPOSITORY https://github.com/nlohmann/json.git
-        GIT_TAG v3.11.3
-)
-
-FetchContent_MakeAvailable(FetchDependency nlohmann_json)
+FetchContent_MakeAvailable(FetchDependency)
 include(${fetchdependency_SOURCE_DIR}/FetchDependency.cmake)
+
+fetch_dependency(nlohmann_json
+        GIT_SOURCE https://github.com/nlohmann/json.git
+        VERSION v3.11.3
+        CONFIGURATION ${CMAKE_BUILD_TYPE}
+        ROOT ${PROJECT_SOURCE_DIR}/ext
+)
 
 fetch_dependency(Catch2
         GIT_SOURCE https://github.com/catchorg/Catch2.git
