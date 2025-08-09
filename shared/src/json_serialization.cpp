@@ -43,6 +43,12 @@ struct JsonWriter final : Writer<JsonWriter> {
     return {};
   }
 
+  void reset() override {
+    json_ = {};
+    root_ = {};
+    json_.push(&root_);
+  }
+
   auto data() -> std::string override {
     return root_.dump();
   }

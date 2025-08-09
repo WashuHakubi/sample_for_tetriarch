@@ -14,9 +14,46 @@
 #include <functional>
 #include <memory>
 #include <span>
+#include <string>
 #include <string_view>
 #include <tuple>
 #include <type_traits>
+#include <unordered_map>
+
+namespace std {
+namespace {
+template <class T>
+void hash_combine(std::size_t& seed, T const& v) {
+  seed ^= std::hash<T>()(v) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+}
+
+// Recursive template code derived from Matthieu M.
+template <class Tuple, size_t Index = std::tuple_size_v<Tuple> - 1>
+struct HashValueImpl {
+  static void apply(size_t& seed, Tuple const& tuple) {
+    HashValueImpl<Tuple, Index - 1>::apply(seed, tuple);
+    hash_combine(seed, std::get<Index>(tuple));
+  }
+};
+
+template <class Tuple>
+struct HashValueImpl<Tuple, 0> {
+  static void apply(size_t& seed, Tuple const& tuple) {
+    hash_combine(seed, std::get<0>(tuple));
+  }
+};
+}
+
+template <typename... TT>
+struct hash<std::tuple<TT...>> {
+  size_t
+  operator()(std::tuple<TT...> const& tt) const {
+    size_t seed = 0;
+    HashValueImpl<std::tuple<TT...>>::apply(seed, tt);
+    return seed;
+  }
+};
+}
 
 namespace ewok::shared::serialization {
 enum class Error {
@@ -47,6 +84,7 @@ struct IWriter {
    */
   virtual auto leave(std::string_view name) -> Result = 0;
 
+  virtual auto write(std::string_view name, bool value) -> Result = 0;
   virtual auto write(std::string_view name, uint8_t value) -> Result = 0;
   virtual auto write(std::string_view name, uint16_t value) -> Result = 0;
   virtual auto write(std::string_view name, uint32_t value) -> Result = 0;
@@ -59,13 +97,32 @@ struct IWriter {
   virtual auto write(std::string_view name, double value) -> Result = 0;
   virtual auto write(std::string_view name, std::string_view value) -> Result = 0;
 
+  virtual void reset() = 0;
+
   virtual auto data() -> std::string = 0;
+};
+
+enum class BinFieldType {
+  Value,
+  Object,
+  Array,
+};
+
+struct IBinWriter : IWriter {
+  virtual auto fieldMapping() const ->
+    std::unordered_map<
+      std::tuple<std::string, int>,
+      std::tuple<size_t, BinFieldType>> const& = 0;
 };
 
 /// Utility class that forwards calls to a derived type without requiring the derived type to implement all the methods
 /// of IWriter.
-template <class TDerived>
-struct Writer : IWriter {
+template <class TDerived, class Interface = IWriter>
+struct Writer : Interface {
+  auto write(std::string_view name, bool value) -> Result override {
+    return static_cast<TDerived*>(this)->write(name, value);
+  }
+
   auto write(std::string_view name, uint8_t value) -> Result override {
     return static_cast<TDerived*>(this)->write(name, value);
   }
@@ -121,6 +178,7 @@ struct IReader {
 
   virtual auto leave(std::string_view name) -> Result = 0;
 
+  virtual auto read(std::string_view name, bool& value) -> Result = 0;
   virtual auto read(std::string_view name, uint8_t& value) -> Result = 0;
   virtual auto read(std::string_view name, uint16_t& value) -> Result = 0;
   virtual auto read(std::string_view name, uint32_t& value) -> Result = 0;
@@ -134,10 +192,21 @@ struct IReader {
   virtual auto read(std::string_view name, std::string& value) -> Result = 0;
 };
 
+struct IBinReader : IReader {
+  virtual auto fieldMapping() const ->
+    std::unordered_map<
+      std::tuple<std::string, int>,
+      std::tuple<size_t, BinFieldType>> const& = 0;
+};
+
 /// Utility class that forwards calls to a derived type without requiring the derived type to implement all the methods
 /// of IReader.
-template <class TDerived>
-struct Reader : IReader {
+template <class TDerived, class Interface = IReader>
+struct Reader : Interface {
+  auto read(std::string_view name, bool& value) -> Result override {
+    return static_cast<TDerived*>(this)->read(name, value);
+  }
+
   auto read(std::string_view name, uint8_t& value) -> Result override {
     return static_cast<TDerived*>(this)->read(name, value);
   }
@@ -185,6 +254,9 @@ struct Reader : IReader {
 
 std::shared_ptr<IWriter> createJsonWriter();
 std::shared_ptr<IReader> createJsonReader(std::string const& json);
+
+std::shared_ptr<IBinWriter> createBinWriter(bool trackFields = true);
+std::shared_ptr<IBinReader> createBinReader(std::string bin, bool trackFields = true);
 
 /// Used in place of IWriter. This allows the code to know the concrete writer and elide the virtual function
 /// calls entirely.

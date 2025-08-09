@@ -73,18 +73,50 @@ TEST_CASE("Can serialize/deserialize json") {
   auto data = writer->data();
   REQUIRE(data == R"({"a":1,"b":{"a":42},"f":2.0,"s":"3","v":{"x":6.0,"y":7.0}})");
 
-  A b;
+  A a2;
   auto reader = serialization::createJsonReader(data);
-  r = serialization::deserialize(*reader, b);
+  r = serialization::deserialize(*reader, a2);
   REQUIRE(r.has_value());
-  REQUIRE(b.a == 1);
-  REQUIRE(b.f == 2.0);
-  REQUIRE(b.s == "3");
-  REQUIRE(b.b.a == 42);
-  REQUIRE(b.v.x == 6.0);
-  REQUIRE(b.v.y == 7.0);
+  REQUIRE(a2.a == 1);
+  REQUIRE(a2.f == 2.0);
+  REQUIRE(a2.s == "3");
+  REQUIRE(a2.b.a == 42);
+  REQUIRE(a2.v.x == 6.0);
+  REQUIRE(a2.v.y == 7.0);
 }
 
+TEST_CASE("Can serialize/deserialize binary") {
+  A a{1, 2, "3", {42}, {6, 7}};
+  auto writer = serialization::createBinWriter();
+  auto r = serialization::serialize(*writer, a);
+  REQUIRE(r.has_value());
+
+  constexpr auto expectedSize =
+      sizeof(a.a) + // 4
+      sizeof(a.f) + // 4
+      sizeof(uint32_t) + sizeof(char) + // strlen + str, 4 + 1
+      sizeof(B) + // 4
+      sizeof(Vec2); // 8
+  auto data = writer->data();
+  REQUIRE(data.size() == expectedSize);
+
+  A a2;
+  auto reader = serialization::createBinReader(data);
+  r = serialization::deserialize(*reader, a2);
+  REQUIRE(r.has_value());
+  REQUIRE(a2.a == 1);
+  REQUIRE(a2.f == 2.0);
+  REQUIRE(a2.s == "3");
+  REQUIRE(a2.b.a == 42);
+  REQUIRE(a2.v.x == 6.0);
+  REQUIRE(a2.v.y == 7.0);
+
+  auto aFieldMapping = writer->fieldMapping();
+  auto bFieldMapping = reader->fieldMapping();
+  REQUIRE(aFieldMapping == bFieldMapping);
+}
+
+// This writer depends on being able to detect missing fields.
 struct TestAdditionalFieldTypesWriter final : serialization::Writer<TestAdditionalFieldTypesWriter> {
   TestAdditionalFieldTypesWriter()
     : writer_(serialization::createJsonWriter()) {
@@ -117,6 +149,10 @@ struct TestAdditionalFieldTypesWriter final : serialization::Writer<TestAddition
     if (!p)
       return {};
     return writer_->write(name, *p);
+  }
+
+  void reset() override {
+    writer_->reset();
   }
 
   auto data() -> std::string override {
