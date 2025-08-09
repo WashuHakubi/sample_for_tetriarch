@@ -8,6 +8,7 @@
 #include "shared/serialization.h"
 
 #include <cstring>
+#include <stack>
 #include <unordered_map>
 #include <tuple>
 
@@ -17,6 +18,9 @@ class BinWriter : public Writer<BinWriter, IBinWriter> {
 public:
   explicit BinWriter(bool trackFields)
     : trackFields_(trackFields) {
+    if (trackFields_) {
+      stack_.push(false);
+    }
   }
 
   auto array(std::string_view name, size_t count) -> Result override {
@@ -32,8 +36,7 @@ public:
 
   auto leave(std::string_view name) -> Result override {
     if (trackFields_) {
-      assert(depth_ > 0);
-      --depth_;
+      stack_.pop();
     }
     return {};
   }
@@ -82,19 +85,26 @@ private:
 
   void expect(std::string_view name, BinFieldType type, bool increment = false) {
     if (!trackFields_) { return; }
+
     [[maybe_unused]] auto [_, inserted] = fieldOffset_.emplace(
-        std::make_tuple(name, depth_),
+        std::make_tuple(name, seq_),
         std::make_tuple(data_.size(), type));
-    assert(inserted);
+    // If we're in array mode then ignore duplicates. In object mode duplicates must not exist.
+    assert(stack_.top() || inserted);
 
     if (increment) {
-      ++depth_;
+      stack_.push(type == BinFieldType::Array);
+      // Advance the sequence number. We expect all fields for an Object type to be unique within their sequence.
+      // For arrays field names may be repeated.
+      ++seq_;
     }
   }
 
   bool trackFields_;
   std::unordered_map<std::tuple<std::string, int>, std::tuple<size_t, BinFieldType>> fieldOffset_;
-  int depth_ = 0;
+  int seq_ = 0;
+  std::stack<bool> stack_;
+
   std::string data_;
 };
 
@@ -103,6 +113,9 @@ struct BinReader : Reader<BinReader, IBinReader> {
   explicit BinReader(std::string data, bool trackFields)
     : trackFields_(trackFields),
       data_(std::move(data)) {
+    if (trackFields_) {
+      stack_.push(false);
+    }
   }
 
   auto array(std::string_view name, size_t& count) -> Result override {
@@ -121,8 +134,9 @@ struct BinReader : Reader<BinReader, IBinReader> {
   }
 
   auto leave(std::string_view name) -> Result override {
-    assert(depth_ > 0);
-    --depth_;
+    if (trackFields_) {
+      stack_.pop();
+    }
     return {};
   }
 
@@ -185,19 +199,24 @@ private:
 
   void expect(std::string_view name, BinFieldType type, bool increment = false) {
     if (!trackFields_) { return; }
+
     [[maybe_unused]] auto [_, inserted] = fieldOffset_.emplace(
-        std::make_tuple(name, depth_),
+        std::make_tuple(name, seq_),
         std::make_tuple(readPos_, type));
-    assert(inserted);
+    // If we're in array mode then ignore duplicates. In object mode duplicates must not exist.
+    assert(stack_.top() || inserted);
 
     if (increment) {
-      ++depth_;
+      stack_.push(type == BinFieldType::Array);
+      ++seq_;
     }
   }
 
   bool trackFields_;
   std::unordered_map<std::tuple<std::string, int>, std::tuple<size_t, BinFieldType>> fieldOffset_;
-  int depth_ = 0;
+  int seq_ = 0;
+  std::stack<bool> stack_;
+
   size_t readPos_ = 0;
   std::string data_;
 };

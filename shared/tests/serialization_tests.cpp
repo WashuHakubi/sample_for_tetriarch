@@ -91,10 +91,10 @@ TEST_CASE("Can serialize/deserialize binary") {
   auto r = serialization::serialize(*writer, a);
   REQUIRE(r.has_value());
 
-  constexpr auto expectedSize =
+  auto const expectedSize =
       sizeof(a.a) + // 4
       sizeof(a.f) + // 4
-      sizeof(uint32_t) + sizeof(char) + // strlen + str, 4 + 1
+      sizeof(uint32_t) + a.s.size() + // strlen + str, 4 + 1
       sizeof(B) + // 4
       sizeof(Vec2); // 8
   auto data = writer->data();
@@ -245,7 +245,7 @@ TEST_CASE("Can have user defined serialization of fields") {
   REQUIRE(c2.s == nullptr);
 }
 
-TEST_CASE("Can serialize primitive arrays") {
+TEST_CASE("Can json serialize primitive arrays") {
   struct S {
     std::vector<int> a;
 
@@ -270,7 +270,7 @@ TEST_CASE("Can serialize primitive arrays") {
   REQUIRE(s2.a == std::vector{1, 2, 3, 4, 5, 6, 7, 8, 9, 10});
 }
 
-TEST_CASE("Can serialize complex arrays") {
+TEST_CASE("Can json serialize complex arrays") {
   struct S {
     std::vector<A> a;
 
@@ -297,6 +297,73 @@ TEST_CASE("Can serialize complex arrays") {
 
   S s2{};
   const auto reader = serialization::createJsonReader(data);
+  r = serialization::deserialize(*reader, s2);
+  REQUIRE(r.has_value());
+  REQUIRE(s2.a == s.a);
+}
+
+TEST_CASE("Can binary serialize primitive arrays") {
+  struct S {
+    std::vector<int> a;
+
+    static auto serializeMembers() {
+      return std::make_tuple(
+          std::make_pair("a", &S::a));
+    }
+  };
+
+  S s{{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}};
+  const auto writer = serialization::createBinWriter();
+  auto r = serialization::serialize(*writer, s);
+  REQUIRE(r.has_value());
+
+  auto const expectedSize =
+      sizeof(uint32_t) // count prefix for the array
+      + s.a.size() * sizeof(int); // number of items in the array * size of each item.
+
+  auto data = writer->data();
+  REQUIRE(data.size() == expectedSize);
+
+  S s2{};
+  const auto reader = serialization::createBinReader(data);
+  r = serialization::deserialize(*reader, s2);
+  REQUIRE(r.has_value());
+  REQUIRE(s2.a == std::vector{1, 2, 3, 4, 5, 6, 7, 8, 9, 10});
+}
+
+TEST_CASE("Can binary serialize complex arrays") {
+  struct S {
+    std::vector<A> a;
+
+    static auto serializeMembers() {
+      return std::make_tuple(
+          std::make_pair("a", &S::a));
+    }
+  };
+
+  S s{{
+      {1, 2, "3", {42}, {6, 7}},
+      {2, 3, "4", {84}, {7, 8}}
+  }};
+
+  const auto writer = serialization::createBinWriter();
+  auto r = serialization::serialize(*writer, s);
+  REQUIRE(r.has_value());
+
+  // We expect the size to be the array count + the size of each individual item in the array.
+  auto const expectedSize =
+      sizeof(uint32_t) + // count of array items
+      sizeof(A::a) * 2 + // 4
+      sizeof(A::f) * 2 + // 4
+      sizeof(uint32_t) * 2 + s.a[0].s.size() + s.a[1].s.size() + // strlen + str, 4 + 1
+      sizeof(B) * 2 + // 4
+      sizeof(Vec2) * 2; // 8
+
+  auto data = writer->data();
+  REQUIRE(data.size() == expectedSize);
+
+  S s2{};
+  const auto reader = serialization::createBinReader(data);
   r = serialization::deserialize(*reader, s2);
   REQUIRE(r.has_value());
   REQUIRE(s2.a == s.a);
