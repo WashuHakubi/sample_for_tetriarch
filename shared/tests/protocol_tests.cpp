@@ -12,42 +12,42 @@
 using namespace ewok::shared::protocol;
 
 TEST_CASE("Can check versions") {
-  initCompatTransforms(
-  {
-      // Our version (2) is compatible with an earlier version (1)
-      {{2, 1}, [] {
-      }},
+  // Earlier version
+  setPacketHandlers(1, {});
+  // Our version
+  setPacketHandlers(2, {});
+  // Next version
+  setPacketHandlers(3, {});
 
-      // Our version (2) is compatible with a newer version (3)
-      {{2, 3}, [] {
-      }},
-  });
-
-  ProtocolVersion ours = {2};
-  REQUIRE(ours.type == PacketType::ProtocolVersion);
+  ProtocolVersion ours = {.version = 2};
   REQUIRE(ours.version == 2);
 
   REQUIRE(isCompatible(ours, ours));
 
-  ProtocolVersion compatibleEarlier{1};
+  ProtocolVersion compatibleEarlier{.version = 1};
   REQUIRE(isCompatible(ours, compatibleEarlier));
 
-  ProtocolVersion compatibleNewer{3};
+  ProtocolVersion compatibleNewer{.version = 3};
   REQUIRE(isCompatible(ours, compatibleNewer));
 
-  ProtocolVersion notCompatible{4};
+  ProtocolVersion notCompatible{.version = 4};
   REQUIRE(!isCompatible(ours, notCompatible));
 }
 
 TEST_CASE("Can write entity packets") {
-  auto writer = ewok::shared::serialization::createBinWriter();
+  std::string buffer;
+  auto writer = ewok::shared::serialization::createBinWriter(buffer);
 
-  TransformUpdate update = {PacketType::Transform, 2, 3, 4, 5, 6, 7, 8};
+  TransformUpdate update = {
+      .entityId = 1,
+      .x = 2, .y = 3, .z = 4,
+      .yaw = 5, .pitch = 6, .roll = 7
+  };
   auto r = ewok::shared::serialization::serialize(*writer, update);
   REQUIRE(r.has_value());
 
-  auto constexpr expectedSize = sizeof(PacketType)
-      + sizeof(TransformUpdate::entityId)
+  auto constexpr expectedSize =
+      sizeof(TransformUpdate::entityId)
       + sizeof(TransformUpdate::x) + sizeof(TransformUpdate::y) + sizeof(TransformUpdate::z)
       + sizeof(TransformUpdate::yaw) + sizeof(TransformUpdate::pitch) + sizeof(TransformUpdate::roll);
   REQUIRE(writer->data().size() == expectedSize);

@@ -16,8 +16,9 @@ namespace ewok::shared::serialization {
 /// Writes out data linearly to a binary buffer. This can optionally keep track of the fields as it writes them.
 class BinWriter : public Writer<BinWriter, IBinWriter> {
 public:
-  explicit BinWriter(bool trackFields)
-    : trackFields_(trackFields) {
+  BinWriter(std::string& buffer, bool trackFields)
+    : trackFields_(trackFields),
+      data_(&buffer) {
     if (trackFields_) {
       stack_.push(false);
     }
@@ -56,16 +57,16 @@ public:
   auto write(std::string_view name, std::string_view value) -> Result override {
     expect(name, BinFieldType::Value);
     append(static_cast<uint32_t>(value.size()));
-    data_.append(value.data(), value.size());
+    data_->append(value.data(), value.size());
     return {};
   }
 
   auto data() -> std::string override {
-    return data_;
+    return *data_;
   }
 
   void reset() override {
-    data_.clear();
+    data_->clear();
     if (trackFields_) {
       fieldOffset_ = {};
       stack_ = {};
@@ -86,7 +87,7 @@ private:
     requires(std::is_arithmetic_v<T>)
   void append(T value) {
     const auto bytes = reinterpret_cast<char const*>(&value);
-    data_.append(bytes, bytes + sizeof(T));
+    data_->append(bytes, bytes + sizeof(T));
   }
 
   void expect(std::string_view name, BinFieldType type, bool increment = false) {
@@ -94,7 +95,7 @@ private:
 
     [[maybe_unused]] auto [_, inserted] = fieldOffset_.emplace(
         std::make_tuple(name, seq_),
-        std::make_tuple(data_.size(), type));
+        std::make_tuple(data_->size(), type));
     // If we're in array mode then ignore duplicates. In object mode duplicates must not exist.
     assert(stack_.top() || inserted);
 
@@ -111,12 +112,12 @@ private:
   int seq_ = 0;
   std::stack<bool> stack_;
 
-  std::string data_;
+  std::string* data_;
 };
 
 /// Reads data in from a byte buffer. This can optionally keep track of the fields as it reads them.
 struct BinReader : Reader<BinReader, IBinReader> {
-  explicit BinReader(std::string const* data, bool trackFields)
+  explicit BinReader(std::span<char> data, bool trackFields)
     : trackFields_(trackFields),
       data_(data) {
     if (trackFields_) {
@@ -172,11 +173,11 @@ struct BinReader : Reader<BinReader, IBinReader> {
         .and_then(
             [&value, this](auto len) -> Result {
               value.resize(len);
-              if (data_->size() + readPos_ < len) {
+              if (data_.size() + readPos_ < len) {
                 return std::unexpected{Error::InvalidFormat};
               }
 
-              memcpy(value.data(), data_->data() + readPos_, len);
+              memcpy(value.data(), data_.data() + readPos_, len);
               readPos_ += len;
               return {};
             });
@@ -194,11 +195,11 @@ private:
     requires(std::is_arithmetic_v<T>)
   std::expected<T, Error> extract() {
     T value;
-    if (data_->size() + readPos_ < sizeof(T)) {
+    if (data_.size() + readPos_ < sizeof(T)) {
       return std::unexpected{Error::InvalidFormat};
     }
 
-    memcpy(&value, data_->data() + readPos_, sizeof(T));
+    memcpy(&value, data_.data() + readPos_, sizeof(T));
     readPos_ += sizeof(T);
     return value;
   }
@@ -224,15 +225,14 @@ private:
   std::stack<bool> stack_;
 
   size_t readPos_ = 0;
-  std::string const* data_;
+  std::span<char> data_;
 };
 
-std::shared_ptr<IBinWriter> createBinWriter(bool trackFields) {
-  return std::make_shared<BinWriter>(trackFields);
+std::shared_ptr<IBinWriter> createBinWriter(std::string& buffer, bool trackFields) {
+  return std::make_shared<BinWriter>(buffer, trackFields);
 }
 
-std::shared_ptr<IBinReader> createBinReader(std::string const* bin, bool trackFields) {
-  assert(bin);
-  return std::make_shared<BinReader>(bin, trackFields);
+std::shared_ptr<IBinReader> createBinReader(std::span<char> buffer, bool trackFields) {
+  return std::make_shared<BinReader>(buffer, trackFields);
 }
 }

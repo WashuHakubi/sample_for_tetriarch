@@ -255,8 +255,8 @@ struct Reader : Interface {
 std::shared_ptr<IWriter> createJsonWriter();
 std::shared_ptr<IReader> createJsonReader(std::string const& json);
 
-std::shared_ptr<IBinWriter> createBinWriter(bool trackFields = true);
-std::shared_ptr<IBinReader> createBinReader(std::string const* bin, bool trackFields = true);
+std::shared_ptr<IBinWriter> createBinWriter(std::string& buffer, bool trackFields = true);
+std::shared_ptr<IBinReader> createBinReader(std::span<char> buffer, bool trackFields = true);
 
 /// Used in place of IWriter. This allows the code to know the concrete writer and elide the virtual function
 /// calls entirely.

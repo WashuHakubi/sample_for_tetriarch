@@ -87,7 +87,8 @@ TEST_CASE("Can serialize/deserialize json") {
 
 TEST_CASE("Can serialize/deserialize binary") {
   A a{1, 2, "3", {42}, {6, 7}};
-  auto writer = serialization::createBinWriter();
+  std::string buffer;
+  auto writer = serialization::createBinWriter(buffer);
   auto r = serialization::serialize(*writer, a);
   REQUIRE(r.has_value());
 
@@ -97,11 +98,13 @@ TEST_CASE("Can serialize/deserialize binary") {
       sizeof(uint32_t) + a.s.size() + // strlen + str, 4 + 1
       sizeof(B) + // 4
       sizeof(Vec2); // 8
+
   auto data = writer->data();
+  REQUIRE(data == buffer);
   REQUIRE(data.size() == expectedSize);
 
   A a2;
-  auto reader = serialization::createBinReader(&data);
+  auto reader = serialization::createBinReader(data);
   r = serialization::deserialize(*reader, a2);
   REQUIRE(r.has_value());
   REQUIRE(a2.a == 1);
@@ -313,7 +316,8 @@ TEST_CASE("Can binary serialize primitive arrays") {
   };
 
   S s{{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}};
-  const auto writer = serialization::createBinWriter();
+  std::string buffer;
+  const auto writer = serialization::createBinWriter(buffer);
   auto r = serialization::serialize(*writer, s);
   REQUIRE(r.has_value());
 
@@ -321,11 +325,10 @@ TEST_CASE("Can binary serialize primitive arrays") {
       sizeof(uint32_t) // count prefix for the array
       + s.a.size() * sizeof(int); // number of items in the array * size of each item.
 
-  auto data = writer->data();
-  REQUIRE(data.size() == expectedSize);
+  REQUIRE(buffer.size() == expectedSize);
 
   S s2{};
-  const auto reader = serialization::createBinReader(&data);
+  const auto reader = serialization::createBinReader(buffer);
   r = serialization::deserialize(*reader, s2);
   REQUIRE(r.has_value());
   REQUIRE(s2.a == std::vector{1, 2, 3, 4, 5, 6, 7, 8, 9, 10});
@@ -346,7 +349,8 @@ TEST_CASE("Can binary serialize complex arrays") {
       {2, 3, "4", {84}, {7, 8}}
   }};
 
-  const auto writer = serialization::createBinWriter();
+  std::string buffer;
+  const auto writer = serialization::createBinWriter(buffer);
   auto r = serialization::serialize(*writer, s);
   REQUIRE(r.has_value());
 
@@ -359,11 +363,10 @@ TEST_CASE("Can binary serialize complex arrays") {
       sizeof(B) * 2 + // 4
       sizeof(Vec2) * 2; // 8
 
-  auto data = writer->data();
-  REQUIRE(data.size() == expectedSize);
+  REQUIRE(buffer.size() == expectedSize);
 
   S s2{};
-  const auto reader = serialization::createBinReader(&data);
+  const auto reader = serialization::createBinReader(buffer);
   r = serialization::deserialize(*reader, s2);
   REQUIRE(r.has_value());
   REQUIRE(s2.a == s.a);

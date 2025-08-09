@@ -8,20 +8,36 @@
 #include "shared/protocol.h"
 
 namespace ewok::shared::protocol {
-static std::unordered_map<std::tuple<uint32_t, uint32_t>, std::function<void()>> s_fromToVersionTransforms;
+std::vector<std::vector<std::function<serialization::Result(serialization::IBinReader& reader)>>>
+s_versionToPacketTypeToHandler;
 
-void initCompatTransforms(std::unordered_map<std::tuple<uint32_t, uint32_t>, std::function<void()>> transforms) {
-  s_fromToVersionTransforms = std::move(transforms);
+void setPacketHandlers(
+    uint32_t version,
+    std::vector<std::function<serialization::Result(serialization::IBinReader& reader)>> handlers) {
+  if (s_versionToPacketTypeToHandler.size() <= version) {
+    s_versionToPacketTypeToHandler.resize(version + 1);
+  }
+
+  s_versionToPacketTypeToHandler[version] = std::move(handlers);
+}
+
+auto getPacketHandler(
+    uint32_t version,
+    PacketType type) -> std::function<serialization::Result(serialization::IBinReader& reader)> const& {
+  assert(s_versionToPacketTypeToHandler.size() > version);
+  auto const& handlers = s_versionToPacketTypeToHandler[version];
+  return handlers[static_cast<int>(type)];
 }
 
 bool isCompatible(ProtocolVersion const& ours, ProtocolVersion const& theirs) {
   if (ours.version == theirs.version) {
     return true;
   }
-  if (auto it = s_fromToVersionTransforms.find({ours.version, theirs.version}); it != s_fromToVersionTransforms.end()) {
-    return true;
+
+  if (s_versionToPacketTypeToHandler.size() <= theirs.version) {
+    return false;
   }
 
-  return false;
+  return s_versionToPacketTypeToHandler[theirs.version].empty();
 }
 }

@@ -9,8 +9,9 @@
 #include "shared/serialization.h"
 
 namespace ewok::shared::protocol {
-enum class PacketType : uint8_t {
+enum class PacketType : uint16_t {
   ProtocolVersion,
+
   Transform,
   TransformScale,
 
@@ -21,32 +22,32 @@ enum class PacketType : uint8_t {
   Extended,
 };
 
-template <PacketType P>
+template <PacketType PT>
 struct Packet {
-  PacketType type = P;
+  static constexpr PacketType type = PT;
 };
 
 /// First packet that should be sent from the client and server. If the major version disagrees then the client or
 /// server should be considered incompatible. If the minor version differs then the two should still be able to
 /// communicate.
 struct ProtocolVersion : Packet<PacketType::ProtocolVersion> {
-  ProtocolVersion() = default;
-
-  ProtocolVersion(uint32_t version)
-    : version(version) {
-  }
-
   uint32_t version;
 
   static constexpr auto serializeMembers() {
     return std::make_tuple(
-        std::make_pair("type", &ProtocolVersion::type),
         std::make_pair("version", &ProtocolVersion::version));
   }
 };
 
-void initCompatTransforms(std::unordered_map<std::tuple<uint32_t, uint32_t>, std::function<void()>> transforms);
 bool isCompatible(ProtocolVersion const& ours, ProtocolVersion const& theirs);
+
+auto getPacketHandler(
+    uint32_t version,
+    PacketType type) -> std::function<serialization::Result(serialization::IBinReader& reader)> const&;
+
+void setPacketHandlers(
+    uint32_t version,
+    std::vector<std::function<serialization::Result(serialization::IBinReader& reader)>> handlers);
 
 namespace v0 {
 /// Updates the position and rotation of an entity. Scale is updated separately as it does not usually change.
@@ -57,7 +58,6 @@ struct TransformUpdate : Packet<PacketType::Transform> {
 
   static constexpr auto serializeMembers() {
     return std::make_tuple(
-        std::make_pair("type", &TransformUpdate::type),
         std::make_pair("entityId", &TransformUpdate::entityId),
         std::make_pair("x", &TransformUpdate::x),
         std::make_pair("y", &TransformUpdate::y),
@@ -76,7 +76,6 @@ struct TransformScaleUpdate : Packet<PacketType::TransformScale> {
 
   static constexpr auto serializeMembers() {
     return std::make_tuple(
-        std::make_pair("type", &TransformScaleUpdate::type),
         std::make_pair("entityId", &TransformScaleUpdate::entityId),
         std::make_pair("scaleX", &TransformScaleUpdate::scaleX),
         std::make_pair("scaleY", &TransformScaleUpdate::scaleY),
@@ -91,7 +90,6 @@ struct CreateEntity : Packet<PacketType::CreateEntity> {
 
   static constexpr auto serializeMembers() {
     return std::make_tuple(
-        std::make_pair("type", &CreateEntity::type),
         std::make_pair("entityId", &CreateEntity::entityId),
         std::make_pair("prefab", &CreateEntity::prefab),
         std::make_pair("attributes", &CreateEntity::attributes));
@@ -103,7 +101,6 @@ struct DestroyEntity : Packet<PacketType::DestroyEntity> {
 
   static constexpr auto serializeMembers() {
     return std::make_tuple(
-        std::make_pair("type", &DestroyEntity::type),
         std::make_pair("entityId", &DestroyEntity::entityId));
   }
 };
