@@ -20,8 +20,7 @@
 #include <type_traits>
 #include <unordered_map>
 
-namespace std {
-namespace {
+namespace ewok::shared {
 template <class T>
 void hash_combine(std::size_t& seed, T const& v) {
   seed ^= std::hash<T>()(v) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
@@ -44,12 +43,13 @@ struct HashValueImpl<Tuple, 0> {
 };
 }
 
+namespace std {
 template <typename... TT>
 struct hash<std::tuple<TT...>> {
   size_t
   operator()(std::tuple<TT...> const& tt) const {
     size_t seed = 0;
-    HashValueImpl<std::tuple<TT...>>::apply(seed, tt);
+    ewok::shared::HashValueImpl<std::tuple<TT...>>::apply(seed, tt);
     return seed;
   }
 };
@@ -109,7 +109,7 @@ enum class BinFieldType {
 };
 
 struct IBinWriter : IWriter {
-  virtual auto fieldMapping() const ->
+  [[nodiscard]] virtual auto fieldMapping() const ->
     std::unordered_map<
       std::tuple<std::string, int>,
       std::tuple<size_t, BinFieldType>> const& = 0;
@@ -193,7 +193,7 @@ struct IReader {
 };
 
 struct IBinReader : IReader {
-  virtual auto fieldMapping() const ->
+  [[nodiscard]] virtual auto fieldMapping() const ->
     std::unordered_map<
       std::tuple<std::string, int>,
       std::tuple<size_t, BinFieldType>> const& = 0;
@@ -412,25 +412,20 @@ auto deserializeItem(TSerializeReader auto& reader, std::string_view name, auto&
 
   if constexpr (CustomSerializable<MemberType>::value || detail::HasSerializeMembers<MemberType>) {
     // If the member is a custom serializable type or supports serializeMembers() then deserialize it recursively
-    auto r = reader.enter(name);
-    if (!r) {
+    if (auto r = reader.enter(name); !r) {
       return r;
     }
 
-    r = deserialize(reader, value);
-    if (!r) {
+    if (auto r = deserialize(reader, value); !r) {
       return r;
     }
 
-    r = reader.leave(name);
-    if (!r) {
-      return r;
-    }
+    return reader.leave(name);
   } else if constexpr (ArrayHandler<MemberType>::value) {
     // If we're an array type then get the count of items to deserialize
     size_t count{};
-    auto r = reader.array(name, count);
-    if (!r) {
+
+    if (auto r = reader.array(name, count); !r) {
       return r;
     }
 
@@ -438,24 +433,25 @@ auto deserializeItem(TSerializeReader auto& reader, std::string_view name, auto&
     ArrayHandler<MemberType>::reserve(value, count);
     for (size_t i = 0; i < count; ++i) {
       typename ArrayHandler<MemberType>::item_type item;
-      r = deserializeItem(reader, name, item);
-      if (!r) {
+
+      if (auto r = deserializeItem(reader, name, item); !r) {
         return r;
       }
 
       ArrayHandler<MemberType>::push(value, std::move(item));
     }
 
-    r = reader.leave(name);
-    if (!r) {
+    return reader.leave(name);
+  } else if constexpr (std::is_enum_v<MemberType>) {
+    // For enumerations we serialize them as their underlying type
+    std::underlying_type_t<MemberType> v;
+    if (auto r = reader.write(name, v); !r) {
       return r;
     }
+    value = static_cast<MemberType>(v);
   } else {
     // Otherwise we expect the serialize writer to handle it (as it should be a primitive)
-    auto r = reader.read(name, value);
-    if (!r) {
-      return r;
-    }
+    return reader.read(name, value);
   }
 
   return {};
@@ -466,49 +462,38 @@ auto serializeItem(TSerializeWriter auto& writer, std::string_view name, auto co
 
   if constexpr (CustomSerializable<MemberType>::value || detail::HasSerializeMembers<MemberType>) {
     // If the member is a custom serializable type or supports serializeMembers() then serialize it recursively
-    auto r = writer.enter(name);
-    if (!r) {
+    if (auto r = writer.enter(name); !r) {
       return r;
     }
 
-    r = serialize(writer, value);
-    if (!r) {
+    if (auto r = serialize(writer, value); !r) {
       return r;
     }
 
-    r = writer.leave(name);
-    if (!r) {
-      return r;
-    }
+    return writer.leave(name);
   } else if constexpr (ArrayHandler<MemberType>::value) {
     // If we have an array member then get the count of items to serialize
     size_t count = ArrayHandler<MemberType>::size(value);
-    auto r = writer.array(name, count);
-    if (!r) {
+    if (auto r = writer.array(name, count); !r) {
       return r;
     }
 
     // Write out each item from the array.
     for (size_t i = 0; i < count; ++i) {
-      r = serializeItem(writer, name, ArrayHandler<MemberType>::at(value, i));
-      if (!r) {
+      if (auto r = serializeItem(writer, name, ArrayHandler<MemberType>::at(value, i)); !r) {
         return r;
       }
     }
 
-    r = writer.leave(name);
-    if (!r) {
-      return r;
-    }
+    return writer.leave(name);
+  } else if constexpr (std::is_enum_v<MemberType>) {
+    // For enumerations we serialize them as their underlying type
+    auto v = static_cast<std::underlying_type_t<MemberType>>(value);
+    return writer.write(name, v);
   } else {
     // Otherwise we expect the serialize writer to handle it (as it should be a primitive)
-    auto r = writer.write(name, value);
-    if (!r) {
-      return r;
-    }
+    return writer.write(name, value);
   }
-
-  return {};
 }
 
 /// Deserialize the Ith member of the tuple of member pointers.

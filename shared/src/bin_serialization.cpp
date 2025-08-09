@@ -66,6 +66,12 @@ public:
 
   void reset() override {
     data_.clear();
+    if (trackFields_) {
+      fieldOffset_ = {};
+      stack_ = {};
+      stack_.push(false);
+      seq_ = 0;
+    }
   }
 
   auto fieldMapping() const ->
