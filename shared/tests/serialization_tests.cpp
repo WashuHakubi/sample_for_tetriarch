@@ -101,7 +101,7 @@ TEST_CASE("Can serialize/deserialize binary") {
   REQUIRE(data.size() == expectedSize);
 
   A a2;
-  auto reader = serialization::createBinReader(data);
+  auto reader = serialization::createBinReader(&data);
   r = serialization::deserialize(*reader, a2);
   REQUIRE(r.has_value());
   REQUIRE(a2.a == 1);
@@ -325,7 +325,7 @@ TEST_CASE("Can binary serialize primitive arrays") {
   REQUIRE(data.size() == expectedSize);
 
   S s2{};
-  const auto reader = serialization::createBinReader(data);
+  const auto reader = serialization::createBinReader(&data);
   r = serialization::deserialize(*reader, s2);
   REQUIRE(r.has_value());
   REQUIRE(s2.a == std::vector{1, 2, 3, 4, 5, 6, 7, 8, 9, 10});
@@ -363,7 +363,7 @@ TEST_CASE("Can binary serialize complex arrays") {
   REQUIRE(data.size() == expectedSize);
 
   S s2{};
-  const auto reader = serialization::createBinReader(data);
+  const auto reader = serialization::createBinReader(&data);
   r = serialization::deserialize(*reader, s2);
   REQUIRE(r.has_value());
   REQUIRE(s2.a == s.a);

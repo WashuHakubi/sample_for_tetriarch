@@ -256,7 +256,7 @@ std::shared_ptr<IWriter> createJsonWriter();
 std::shared_ptr<IReader> createJsonReader(std::string const& json);
 
 std::shared_ptr<IBinWriter> createBinWriter(bool trackFields = true);
-std::shared_ptr<IBinReader> createBinReader(std::string bin, bool trackFields = true);
+std::shared_ptr<IBinReader> createBinReader(std::string const* bin, bool trackFields = true);
 
 /// Used in place of IWriter. This allows the code to know the concrete writer and elide the virtual function
 /// calls entirely.
@@ -443,9 +443,9 @@ auto deserializeItem(TSerializeReader auto& reader, std::string_view name, auto&
 
     return reader.leave(name);
   } else if constexpr (std::is_enum_v<MemberType>) {
-    // For enumerations we serialize them as their underlying type
+    // For enumerations, we serialize them as their underlying type
     std::underlying_type_t<MemberType> v;
-    if (auto r = reader.write(name, v); !r) {
+    if (auto r = reader.read(name, v); !r) {
       return r;
     }
     value = static_cast<MemberType>(v);

@@ -116,9 +116,9 @@ private:
 
 /// Reads data in from a byte buffer. This can optionally keep track of the fields as it reads them.
 struct BinReader : Reader<BinReader, IBinReader> {
-  explicit BinReader(std::string data, bool trackFields)
+  explicit BinReader(std::string const* data, bool trackFields)
     : trackFields_(trackFields),
-      data_(std::move(data)) {
+      data_(data) {
     if (trackFields_) {
       stack_.push(false);
     }
@@ -172,11 +172,11 @@ struct BinReader : Reader<BinReader, IBinReader> {
         .and_then(
             [&value, this](auto len) -> Result {
               value.resize(len);
-              if (data_.size() + readPos_ < len) {
+              if (data_->size() + readPos_ < len) {
                 return std::unexpected{Error::InvalidFormat};
               }
 
-              memcpy(value.data(), data_.data() + readPos_, len);
+              memcpy(value.data(), data_->data() + readPos_, len);
               readPos_ += len;
               return {};
             });
@@ -194,11 +194,11 @@ private:
     requires(std::is_arithmetic_v<T>)
   std::expected<T, Error> extract() {
     T value;
-    if (data_.size() + readPos_ < sizeof(T)) {
+    if (data_->size() + readPos_ < sizeof(T)) {
       return std::unexpected{Error::InvalidFormat};
     }
 
-    memcpy(&value, data_.data() + readPos_, sizeof(T));
+    memcpy(&value, data_->data() + readPos_, sizeof(T));
     readPos_ += sizeof(T);
     return value;
   }
@@ -224,14 +224,15 @@ private:
   std::stack<bool> stack_;
 
   size_t readPos_ = 0;
-  std::string data_;
+  std::string const* data_;
 };
 
 std::shared_ptr<IBinWriter> createBinWriter(bool trackFields) {
   return std::make_shared<BinWriter>(trackFields);
 }
 
-std::shared_ptr<IBinReader> createBinReader(std::string bin, bool trackFields) {
-  return std::make_shared<BinReader>(std::move(bin), trackFields);
+std::shared_ptr<IBinReader> createBinReader(std::string const* bin, bool trackFields) {
+  assert(bin);
+  return std::make_shared<BinReader>(bin, trackFields);
 }
 }
