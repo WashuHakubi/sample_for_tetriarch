@@ -186,12 +186,66 @@ private:
 };
 }
 
+struct FakeContentDb : shared::IContentDb {
+  template <class T>
+    requires(std::is_base_of_v<shared::ContentDef, T>)
+  void registerItem(std::shared_ptr<T> p) {
+    auto id = p->id;
+    db_.emplace(id, p);
+  }
+
+  std::shared_ptr<void> get(const xg::Guid& id) override {
+    if (auto it = db_.find(id); it != db_.end()) {
+      return it->second;
+    }
+    return nullptr;
+  }
+
+private:
+  std::unordered_map<xg::Guid, std::shared_ptr<void>> db_;
+};
+
 int main() {
+  auto contentDb = std::make_shared<FakeContentDb>();
+  shared::initializeContentDb(contentDb);
+
+  auto mobDefStr = R"({
+"id": {"g": "b5f8b8ee-d67b-4312-b8cf-944934342004"},
+"name": "Wolf",
+"rarity": 0
+})";
+
+  auto spawnDefStr = R"({
+"id":{"g":"c119994e-d152-406c-9aa3-8e3b3a555151"},
+"positions":[{"x":0.0,"y":0.0,"z":0.0}],
+"probabilities":[
+  {"f": {"g": "b5f8b8ee-d67b-4312-b8cf-944934342004"}, "s":1.0}
+],
+"minSpawnCount":1,
+"maxSpawnCount":1,
+"minSpawnAtOnce":1,
+"maxSpawnAtOnce":1,
+"timeBetweenSpawns":2.0})";
+
+  {
+    auto reader = shared::serialization::createJsonReader(mobDefStr);
+    server::design_data::MobDef def;
+    [[maybe_unused]] auto r = shared::serialization::deserialize(*reader, def);
+    contentDb->registerItem(std::make_shared<server::design_data::MobDef>(def));
+  }
+
+  {
+    auto reader = shared::serialization::createJsonReader(spawnDefStr);
+    server::design_data::SpawnDef def;
+    [[maybe_unused]] auto r = shared::serialization::deserialize(*reader, def);
+    contentDb->registerItem(std::make_shared<server::design_data::SpawnDef>(def));
+  }
+
+  server::design_data::SpawnDefPtr p{xg::Guid("c119994e-d152-406c-9aa3-8e3b3a555151")};
+
   auto writer = shared::serialization::createJsonWriter();
-  server::design_data::MobDefPtr ptr{xg::newGuid()};
-
-  auto r = shared::serialization::serialize(*writer, ptr);
+  auto _ = shared::serialization::serialize(*writer, *p);
   std::cout << writer->data() << std::endl;
-
+  std::cout << p->timeBetweenSpawns << std::endl;
   return 0;
 }

@@ -162,7 +162,7 @@ struct ewok::shared::serialization::CustomSerializable<ewok::shared::ContentPtr<
       return r;
     }
 
-    value = {guid};
+    value = value_type{guid};
     return {};
   }
 };
