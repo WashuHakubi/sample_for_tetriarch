@@ -304,14 +304,14 @@ concept TMemberTuple = IsMemberTuple<T>::value;
 /// Checks if we have a static serializeMembers method that returns a valid tuple.
 /// We expect this to return something like:
 /// @code
-/// static auto serializeMembers() {
+/// static auto serializationMembers() {
 ///   return std::make_tuple(
 ///     std::make_pair("a", &A::a),
 ///   );
 /// }
 /// @endcode
 template <class T>
-concept HasSerializeMembers = requires { { T::serializeMembers() } -> TMemberTuple; };
+concept HasSerializeMembers = requires { { T::serializationMembers() } -> TMemberTuple; };
 }
 
 template <class T>
@@ -321,7 +321,7 @@ struct SerializeMembers : std::false_type {
 template <detail::HasSerializeMembers T>
 struct SerializeMembers<T> : std::true_type {
   static auto getSerializeMembers() {
-    return T::serializeMembers();
+    return T::serializationMembers();
   }
 };
 

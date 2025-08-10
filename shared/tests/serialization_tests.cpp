@@ -13,58 +13,69 @@
 
 using namespace ewok::shared;
 
-struct B {
-  int a{};
+struct B
+{
+    int a{};
 
-  auto operator<=>(const B&) const = default;
+    auto operator<=>(const B&) const = default;
 };
 
 template <>
-struct serialization::CustomSerializable<B> : std::true_type {
-  static auto serialize(TSerializeWriter auto& writer, B const& value) {
-    return writer.write("a", value.a);
-  }
+struct serialization::CustomSerializable<B> : std::true_type
+{
+    static auto serialize(TSerializeWriter auto& writer, B const& value)
+    {
+        return writer.write("a", value.a);
+    }
 
-  static auto deserialize(TSerializeReader auto& reader, B& value) {
-    return reader.read("a", value.a);
-  }
+    static auto deserialize(TSerializeReader auto& reader, B& value)
+    {
+        return reader.read("a", value.a);
+    }
 };
 
-struct Vec2 {
-  float x{};
-  float y{};
+struct Vec2
+{
+    float x{};
+    float y{};
 
-  static auto serializeMembers() {
-    return std::tuple{
-        std::make_pair("x", &Vec2::x),
-        std::make_pair("y", &Vec2::y),
-    };
-  }
+    static auto serializationMembers()
+    {
+        return std::tuple{
+            std::make_pair("x", &Vec2::x),
+            std::make_pair("y", &Vec2::y),
+        };
+    }
 
-  auto operator<=>(const Vec2&) const = default;
+    auto operator<=>(const Vec2&) const = default;
 };
 
-struct A {
-  int a{};
-  float f{};
-  std::string s;
-  B b;
-  Vec2 v;
+struct A
+{
+    int a{};
+    float f{};
+    std::string s;
+    B b;
+    Vec2 v;
 
-  static auto serializeMembers() {
-    return std::tuple{
-        std::make_pair("a", &A::a),
-        std::make_pair("f", &A::f),
-        std::make_pair("s", &A::s),
-        std::make_pair("b", &A::b),
-        std::make_pair("v", &A::v),
-    };
-  }
+    static auto serializationMembers()
+    {
+        return std::tuple{
+            std::make_pair("a", &A::a),
+            std::make_pair("f", &A::f),
+            std::make_pair("s", &A::s),
+            std::make_pair("b", &A::b),
+            std::make_pair("v", &A::v),
+        };
+    }
 
-  auto operator<=>(const A&) const = default;
+    auto operator<=>(const A&) const = default;
 };
 
-TEST_CASE("Can serialize/deserialize json") {
+TEST_CASE (
+"Can serialize/deserialize json"
+)
+ {
   A a{1, 2, "3", {42}, {6, 7}};
   auto writer = serialization::createJsonWriter();
   auto r = serialization::serialize(*writer, a);
@@ -85,7 +96,10 @@ TEST_CASE("Can serialize/deserialize json") {
   REQUIRE(a2.v.y == 7.0);
 }
 
-TEST_CASE("Can serialize/deserialize binary") {
+TEST_CASE (
+"Can serialize/deserialize binary"
+)
+ {
   A a{1, 2, "3", {42}, {6, 7}};
   std::string buffer;
   auto writer = serialization::createBinWriter(buffer, true);
@@ -120,122 +134,150 @@ TEST_CASE("Can serialize/deserialize binary") {
 }
 
 // This writer depends on being able to detect missing fields.
-struct TestAdditionalFieldTypesWriter final : serialization::Writer<TestAdditionalFieldTypesWriter> {
-  TestAdditionalFieldTypesWriter()
-    : writer_(serialization::createJsonWriter()) {
-  }
-
-  auto array(std::string_view name, size_t count) -> serialization::Result override {
-    return writer_->array(name, count);
-  }
-
-  auto enter(std::string_view name) -> serialization::Result override {
-    return writer_->enter(name);
-  }
-
-  auto leave(std::string_view name) -> serialization::Result override {
-    return writer_->leave(name);
-  }
-
-  template <class T>
-  auto write(std::string_view name, T value) -> serialization::Result {
-    return writer_->write(name, value);
-  }
-
-  auto write(std::string_view name, std::shared_ptr<int> const& p) -> serialization::Result {
-    if (!p)
-      return {};
-    return writer_->write(name, *p);
-  }
-
-  auto write(std::string_view name, std::unique_ptr<int> const& p) -> serialization::Result {
-    if (!p)
-      return {};
-    return writer_->write(name, *p);
-  }
-
-  void reset() override {
-    writer_->reset();
-  }
-
-  auto data() -> std::string override {
-    return writer_->data();
-  }
-
-private:
-  std::shared_ptr<serialization::IWriter> writer_;
-};
-
-struct TestAdditionalFieldTypesReader : serialization::Reader<TestAdditionalFieldTypesReader> {
-  explicit TestAdditionalFieldTypesReader(std::span<char const> data)
-    : reader_(serialization::createJsonReader(data)) {
-  }
-
-  auto array(std::string_view name, size_t& count) -> serialization::Result override {
-    return reader_->array(name, count);
-  }
-
-  auto enter(std::string_view name) -> serialization::Result override {
-    return reader_->enter(name);
-  }
-
-  auto leave(std::string_view name) -> serialization::Result override {
-    return reader_->leave(name);
-  }
-
-  template <class T>
-  auto read(std::string_view name, T& value) -> serialization::Result {
-    return reader_->read(name, value);
-  }
-
-  auto read(std::string_view name, std::shared_ptr<int>& p) -> serialization::Result {
-    int v{0};
-    if (auto r = reader_->read(name, v); !r) {
-      if (r.error() != serialization::Error::FieldNotFound) {
-        return r;
-      }
-
-      // If the field does not exist then the pointer was null.
-      return {};
+struct TestAdditionalFieldTypesWriter final : serialization::Writer<TestAdditionalFieldTypesWriter>
+{
+    TestAdditionalFieldTypesWriter()
+        : writer_(serialization::createJsonWriter())
+    {
     }
 
-    p = std::make_shared<int>(v);
-    return {};
-  }
-
-  auto read(std::string_view name, std::unique_ptr<int>& p) -> serialization::Result {
-    int v;
-    if (auto r = reader_->read(name, v); !r) {
-      if (r.error() != serialization::Error::FieldNotFound) {
-        return r;
-      }
-
-      // If the field does not exist then the pointer was null.
-      return {};
+    auto array(std::string_view name, size_t count) -> serialization::Result override
+    {
+        return writer_->array(name, count);
     }
 
-    p = std::make_unique<int>(v);
-    return {};
-  }
+    auto enter(std::string_view name) -> serialization::Result override
+    {
+        return writer_->enter(name);
+    }
 
-  void reset(std::span<char const> buffer) override {
-    reader_->reset(buffer);
-  }
+    auto leave(std::string_view name) -> serialization::Result override
+    {
+        return writer_->leave(name);
+    }
+
+    template <class T>
+    auto write(std::string_view name, T value) -> serialization::Result
+    {
+        return writer_->write(name, value);
+    }
+
+    auto write(std::string_view name, std::shared_ptr<int> const& p) -> serialization::Result
+    {
+        if (!p)
+            return {};
+        return writer_->write(name, *p);
+    }
+
+    auto write(std::string_view name, std::unique_ptr<int> const& p) -> serialization::Result
+    {
+        if (!p)
+            return {};
+        return writer_->write(name, *p);
+    }
+
+    void reset() override
+    {
+        writer_->reset();
+    }
+
+    auto data() -> std::string override
+    {
+        return writer_->data();
+    }
 
 private:
-  std::shared_ptr<serialization::IReader> reader_;
+    std::shared_ptr<serialization::IWriter> writer_;
 };
 
-struct C {
-  std::unique_ptr<int> p;
-  std::shared_ptr<int> s;
+struct TestAdditionalFieldTypesReader : serialization::Reader<TestAdditionalFieldTypesReader>
+{
+    explicit TestAdditionalFieldTypesReader(std::span<char const> data)
+        : reader_(serialization::createJsonReader(data))
+    {
+    }
 
-  static auto serializeMembers() {
-    return std::make_tuple(std::make_pair("p", &C::p), std::make_pair("s", &C::s));
-  }
+    auto array(std::string_view name, size_t& count) -> serialization::Result override
+    {
+        return reader_->array(name, count);
+    }
+
+    auto enter(std::string_view name) -> serialization::Result override
+    {
+        return reader_->enter(name);
+    }
+
+    auto leave(std::string_view name) -> serialization::Result override
+    {
+        return reader_->leave(name);
+    }
+
+    template <class T>
+    auto read(std::string_view name, T& value) -> serialization::Result
+    {
+        return reader_->read(name, value);
+    }
+
+    auto read(std::string_view name, std::shared_ptr<int>& p) -> serialization::Result
+    {
+        int v{0};
+        if (auto r = reader_->read(name, v); !r)
+        {
+            if (r.error() != serialization::Error::FieldNotFound)
+            {
+                return r;
+            }
+
+            // If the field does not exist then the pointer was null.
+            return {};
+        }
+
+        p = std::make_shared<int>(v);
+        return {};
+    }
+
+    auto read(std::string_view name, std::unique_ptr<int>& p) -> serialization::Result
+    {
+        int v;
+        if (auto r = reader_->read(name, v); !r)
+        {
+            if (r.error() != serialization::Error::FieldNotFound)
+            {
+                return r;
+            }
+
+            // If the field does not exist then the pointer was null.
+            return {};
+        }
+
+        p = std::make_unique<int>(v);
+        return {};
+    }
+
+    void reset(std::span<char const> buffer) override
+    {
+        reader_->reset(buffer);
+    }
+
+private:
+    std::shared_ptr<serialization::IReader> reader_;
 };
 
-TEST_CASE("Can have user defined serialization of fields") {
+struct C
+{
+    std::unique_ptr<int> p;
+    std::shared_ptr<int> s;
+
+    static auto serializationMembers()
+    {
+        return std::make_tuple(std::make_pair("p", &C::p), std::make_pair("s", &C::s));
+    }
+};
+
+TEST_CASE (
+"Can have user defined serialization of fields"
+)
+ {
   C c{std::make_unique<int>(1)};
   auto writer = TestAdditionalFieldTypesWriter{};
   auto r = serialization::serialize(writer, c);
@@ -252,11 +294,14 @@ TEST_CASE("Can have user defined serialization of fields") {
   REQUIRE(c2.s == nullptr);
 }
 
-TEST_CASE("Can json serialize primitive arrays") {
+TEST_CASE (
+"Can json serialize primitive arrays"
+)
+ {
   struct S {
     std::vector<int> a;
 
-    static auto serializeMembers() {
+    static auto serializationMembers() {
       return std::make_tuple(
           std::make_pair("a", &S::a));
     }
@@ -277,12 +322,15 @@ TEST_CASE("Can json serialize primitive arrays") {
   REQUIRE(s2.a == std::vector{1, 2, 3, 4, 5, 6, 7, 8, 9, 10});
 }
 
-TEST_CASE("Can json serialize complex arrays") {
+TEST_CASE (
+"Can json serialize complex arrays"
+)
+ {
   struct S {
     std::vector<A> a;
     std::array<int, 2> b;
 
-    static auto serializeMembers() {
+    static auto serializationMembers() {
       return std::make_tuple(
           std::make_pair("a", &S::a),
           std::make_pair("b", &S::b));
@@ -313,11 +361,14 @@ TEST_CASE("Can json serialize complex arrays") {
   REQUIRE(s2.b == s.b);
 }
 
-TEST_CASE("Can binary serialize primitive arrays") {
+TEST_CASE (
+"Can binary serialize primitive arrays"
+)
+ {
   struct S {
     std::vector<int> a;
 
-    static auto serializeMembers() {
+    static auto serializationMembers() {
       return std::make_tuple(
           std::make_pair("a", &S::a));
     }
@@ -342,11 +393,14 @@ TEST_CASE("Can binary serialize primitive arrays") {
   REQUIRE(s2.a == std::vector{1, 2, 3, 4, 5, 6, 7, 8, 9, 10});
 }
 
-TEST_CASE("Can binary serialize complex arrays") {
+TEST_CASE (
+"Can binary serialize complex arrays"
+)
+ {
   struct S {
     std::vector<A> a;
 
-    static auto serializeMembers() {
+    static auto serializationMembers() {
       return std::make_tuple(
           std::make_pair("a", &S::a));
     }
@@ -380,11 +434,14 @@ TEST_CASE("Can binary serialize complex arrays") {
   REQUIRE(s2.a == s.a);
 }
 
-TEST_CASE("Can serialize pairs/tuples") {
+TEST_CASE (
+"Can serialize pairs/tuples"
+)
+ {
   struct HasPair {
     std::pair<float, int> p;
 
-    static auto serializeMembers() {
+    static auto serializationMembers() {
       return std::make_tuple(
           std::make_pair("p", &HasPair::p));
     }
@@ -393,7 +450,7 @@ TEST_CASE("Can serialize pairs/tuples") {
   struct HasTuple {
     std::tuple<float, int, B> t;
 
-    static auto serializeMembers() {
+    static auto serializationMembers() {
       return std::make_tuple(
           std::make_pair("t", &HasTuple::t));
     }
@@ -432,7 +489,10 @@ TEST_CASE("Can serialize pairs/tuples") {
   }
 }
 
-TEST_CASE("Can serialize/deserialize private members") {
+TEST_CASE (
+"Can serialize/deserialize private members"
+)
+ {
   class S {
     std::pair<float, int> p;
 
@@ -443,7 +503,7 @@ TEST_CASE("Can serialize/deserialize private members") {
       : p{f, i} {
     }
 
-    static auto serializeMembers() {
+    static auto serializationMembers() {
       return std::make_tuple(
           std::make_pair("p", &S::p));
     }

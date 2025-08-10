@@ -35,7 +35,7 @@ struct Packet {
 struct ProtocolVersion : Packet<PacketType::ProtocolVersion> {
   uint32_t version;
 
-  static constexpr auto serializeMembers() {
+  static constexpr auto serializationMembers() {
     return std::make_tuple(
         std::make_pair("version", &ProtocolVersion::version));
   }
@@ -74,7 +74,7 @@ struct TransformUpdate : Packet<PacketType::Transform> {
   float x, y, z;
   float yaw, pitch, roll;
 
-  static constexpr auto serializeMembers() {
+  static constexpr auto serializationMembers() {
     return std::make_tuple(
         std::make_pair("entityId", &TransformUpdate::entityId),
         std::make_pair("x", &TransformUpdate::x),
@@ -94,7 +94,7 @@ struct TransformScaleUpdate : Packet<PacketType::TransformScale> {
   uint32_t entityId;
   float scaleX, scaleY, scaleZ;
 
-  static constexpr auto serializeMembers() {
+  static constexpr auto serializationMembers() {
     return std::make_tuple(
         std::make_pair("entityId", &TransformScaleUpdate::entityId),
         std::make_pair("scaleX", &TransformScaleUpdate::scaleX),
@@ -110,7 +110,7 @@ struct CreateEntity : Packet<PacketType::CreateEntity> {
   std::string prefab;
   std::vector<std::pair<std::string, std::string>> attributes;
 
-  static constexpr auto serializeMembers() {
+  static constexpr auto serializationMembers() {
     return std::make_tuple(
         std::make_pair("entityId", &CreateEntity::entityId),
         std::make_pair("prefab", &CreateEntity::prefab),
@@ -123,7 +123,7 @@ struct CreateEntity : Packet<PacketType::CreateEntity> {
 struct DestroyEntity : Packet<PacketType::DestroyEntity> {
   uint32_t entityId;
 
-  static constexpr auto serializeMembers() {
+  static constexpr auto serializationMembers() {
     return std::make_tuple(
         std::make_pair("entityId", &DestroyEntity::entityId));
   }

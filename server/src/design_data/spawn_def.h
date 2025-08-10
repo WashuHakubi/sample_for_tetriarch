@@ -31,7 +31,7 @@ struct SpawnDef : shared::ContentDef {
   // Seconds between attempting to spawn new mobs
   float timeBetweenSpawns{};
 
-  static constexpr auto serializeMembers() {
+  static constexpr auto serializationMembers() {
     return std::make_tuple(
         std::make_pair("id", &SpawnDef::id),
         std::make_pair("positions", &SpawnDef::spawnPositions),

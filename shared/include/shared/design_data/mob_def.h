@@ -24,7 +24,7 @@ struct MobDef : shared::ContentDef {
   // Rarity of the mob
   MobRarity rarity{};
 
-  static constexpr auto serializeMembers() {
+  static constexpr auto serializationMembers() {
     return std::make_tuple(
         std::make_pair("id", &MobDef::id),
         std::make_pair("name", &MobDef::name),
