@@ -6,6 +6,7 @@
  */
 #pragma once
 
+#include <array>
 #include <cassert>
 #include <concepts>
 #include <cstdint>
@@ -19,6 +20,7 @@
 #include <tuple>
 #include <type_traits>
 #include <unordered_map>
+#include <vector>
 
 namespace ewok::shared {
 template <class T>
@@ -348,25 +350,41 @@ template <class T>
 struct ArrayHandler<std::vector<T>> : std::true_type {
   using item_type = T;
 
-  static auto size(std::vector<T> const& v) { return v.size(); }
-  static auto at(std::vector<T> const& v, size_t idx) { return v[idx]; }
-  static auto reserve(std::vector<T>& v, size_t size) { return v.reserve(size); }
-  static auto push(std::vector<T>& v, T&& i) { v.push_back(std::forward<T>(i)); }
+  static constexpr auto size(std::vector<T> const& v) { return v.size(); }
+
+  static constexpr auto at(std::vector<T> const& v, size_t idx) { return v[idx]; }
+
+  static constexpr auto reserve(std::vector<T>& v, size_t size) { return v.reserve(size); }
+
+  static constexpr auto push(std::vector<T>& v, size_t idx, T&& i) { v.push_back(std::forward<T>(i)); }
+};
+
+template <class T, size_t N>
+struct ArrayHandler<std::array<T, N>> : std::true_type {
+  using item_type = T;
+
+  static constexpr auto size(std::array<T, N> const& v) { return N; }
+
+  static constexpr auto at(std::array<T, N> const& v, size_t idx) { return v[idx]; }
+
+  static constexpr auto reserve(std::array<T, N>& v, size_t size) { return; }
+
+  static constexpr auto push(std::array<T, N>& v, size_t idx, T&& i) { v[idx] = std::forward<T>(i); }
 };
 }
 
 /// Serializes @c value to @c writer
-auto serialize(
+constexpr auto serialize(
     TSerializeWriter auto& writer,
     detail::TSerializable auto const& value) -> Result;
 
 /// Deserializes from @c reader into @c value
-auto deserialize(
+constexpr auto deserialize(
     TSerializeReader auto& reader,
     detail::TSerializable auto& value) -> Result;
 
 namespace detail {
-auto deserializeItem(TSerializeReader auto& reader, std::string_view name, auto& value) -> Result {
+constexpr auto deserializeItem(TSerializeReader auto& reader, std::string_view name, auto& value) -> Result {
   using MemberType = std::remove_cvref_t<decltype(value)>;
 
   if constexpr (CustomSerializable<MemberType>::value || SerializeMembers<MemberType>::value) {
@@ -397,7 +415,7 @@ auto deserializeItem(TSerializeReader auto& reader, std::string_view name, auto&
         return r;
       }
 
-      ArrayHandler<MemberType>::push(value, std::move(item));
+      ArrayHandler<MemberType>::push(value, i, std::move(item));
     }
 
     return reader.leave(name);
@@ -416,7 +434,7 @@ auto deserializeItem(TSerializeReader auto& reader, std::string_view name, auto&
   return {};
 }
 
-auto serializeItem(TSerializeWriter auto& writer, std::string_view name, auto const& value) -> Result {
+constexpr auto serializeItem(TSerializeWriter auto& writer, std::string_view name, auto const& value) -> Result {
   using MemberType = std::remove_cvref_t<decltype(value)>;
 
   if constexpr (CustomSerializable<MemberType>::value || SerializeMembers<MemberType>::value) {
@@ -457,7 +475,7 @@ auto serializeItem(TSerializeWriter auto& writer, std::string_view name, auto co
 
 /// Deserialize the Ith member of the tuple of member pointers.
 template <size_t N, size_t I>
-auto deserializeMember(
+constexpr auto deserializeMember(
     TSerializeReader auto& reader,
     TSerializable auto& value,
     auto const& memberPtrTuple) -> Result {
@@ -474,7 +492,7 @@ auto deserializeMember(
   return {};
 }
 
-auto deserializeMembers(
+constexpr auto deserializeMembers(
     TSerializeReader auto& reader,
     TSerializable auto& value,
     auto const& memberPtrTuple) {
@@ -488,7 +506,7 @@ auto deserializeMembers(
 
 /// Serialize the Ith member of the tuple of member pointers.
 template <size_t N, size_t I>
-auto serializeMember(
+constexpr auto serializeMember(
     TSerializeWriter auto& writer,
     TSerializable auto const& value,
     auto const& memberPtrTuple) -> Result {
@@ -505,7 +523,7 @@ auto serializeMember(
   return {};
 }
 
-auto serializeMembers(
+constexpr auto serializeMembers(
     TSerializeWriter auto& writer,
     TSerializable auto const& value,
     auto const& memberPtrTuple) {
@@ -519,7 +537,7 @@ auto serializeMembers(
 }
 } // namespace detail
 
-[[nodiscard]] auto serialize(
+[[nodiscard]] constexpr auto serialize(
     TSerializeWriter auto& writer,
     detail::TSerializable auto const& value) -> Result {
   using ValueType = std::remove_cvref_t<decltype(value)>;
@@ -534,7 +552,7 @@ auto serializeMembers(
   }
 }
 
-[[nodiscard]] auto deserialize(
+[[nodiscard]] constexpr auto deserialize(
     TSerializeReader auto& reader,
     detail::TSerializable auto& value) -> Result {
   using ValueType = std::remove_cvref_t<decltype(value)>;
@@ -550,7 +568,7 @@ auto serializeMembers(
 
 template <class F, class S>
 struct CustomSerializable<std::pair<F, S>> : std::true_type {
-  static auto serialize(TSerializeWriter auto& writer, std::pair<F, S> const& value) {
+  static constexpr auto serialize(TSerializeWriter auto& writer, std::pair<F, S> const& value) {
     return detail::serializeItem(writer, "f", value.first)
         .and_then(
             [&value, &writer] {
@@ -558,7 +576,7 @@ struct CustomSerializable<std::pair<F, S>> : std::true_type {
             });
   }
 
-  static auto deserialize(TSerializeReader auto& reader, std::pair<F, S>& value) {
+  static constexpr auto deserialize(TSerializeReader auto& reader, std::pair<F, S>& value) {
     return detail::deserializeItem(reader, "f", value.first)
         .and_then(
             [&value, &reader] {
@@ -571,7 +589,7 @@ template <class... Args>
 struct CustomSerializable<std::tuple<Args...>> : std::true_type {
   using value_type = std::tuple<Args...>;
 
-  static auto serialize(TSerializeWriter auto& writer, value_type const& value) -> Result {
+  static constexpr auto serialize(TSerializeWriter auto& writer, value_type const& value) -> Result {
     if (auto r = writer.array("t", std::tuple_size_v<value_type>); !r) {
       return r;
     }
@@ -579,7 +597,7 @@ struct CustomSerializable<std::tuple<Args...>> : std::true_type {
     return serialize<std::tuple_size_v<value_type>, 0>(writer, value);
   }
 
-  static auto deserialize(TSerializeReader auto& reader, value_type& value) -> Result {
+  static constexpr auto deserialize(TSerializeReader auto& reader, value_type& value) -> Result {
     size_t n;
     if (auto r = reader.array("t", n); !r) {
       return r;
@@ -590,7 +608,7 @@ struct CustomSerializable<std::tuple<Args...>> : std::true_type {
 
 private:
   template <size_t N, size_t I>
-  static auto serialize(TSerializeWriter auto& writer, value_type const& value) -> Result {
+  static constexpr auto serialize(TSerializeWriter auto& writer, value_type const& value) -> Result {
     if constexpr (I < N) {
       if (auto r = detail::serializeItem(writer, "t", std::get<I>(value)); !r) {
         return r;
@@ -601,7 +619,7 @@ private:
   }
 
   template <size_t N, size_t I>
-  static auto deserialize(TSerializeReader auto& reader, value_type& value) -> Result {
+  static constexpr auto deserialize(TSerializeReader auto& reader, value_type& value) -> Result {
     if constexpr (I < N) {
       auto& v = std::get<I>(value);
       if (auto r = detail::deserializeItem(reader, "t", v); !r) {

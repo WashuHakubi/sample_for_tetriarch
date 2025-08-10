@@ -280,17 +280,20 @@ TEST_CASE("Can json serialize primitive arrays") {
 TEST_CASE("Can json serialize complex arrays") {
   struct S {
     std::vector<A> a;
+    std::array<int, 2> b;
 
     static auto serializeMembers() {
       return std::make_tuple(
-          std::make_pair("a", &S::a));
+          std::make_pair("a", &S::a),
+          std::make_pair("b", &S::b));
     }
   };
 
   S s{{
-      {1, 2, "3", {42}, {6, 7}},
-      {2, 3, "4", {84}, {7, 8}}
-  }};
+          {1, 2, "3", {42}, {6, 7}},
+          {2, 3, "4", {84}, {7, 8}}},
+      {42, 43}
+  };
 
   const auto writer = serialization::createJsonWriter();
   auto r = serialization::serialize(*writer, s);
@@ -299,7 +302,7 @@ TEST_CASE("Can json serialize complex arrays") {
   auto data = writer->data();
   REQUIRE(
       data ==
-      R"({"a":[{"a":1,"f":2.0,"s":"3","b":{"a":42},"v":{"x":6.0,"y":7.0}},{"a":2,"f":3.0,"s":"4","b":{"a":84},"v":{"x":7.0,"y":8.0}}]})")
+      R"({"a":[{"a":1,"f":2.0,"s":"3","b":{"a":42},"v":{"x":6.0,"y":7.0}},{"a":2,"f":3.0,"s":"4","b":{"a":84},"v":{"x":7.0,"y":8.0}}],"b":[42,43]})")
   ;
 
   S s2{};
@@ -307,6 +310,7 @@ TEST_CASE("Can json serialize complex arrays") {
   r = serialization::deserialize(*reader, s2);
   REQUIRE(r.has_value());
   REQUIRE(s2.a == s.a);
+  REQUIRE(s2.b == s.b);
 }
 
 TEST_CASE("Can binary serialize primitive arrays") {
