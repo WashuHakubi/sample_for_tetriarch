@@ -28,7 +28,7 @@ struct JsonWriter final : Writer<JsonWriter> {
 
   auto enter(std::string_view name) -> Result override {
     if (auto& top = *json_.top(); top.is_array()) {
-      top.push_back(nlohmann::json::object());
+      top.push_back(nlohmann::ordered_json());
       auto& next = top.back();
       json_.push(&next);
     } else {
@@ -63,8 +63,8 @@ struct JsonWriter final : Writer<JsonWriter> {
     return {};
   }
 
-  std::stack<nlohmann::json*> json_;
-  nlohmann::json root_;
+  std::stack<nlohmann::ordered_json*> json_;
+  nlohmann::ordered_json root_;
 };
 
 struct JsonReader final : Reader<JsonReader> {

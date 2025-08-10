@@ -37,18 +37,73 @@ TEST_CASE("Can check versions") {
 TEST_CASE("Can write entity packets") {
   std::string buffer;
   auto writer = ewok::shared::serialization::createBinWriter(buffer);
-
   TransformUpdate update = {
       .entityId = 1,
       .x = 2, .y = 3, .z = 4,
       .yaw = 5, .pitch = 6, .roll = 7
   };
-  auto r = ewok::shared::serialization::serialize(*writer, update);
-  REQUIRE(r.has_value());
 
-  auto constexpr expectedSize =
-      sizeof(TransformUpdate::entityId)
-      + sizeof(TransformUpdate::x) + sizeof(TransformUpdate::y) + sizeof(TransformUpdate::z)
-      + sizeof(TransformUpdate::yaw) + sizeof(TransformUpdate::pitch) + sizeof(TransformUpdate::roll);
-  REQUIRE(writer->data().size() == expectedSize);
+  {
+    auto r = ewok::shared::serialization::serialize(*writer, update);
+    REQUIRE(r.has_value());
+
+    auto constexpr expectedSize =
+        sizeof(TransformUpdate::entityId)
+        + sizeof(TransformUpdate::x) + sizeof(TransformUpdate::y) + sizeof(TransformUpdate::z)
+        + sizeof(TransformUpdate::yaw) + sizeof(TransformUpdate::pitch) + sizeof(TransformUpdate::roll);
+    REQUIRE(writer->data().size() == expectedSize);
+  }
+
+  {
+    auto reader = ewok::shared::serialization::createBinReader(buffer);
+    TransformUpdate update2;
+    auto r = deserialize(*reader, update2);
+    REQUIRE(r.has_value());
+    REQUIRE(update == update2);
+  }
+}
+
+TEST_CASE("Serialize/Deserialize packet") {
+  TransformUpdate update = {
+      .entityId = 1,
+      .x = 2, .y = 3, .z = 4,
+      .yaw = 5, .pitch = 6, .roll = 7
+  };
+
+  auto writer = ewok::shared::serialization::createJsonWriter();
+  {
+    auto r = writePacket(*writer, update);
+    REQUIRE(r.has_value());
+  }
+
+  auto data = writer->data();
+  REQUIRE(data == R"({"type":1,"entityId":1,"x":2.0,"y":3.0,"z":4.0,"yaw":5.0,"pitch":6.0,"roll":7.0})");
+
+  TransformUpdate update2;
+  bool called;
+  setPacketHandlers(
+      1,
+      {
+          // ProtocolVersion
+          {},
+          // Transform
+          [&](ewok::shared::serialization::IReader& reader) -> ewok::shared::serialization::Result {
+            called = true;
+            return deserialize(reader, update2);
+          },
+          // TransformScale
+          {},
+          // CreateEntity
+          {},
+          // DestroyEntity
+          {},
+      });
+
+  {
+    auto reader = ewok::shared::serialization::createJsonReader(data);
+    auto r = dispatchPacket(1, *reader);
+    REQUIRE(r.has_value());
+  }
+
+  REQUIRE(update == update2);
 }

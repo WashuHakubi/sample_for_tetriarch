@@ -22,9 +22,11 @@ enum class PacketType : uint16_t {
   Extended,
 };
 
-template <PacketType PT>
+template <PacketType V>
 struct Packet {
-  static constexpr PacketType type = PT;
+  static constexpr uint16_t PacketType = static_cast<uint16_t>(V);
+
+  bool operator==(Packet const&) const = default;
 };
 
 /// First packet that should be sent from the client and server. If the major version disagrees then the client or
@@ -37,6 +39,8 @@ struct ProtocolVersion : Packet<PacketType::ProtocolVersion> {
     return std::make_tuple(
         std::make_pair("version", &ProtocolVersion::version));
   }
+
+  bool operator==(ProtocolVersion const&) const = default;
 };
 
 bool isCompatible(ProtocolVersion const& ours, ProtocolVersion const& theirs);
@@ -52,6 +56,16 @@ void setPacketHandlers(
 /// Dispatches to the appropriate packet handler for the packet type and protocol version.
 /// The type is expected to be the first short read from the buffer, followed by the packet data.
 auto dispatchPacket(uint32_t version, serialization::IReader& reader) -> serialization::Result;
+
+
+auto writePacket(serialization::IWriter& writer, auto packet) -> serialization::Result {
+  auto type = std::remove_cvref_t<decltype(packet)>::PacketType;
+  if (auto r = serialization::detail::serializeItem(writer, "type", type); !r) {
+    return r;
+  }
+
+  return serialization::serialize(writer, packet);
+}
 
 namespace v0 {
 /// Updates the position and rotation of an entity. Scale is updated separately as it does not usually change.
@@ -70,6 +84,8 @@ struct TransformUpdate : Packet<PacketType::Transform> {
         std::make_pair("pitch", &TransformUpdate::pitch),
         std::make_pair("roll", &TransformUpdate::roll));
   }
+
+  bool operator==(const TransformUpdate&) const = default;
 };
 
 /// Updates the scale of an entity. This is a separate packet as the scale of an entity does not normally change
@@ -85,6 +101,8 @@ struct TransformScaleUpdate : Packet<PacketType::TransformScale> {
         std::make_pair("scaleY", &TransformScaleUpdate::scaleY),
         std::make_pair("scaleZ", &TransformScaleUpdate::scaleZ));
   }
+
+  bool operator==(const TransformScaleUpdate&) const = default;
 };
 
 struct CreateEntity : Packet<PacketType::CreateEntity> {
@@ -98,6 +116,8 @@ struct CreateEntity : Packet<PacketType::CreateEntity> {
         std::make_pair("prefab", &CreateEntity::prefab),
         std::make_pair("attributes", &CreateEntity::attributes));
   }
+
+  bool operator==(const CreateEntity&) const = default;
 };
 
 struct DestroyEntity : Packet<PacketType::DestroyEntity> {
@@ -107,6 +127,8 @@ struct DestroyEntity : Packet<PacketType::DestroyEntity> {
     return std::make_tuple(
         std::make_pair("entityId", &DestroyEntity::entityId));
   }
+
+  bool operator==(const DestroyEntity&) const = default;
 };
 }
 

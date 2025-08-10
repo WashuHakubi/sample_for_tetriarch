@@ -71,7 +71,7 @@ TEST_CASE("Can serialize/deserialize json") {
   REQUIRE(r.has_value());
 
   auto data = writer->data();
-  REQUIRE(data == R"({"a":1,"b":{"a":42},"f":2.0,"s":"3","v":{"x":6.0,"y":7.0}})");
+  REQUIRE(data == R"({"a":1,"f":2.0,"s":"3","b":{"a":42},"v":{"x":6.0,"y":7.0}})");
 
   A a2;
   auto reader = serialization::createJsonReader(data);
@@ -295,7 +295,7 @@ TEST_CASE("Can json serialize complex arrays") {
   auto data = writer->data();
   REQUIRE(
       data ==
-      R"({"a":[{"a":1,"b":{"a":42},"f":2.0,"s":"3","v":{"x":6.0,"y":7.0}},{"a":2,"b":{"a":84},"f":3.0,"s":"4","v":{"x":7.0,"y":8.0}}]})")
+      R"({"a":[{"a":1,"f":2.0,"s":"3","b":{"a":42},"v":{"x":6.0,"y":7.0}},{"a":2,"f":3.0,"s":"4","b":{"a":84},"v":{"x":7.0,"y":8.0}}]})")
   ;
 
   S s2{};
