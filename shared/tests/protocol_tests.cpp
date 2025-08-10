@@ -80,7 +80,6 @@ TEST_CASE("Serialize/Deserialize packet") {
   REQUIRE(data == R"({"type":1,"entityId":1,"x":2.0,"y":3.0,"z":4.0,"yaw":5.0,"pitch":6.0,"roll":7.0})");
 
   TransformUpdate update2;
-  bool called;
   setPacketHandlers(
       1,
       {
@@ -88,7 +87,6 @@ TEST_CASE("Serialize/Deserialize packet") {
           {},
           // Transform
           [&](ewok::shared::serialization::IReader& reader) -> ewok::shared::serialization::Result {
-            called = true;
             return deserialize(reader, update2);
           },
           // TransformScale
