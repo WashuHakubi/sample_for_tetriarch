@@ -13,49 +13,41 @@
 #include <tuple>
 
 namespace ewok::shared::serialization {
+static const std::unordered_map<
+  std::tuple<std::string, int>,
+  std::tuple<size_t, BinFieldType>> s_empty;
+
 /// Writes out data linearly to a binary buffer. This can optionally keep track of the fields as it writes them.
 class BinWriter : public Writer<BinWriter, IBinWriter> {
 public:
-  BinWriter(std::string& buffer, bool trackFields)
-    : trackFields_(trackFields),
-      data_(&buffer) {
-    if (trackFields_) {
-      stack_.push(false);
-    }
+  explicit BinWriter(std::string& buffer)
+    : data_(&buffer) {
   }
 
   auto array(std::string_view name, size_t count) -> Result override {
-    expect(name, BinFieldType::Array, true);
     append(static_cast<uint32_t>(count));
     return {};
   }
 
   auto enter(std::string_view name) -> Result override {
-    expect(name, BinFieldType::Object, true);
     return {};
   }
 
   auto leave(std::string_view name) -> Result override {
-    if (trackFields_) {
-      stack_.pop();
-    }
     return {};
   }
 
   auto write(std::string_view name, auto value) -> Result {
-    expect(name, BinFieldType::Value);
     append(value);
     return {};
   }
 
   auto write(std::string_view name, bool value) -> Result override {
-    expect(name, BinFieldType::Value);
     append(static_cast<char>(value));
     return {};
   }
 
   auto write(std::string_view name, std::string_view value) -> Result override {
-    expect(name, BinFieldType::Value);
     append(static_cast<uint32_t>(value.size()));
     data_->append(value.data(), value.size());
     return {};
@@ -67,19 +59,17 @@ public:
 
   void reset() override {
     data_->clear();
-    if (trackFields_) {
-      fieldOffset_ = {};
-      stack_ = {};
-      stack_.push(false);
-      seq_ = 0;
-    }
   }
 
-  auto fieldMapping() const ->
+  [[nodiscard]] auto fieldMapping() const ->
     std::unordered_map<
       std::tuple<std::string, int>,
       std::tuple<size_t, BinFieldType>> const& override {
-    return fieldOffset_;
+    return s_empty;
+  }
+
+  [[nodiscard]] auto writePos() const -> size_t {
+    return data_->size();
   }
 
 private:
@@ -90,12 +80,61 @@ private:
     data_->append(bytes, bytes + sizeof(T));
   }
 
-  void expect(std::string_view name, BinFieldType type, bool increment = false) {
-    if (!trackFields_) { return; }
 
-    [[maybe_unused]] auto [_, inserted] = fieldOffset_.emplace(
+  std::string* data_;
+};
+
+/// Tracking variant of binary writer. Useful for debugging.
+struct TrackingBinWriter : Writer<TrackingBinWriter, IBinWriter> {
+  explicit TrackingBinWriter(std::string& buffer)
+    : writer_(buffer) {
+    stack_.push(false);
+  }
+
+  auto array(std::string_view name, size_t count) -> Result override {
+    expect(name, BinFieldType::Array, true);
+    return writer_.array(name, count);
+  }
+
+  auto enter(std::string_view name) -> Result override {
+    expect(name, BinFieldType::Object, true);
+    return writer_.enter(name);
+  }
+
+  auto leave(std::string_view name) -> Result override {
+    stack_.pop();
+    return writer_.leave(name);
+  }
+
+  void reset() override {
+    fieldMappings_ = {};
+    stack_ = {};
+    stack_.push(false);
+    seq_ = 0;
+    return writer_.reset();
+  }
+
+  auto data() -> std::string override {
+    return writer_.data();
+  }
+
+  auto fieldMapping() const ->
+    std::unordered_map<
+      std::tuple<std::string, int>,
+      std::tuple<size_t, BinFieldType>> const& override {
+    return fieldMappings_;
+  }
+
+  auto write(std::string_view name, auto value) -> Result {
+    expect(name, BinFieldType::Value);
+    return writer_.write(name, value);
+  }
+
+private:
+  void expect(std::string_view name, BinFieldType type, bool increment = false) {
+    [[maybe_unused]] auto [_, inserted] = fieldMappings_.emplace(
         std::make_tuple(name, seq_),
-        std::make_tuple(data_->size(), type));
+        std::make_tuple(writer_.writePos(), type));
     // If we're in array mode then ignore duplicates. In object mode duplicates must not exist.
     assert(stack_.top() || inserted);
 
@@ -107,26 +146,20 @@ private:
     }
   }
 
-  bool trackFields_;
-  std::unordered_map<std::tuple<std::string, int>, std::tuple<size_t, BinFieldType>> fieldOffset_;
+  std::unordered_map<std::tuple<std::string, int>, std::tuple<size_t, BinFieldType>> fieldMappings_;
   int seq_ = 0;
   std::stack<bool> stack_;
 
-  std::string* data_;
+  BinWriter writer_;
 };
 
-/// Reads data in from a byte buffer. This can optionally keep track of the fields as it reads them.
+/// Reads data in from a byte buffer.
 struct BinReader : Reader<BinReader, IBinReader> {
-  explicit BinReader(std::span<char> data, bool trackFields)
-    : trackFields_(trackFields),
-      data_(data) {
-    if (trackFields_) {
-      stack_.push(false);
-    }
+  explicit BinReader(std::span<char> data)
+    : data_(data) {
   }
 
   auto array(std::string_view name, size_t& count) -> Result override {
-    expect(name, BinFieldType::Array, true);
     return extract<uint32_t>()
         .and_then(
             [&count](auto c) -> Result {
@@ -136,19 +169,14 @@ struct BinReader : Reader<BinReader, IBinReader> {
   }
 
   auto enter(std::string_view name) -> Result override {
-    expect(name, BinFieldType::Object, true);
     return {};
   }
 
   auto leave(std::string_view name) -> Result override {
-    if (trackFields_) {
-      stack_.pop();
-    }
     return {};
   }
 
   auto read(std::string_view name, auto& value) -> Result {
-    expect(name, BinFieldType::Value);
     return extract<std::remove_cvref_t<decltype(value)>>()
         .and_then(
             [&value](auto v) -> Result {
@@ -158,7 +186,6 @@ struct BinReader : Reader<BinReader, IBinReader> {
   }
 
   auto read(std::string_view name, bool& value) -> Result override {
-    expect(name, BinFieldType::Value);
     return extract<char>()
         .and_then(
             [&value](auto v) -> Result {
@@ -168,26 +195,30 @@ struct BinReader : Reader<BinReader, IBinReader> {
   }
 
   auto read(std::string_view name, std::string& value) -> Result override {
-    expect(name, BinFieldType::Value);
     return extract<uint32_t>()
         .and_then(
             [&value, this](auto len) -> Result {
-              value.resize(len);
               if (data_.size() + readPos_ < len) {
+                // Too little buffer remaining for this string.
                 return std::unexpected{Error::InvalidFormat};
               }
 
+              value.resize(len);
               memcpy(value.data(), data_.data() + readPos_, len);
               readPos_ += len;
               return {};
             });
   }
 
-  auto fieldMapping() const ->
+  [[nodiscard]] auto fieldMapping() const ->
     std::unordered_map<
       std::tuple<std::string, int>,
       std::tuple<size_t, BinFieldType>> const& override {
-    return fieldOffset_;
+    return s_empty;
+  }
+
+  [[nodiscard]] auto readPos() const -> size_t {
+    return readPos_;
   }
 
 private:
@@ -204,12 +235,49 @@ private:
     return value;
   }
 
-  void expect(std::string_view name, BinFieldType type, bool increment = false) {
-    if (!trackFields_) { return; }
+  size_t readPos_ = 0;
+  std::span<char> data_;
+};
 
-    [[maybe_unused]] auto [_, inserted] = fieldOffset_.emplace(
+/// Tracking variant of binary reader. Useful for debugging.
+struct TrackingBinReader : Reader<TrackingBinReader, IBinReader> {
+  explicit TrackingBinReader(std::span<char> data)
+    : reader_(data) {
+    stack_.push(false);
+  }
+
+  auto array(std::string_view name, size_t& count) -> Result override {
+    expect(name, BinFieldType::Array, true);
+    return reader_.array(name, count);
+  }
+
+  auto enter(std::string_view name) -> Result override {
+    expect(name, BinFieldType::Object, true);
+    return {};
+  }
+
+  auto leave(std::string_view name) -> Result override {
+    stack_.pop();
+    return {};
+  }
+
+  auto read(std::string_view name, auto& value) -> Result {
+    expect(name, BinFieldType::Value);
+    return reader_.read(name, value);
+  }
+
+  auto fieldMapping() const ->
+    std::unordered_map<
+      std::tuple<std::string, int>,
+      std::tuple<size_t, BinFieldType>> const& override {
+    return fieldMappings_;
+  }
+
+private:
+  void expect(std::string_view name, BinFieldType type, bool increment = false) {
+    [[maybe_unused]] auto [_, inserted] = fieldMappings_.emplace(
         std::make_tuple(name, seq_),
-        std::make_tuple(readPos_, type));
+        std::make_tuple(reader_.readPos(), type));
     // If we're in array mode then ignore duplicates. In object mode duplicates must not exist.
     assert(stack_.top() || inserted);
 
@@ -219,20 +287,24 @@ private:
     }
   }
 
-  bool trackFields_;
-  std::unordered_map<std::tuple<std::string, int>, std::tuple<size_t, BinFieldType>> fieldOffset_;
+  std::unordered_map<std::tuple<std::string, int>, std::tuple<size_t, BinFieldType>> fieldMappings_;
   int seq_ = 0;
   std::stack<bool> stack_;
 
-  size_t readPos_ = 0;
-  std::span<char> data_;
+  BinReader reader_;
 };
 
 std::shared_ptr<IBinWriter> createBinWriter(std::string& buffer, bool trackFields) {
-  return std::make_shared<BinWriter>(buffer, trackFields);
+  if (trackFields) {
+    return std::make_shared<TrackingBinWriter>(buffer);
+  }
+  return std::make_shared<BinWriter>(buffer);
 }
 
 std::shared_ptr<IBinReader> createBinReader(std::span<char> buffer, bool trackFields) {
-  return std::make_shared<BinReader>(buffer, trackFields);
+  if (trackFields) {
+    return std::make_shared<TrackingBinReader>(buffer);
+  }
+  return std::make_shared<BinReader>(buffer);
 }
 }

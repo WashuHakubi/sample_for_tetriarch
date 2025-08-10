@@ -88,7 +88,7 @@ TEST_CASE("Can serialize/deserialize json") {
 TEST_CASE("Can serialize/deserialize binary") {
   A a{1, 2, "3", {42}, {6, 7}};
   std::string buffer;
-  auto writer = serialization::createBinWriter(buffer);
+  auto writer = serialization::createBinWriter(buffer, true);
   auto r = serialization::serialize(*writer, a);
   REQUIRE(r.has_value());
 
@@ -104,7 +104,7 @@ TEST_CASE("Can serialize/deserialize binary") {
   REQUIRE(data.size() == expectedSize);
 
   A a2;
-  auto reader = serialization::createBinReader(data);
+  auto reader = serialization::createBinReader(data, true);
   r = serialization::deserialize(*reader, a2);
   REQUIRE(r.has_value());
   REQUIRE(a2.a == 1);
