@@ -209,43 +209,64 @@ int main() {
   auto contentDb = std::make_shared<FakeContentDb>();
   shared::initializeContentDb(contentDb);
 
-  auto mobDefStr = R"({
-"id": {"g": "b5f8b8ee-d67b-4312-b8cf-944934342004"},
-"name": "Wolf",
-"rarity": 0
+  std::string_view mobDefStr = R"({
+  "id": {
+    "g": "b5f8b8ee-d67b-4312-b8cf-944934342004"
+  },
+  "name": "Wolf",
+  "rarity": 0
 })";
 
-  auto spawnDefStr = R"({
-"id":{"g":"c119994e-d152-406c-9aa3-8e3b3a555151"},
-"positions":[{"x":0.0,"y":0.0,"z":0.0}],
-"probabilities":[
-  {"f": {"g": "b5f8b8ee-d67b-4312-b8cf-944934342004"}, "s":1.0}
-],
-"minSpawnCount":1,
-"maxSpawnCount":1,
-"minSpawnAtOnce":1,
-"maxSpawnAtOnce":1,
-"timeBetweenSpawns":2.0})";
+  std::string_view spawnDefStr = R"({
+  "id": {
+    "g": "c119994e-d152-406c-9aa3-8e3b3a555151"
+  },
+  "positions": [
+    {
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+    }
+  ],
+  "probabilities": [
+    {
+      "f": {
+        "g": "b5f8b8ee-d67b-4312-b8cf-944934342004"
+      },
+      "s": 1.0
+    }
+  ],
+  "minSpawnCount": 1,
+  "maxSpawnCount": 1,
+  "minSpawnAtOnce": 1,
+  "maxSpawnAtOnce": 1,
+  "timeBetweenSpawns": 2.0
+})";
 
+  auto reader = shared::serialization::createJsonReader(mobDefStr);
   {
-    auto reader = shared::serialization::createJsonReader(mobDefStr);
     server::design_data::MobDef def;
     [[maybe_unused]] auto r = shared::serialization::deserialize(*reader, def);
+    assert(r.has_value());
     contentDb->registerItem(std::make_shared<server::design_data::MobDef>(def));
   }
 
   {
-    auto reader = shared::serialization::createJsonReader(spawnDefStr);
+    reader->reset(spawnDefStr);
     server::design_data::SpawnDef def;
     [[maybe_unused]] auto r = shared::serialization::deserialize(*reader, def);
+    assert(r.has_value());
     contentDb->registerItem(std::make_shared<server::design_data::SpawnDef>(def));
   }
 
   server::design_data::SpawnDefPtr p{xg::Guid("c119994e-d152-406c-9aa3-8e3b3a555151")};
 
-  auto writer = shared::serialization::createJsonWriter();
-  auto _ = shared::serialization::serialize(*writer, *p);
-  std::cout << writer->data() << std::endl;
-  std::cout << p->timeBetweenSpawns << std::endl;
+  {
+    auto writer = shared::serialization::createJsonWriter(true);
+    auto r = shared::serialization::serialize(*writer, *p);
+    assert(r.has_value());
+    std::cout << writer->data() << std::endl;
+  }
+
   return 0;
 }

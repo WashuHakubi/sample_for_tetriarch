@@ -14,8 +14,9 @@
 
 namespace ewok::shared::serialization {
 struct JsonWriter final : Writer<JsonWriter> {
-  JsonWriter()
-    : root_({}) {
+  explicit JsonWriter(bool prettyPrint)
+    : prettyPrint_(prettyPrint),
+      root_({}) {
     json_.push(&root_);
   }
 
@@ -50,7 +51,7 @@ struct JsonWriter final : Writer<JsonWriter> {
   }
 
   auto data() -> std::string override {
-    return root_.dump();
+    return root_.dump(prettyPrint_ ? 2 : -1);
   }
 
   /// Template method, this is called by the various write methods in Writer<T>
@@ -63,12 +64,13 @@ struct JsonWriter final : Writer<JsonWriter> {
     return {};
   }
 
+  bool prettyPrint_;
   std::stack<nlohmann::ordered_json*> json_;
   nlohmann::ordered_json root_;
 };
 
 struct JsonReader final : Reader<JsonReader> {
-  explicit JsonReader(std::string const& jsonStr)
+  explicit JsonReader(std::span<char const> jsonStr)
     : root_(nlohmann::json::parse(jsonStr)) {
     json_.emplace(&root_, SIZE_MAX);
   }
@@ -117,6 +119,12 @@ struct JsonReader final : Reader<JsonReader> {
     return {};
   }
 
+  void reset(std::span<char const> buffer) override {
+    root_ = nlohmann::json::parse(buffer);
+    json_ = {};
+    json_.emplace(&root_, SIZE_MAX);
+  }
+
   /// Template method, this is called by the various read methods in Reader<T>
   auto read(std::string_view name, auto& value) -> Result {
     if (auto& top = *json_.top().first; top.is_array()) {
@@ -135,11 +143,11 @@ struct JsonReader final : Reader<JsonReader> {
   nlohmann::json root_;
 };
 
-std::shared_ptr<IWriter> createJsonWriter() {
-  return std::make_shared<JsonWriter>();
+std::shared_ptr<IWriter> createJsonWriter(bool prettyPrint) {
+  return std::make_shared<JsonWriter>(prettyPrint);
 }
 
-std::shared_ptr<IReader> createJsonReader(std::string const& json) {
+std::shared_ptr<IReader> createJsonReader(std::span<char const> json) {
   return std::make_shared<JsonReader>(json);
 }
 }

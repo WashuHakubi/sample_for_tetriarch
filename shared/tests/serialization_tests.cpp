@@ -167,7 +167,7 @@ private:
 };
 
 struct TestAdditionalFieldTypesReader : serialization::Reader<TestAdditionalFieldTypesReader> {
-  explicit TestAdditionalFieldTypesReader(std::string const& data)
+  explicit TestAdditionalFieldTypesReader(std::span<char const> data)
     : reader_(serialization::createJsonReader(data)) {
   }
 
@@ -218,6 +218,10 @@ struct TestAdditionalFieldTypesReader : serialization::Reader<TestAdditionalFiel
     return {};
   }
 
+  void reset(std::span<char const> buffer) override {
+    reader_->reset(buffer);
+  }
+
 private:
   std::shared_ptr<serialization::IReader> reader_;
 };
@@ -241,7 +245,7 @@ TEST_CASE("Can have user defined serialization of fields") {
   REQUIRE(data == R"({"p":1})");
 
   C c2;
-  auto reader = TestAdditionalFieldTypesReader{data};
+  auto reader = TestAdditionalFieldTypesReader{std::span{data.c_str(), data.size()}};
   r = serialization::deserialize(reader, c2);
   REQUIRE(r.has_value());
   REQUIRE(*c2.p == 1);

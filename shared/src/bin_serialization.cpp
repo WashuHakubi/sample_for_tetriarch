@@ -154,7 +154,7 @@ private:
 
 /// Reads data in from a byte buffer.
 struct BinReader : Reader<BinReader, IBinReader> {
-  explicit BinReader(std::span<char> data)
+  explicit BinReader(std::span<char const> data)
     : data_(data) {
   }
 
@@ -209,11 +209,12 @@ struct BinReader : Reader<BinReader, IBinReader> {
             });
   }
 
-  void reset(std::span<char> buffer) override {
+  void reset(std::span<char const> buffer) override {
     readPos_ = 0;
     data_ = buffer;
   }
-   [[nodiscard]] auto fieldMapping() const ->
+
+  [[nodiscard]] auto fieldMapping() const ->
     std::unordered_map<
       std::tuple<std::string, int>,
       std::tuple<size_t, BinFieldType>> const& override {
@@ -239,7 +240,7 @@ private:
   }
 
   size_t readPos_ = 0;
-  std::span<char> data_;
+  std::span<char const> data_;
 };
 
 /// Tracking variant of binary reader. Useful for debugging.
@@ -269,7 +270,7 @@ struct TrackingBinReader : Reader<TrackingBinReader, IBinReader> {
     return reader_.read(name, value);
   }
 
-  void reset(std::span<char> buffer) override {
+  void reset(std::span<char const> buffer) override {
     fieldMappings_ = {};
     stack_ = {};
     stack_.push(false);

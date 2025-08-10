@@ -190,11 +190,11 @@ struct IReader {
   virtual auto read(std::string_view name, float& value) -> Result = 0;
   virtual auto read(std::string_view name, double& value) -> Result = 0;
   virtual auto read(std::string_view name, std::string& value) -> Result = 0;
+
+  virtual void reset(std::span<char const> buffer) = 0;
 };
 
 struct IBinReader : IReader {
-  virtual void reset(std::span<char> buffer) = 0;
-
   [[nodiscard]] virtual auto fieldMapping() const ->
     std::unordered_map<
       std::tuple<std::string, int>,
@@ -254,8 +254,16 @@ struct Reader : Interface {
   }
 };
 
-std::shared_ptr<IWriter> createJsonWriter();
-std::shared_ptr<IReader> createJsonReader(std::string const& json);
+std::shared_ptr<IWriter> createJsonWriter(bool prettyPrint = false);
+std::shared_ptr<IReader> createJsonReader(std::span<char const> json);
+
+inline std::shared_ptr<IReader> createJsonReader(std::string_view json) {
+  return createJsonReader(std::span{json.data(), json.size()});
+}
+
+inline std::shared_ptr<IReader> createJsonReader(std::string const& json) {
+  return createJsonReader(std::span{json.data(), json.size()});
+}
 
 std::shared_ptr<IBinWriter> createBinWriter(std::string& buffer, bool trackFields = false);
 std::shared_ptr<IBinReader> createBinReader(std::span<char> buffer, bool trackFields = false);
