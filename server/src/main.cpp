@@ -10,74 +10,9 @@
 #include "shared/math.h"
 #include "shared/content_db.h"
 
+#include "design_data/design_data.h"
+
 using namespace ewok;
-
-namespace ewok::server::design_data {
-struct MobDef;
-using MobDefPtr = shared::ContentPtr<MobDef>;
-
-struct SpawnDef;
-using SpawnDefPtr = shared::ContentPtr<SpawnDef>;
-
-enum class MobRarity {
-  Normal,
-  Magic,
-  Rare,
-  Unique
-};
-
-struct MobDef : public shared::ContentDef {
-  // Name of the mob
-  std::string name;
-
-  // Rarity of the mob
-  MobRarity rarity{};
-
-  static auto serializeMembers() {
-    return std::make_tuple(
-        std::make_pair("id", &MobDef::id),
-        std::make_pair("name", &MobDef::name),
-        std::make_pair("rarity", &MobDef::rarity));
-  }
-};
-
-struct SpawnDef : public shared::ContentDef {
-  // Positions to spawn mobs at
-  std::vector<glm::vec3> spawnPositions;
-
-  // List of mobs that can spawn and their probability. The probability of a mob spawning is their probability value
-  // divided by the total sum of the probabilities. That is: [orc:1, goblin:2] means orcs have a 1:3 chance while
-  // goblins have the remaining 2:3 chances.
-  std::vector<std::pair<MobDefPtr, float>> spawnProbabilities;
-
-  // Minimum number of mobs, if we're below this then spawning can be triggered
-  uint32_t minSpawnCount{};
-
-  // Maximum number of mobs, at or above this and spawning stops.
-  uint32_t maxSpawnCount{};
-
-  // Minimum number of mobs a spawn cycle and create. Each spawn cycle will spawn between [minSpawnAtOnce, maxSpawnAtOnce] mobs.
-  uint32_t minSpawnAtOnce{};
-
-  // Maximum number of mobs a spawn cycle and create. Each spawn cycle will spawn between [minSpawnAtOnce, maxSpawnAtOnce] mobs.
-  uint32_t maxSpawnAtOnce{};
-
-  // Seconds between attempting to spawn new mobs
-  float timeBetweenSpawns{};
-
-  static auto serializeMembers() {
-    return std::make_tuple(
-        std::make_pair("id", &SpawnDef::id),
-        std::make_pair("positions", &SpawnDef::spawnPositions),
-        std::make_pair("probabilities", &SpawnDef::spawnProbabilities),
-        std::make_pair("minSpawnCount", &SpawnDef::minSpawnCount),
-        std::make_pair("maxSpawnCount", &SpawnDef::maxSpawnCount),
-        std::make_pair("minSpawnAtOnce", &SpawnDef::minSpawnAtOnce),
-        std::make_pair("maxSpawnAtOnce", &SpawnDef::maxSpawnAtOnce),
-        std::make_pair("timeBetweenSpawns", &SpawnDef::timeBetweenSpawns));
-  }
-};
-}
 
 namespace ewok::server {
 struct Random {
@@ -140,18 +75,21 @@ public:
 
         // If our countdown to the spawn has passed then perform a spawn action.
         if (spawn.spawnTime <= 0.0f) {
+          // This ensures we don't do large spawns repeatedly.
+          spawn.needsSpawn = false;
+
           auto spawnCount = Random::next(
               spawn.spawnDef->minSpawnAtOnce,
               spawn.spawnDef->maxSpawnAtOnce);
 
           // Make sure we don't exceed the max spawn count
-          auto nextSpawnCount = std::max(spawn.curSpawnCount + spawnCount, spawn.spawnDef->maxSpawnCount);
+          const auto nextSpawnCount = std::max(spawn.curSpawnCount + spawnCount, spawn.spawnDef->maxSpawnCount);
 
           // and recompute the number of mobs we need to spawn
           spawnCount = nextSpawnCount - spawn.curSpawnCount;
 
           // Get the sum of the total probabilities for the mob spawns.
-          auto probSum = std::accumulate(
+          const auto probSum = std::accumulate(
               spawn.spawnDef->spawnProbabilities.begin(),
               spawn.spawnDef->spawnProbabilities.end(),
               0.0f,
@@ -159,7 +97,7 @@ public:
 
           for (auto i = 0u; i < spawnCount; ++i) {
             // Roll a probability for the mob spawn.
-            auto chosenProb = Random::nextReal(0, probSum);
+            const auto chosenProb = Random::nextReal(0, probSum);
             auto curProb = 0.0f;
 
             // Walk each mob in the stack of probabilities, adding their probability to curProb. Then if the chosen
@@ -245,18 +183,18 @@ int main() {
 
   auto reader = shared::serialization::createJsonReader(mobDefStr);
   {
-    server::design_data::MobDef def;
-    [[maybe_unused]] auto r = shared::serialization::deserialize(*reader, def);
+    auto def = std::make_shared<shared::design_data::MobDef>();
+    [[maybe_unused]] auto r = shared::serialization::deserialize(*reader, *def);
     assert(r.has_value());
-    contentDb->registerItem(std::make_shared<server::design_data::MobDef>(def));
+    contentDb->registerItem(std::move(def));
   }
 
   {
     reader->reset(spawnDefStr);
-    server::design_data::SpawnDef def;
-    [[maybe_unused]] auto r = shared::serialization::deserialize(*reader, def);
+    auto def = std::make_shared<server::design_data::SpawnDef>();
+    [[maybe_unused]] auto r = shared::serialization::deserialize(*reader, *def);
     assert(r.has_value());
-    contentDb->registerItem(std::make_shared<server::design_data::SpawnDef>(def));
+    contentDb->registerItem(std::move(def));
   }
 
   server::design_data::SpawnDefPtr p{xg::Guid("c119994e-d152-406c-9aa3-8e3b3a555151")};
