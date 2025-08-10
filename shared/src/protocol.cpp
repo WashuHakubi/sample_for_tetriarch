@@ -8,12 +8,12 @@
 #include "shared/protocol.h"
 
 namespace ewok::shared::protocol {
-std::vector<std::vector<std::function<serialization::Result(serialization::IBinReader& reader)>>>
+std::vector<std::vector<std::function<serialization::Result(serialization::IReader& reader)>>>
 s_versionToPacketTypeToHandler;
 
 void setPacketHandlers(
     uint32_t version,
-    std::vector<std::function<serialization::Result(serialization::IBinReader& reader)>> handlers) {
+    std::vector<std::function<serialization::Result(serialization::IReader& reader)>> handlers) {
   if (s_versionToPacketTypeToHandler.size() <= version) {
     s_versionToPacketTypeToHandler.resize(version + 1);
   }
@@ -23,7 +23,7 @@ void setPacketHandlers(
 
 auto getPacketHandler(
     uint32_t version,
-    PacketType type) -> std::function<serialization::Result(serialization::IBinReader& reader)> const& {
+    PacketType type) -> std::function<serialization::Result(serialization::IReader& reader)> const& {
   assert(s_versionToPacketTypeToHandler.size() > version);
   auto const& handlers = s_versionToPacketTypeToHandler[version];
 
@@ -43,7 +43,7 @@ bool isCompatible(ProtocolVersion const& ours, ProtocolVersion const& theirs) {
   return s_versionToPacketTypeToHandler[theirs.version].empty();
 }
 
-auto dispatchPacket(uint32_t version, serialization::IBinReader& reader) -> serialization::Result {
+auto dispatchPacket(uint32_t version, serialization::IReader& reader) -> serialization::Result {
   PacketType type;
   if (auto r = serialization::detail::deserializeItem(reader, "type", type); !r) {
     return r;

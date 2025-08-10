@@ -43,15 +43,15 @@ bool isCompatible(ProtocolVersion const& ours, ProtocolVersion const& theirs);
 
 auto getPacketHandler(
     uint32_t version,
-    PacketType type) -> std::function<serialization::Result(serialization::IBinReader& reader)> const&;
+    PacketType type) -> std::function<serialization::Result(serialization::IReader& reader)> const&;
 
 void setPacketHandlers(
     uint32_t version,
-    std::vector<std::function<serialization::Result(serialization::IBinReader& reader)>> handlers);
+    std::vector<std::function<serialization::Result(serialization::IReader& reader)>> handlers);
 
 /// Dispatches to the appropriate packet handler for the packet type and protocol version.
 /// The type is expected to be the first short read from the buffer, followed by the packet data.
-auto dispatchPacket(uint32_t version, serialization::IBinReader& reader) -> serialization::Result;
+auto dispatchPacket(uint32_t version, serialization::IReader& reader) -> serialization::Result;
 
 namespace v0 {
 /// Updates the position and rotation of an entity. Scale is updated separately as it does not usually change.
