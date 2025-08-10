@@ -38,4 +38,31 @@ TEST_CASE("Can serialize/deserialize vectors") {
       data ==
       R"({"vec2":{"x":42.0,"y":84.0},"vec3":{"x":1.0,"y":2.0,"z":3.0},"vec4":{"x":0.31830987334251404,"y":3.1415927410125732,"z":2.7182817459106445,"w":42.0}})")
   ;
+
+  glm::vec2 v2_2;
+  glm::vec3 v3_2;
+  glm::vec4 v4_2;
+  auto reader = ewok::shared::serialization::createJsonReader(data);
+  {
+    reader->enter("vec2");
+    auto r = ewok::shared::serialization::deserialize(*reader, v2_2);
+    REQUIRE(r.has_value());
+    reader->leave("vec2");
+  }
+  {
+    reader->enter("vec3");
+    auto r = ewok::shared::serialization::deserialize(*reader, v3_2);
+    REQUIRE(r.has_value());
+    reader->leave("vec3");
+  }
+  {
+    reader->enter("vec4");
+    auto r = ewok::shared::serialization::deserialize(*reader, v4_2);
+    REQUIRE(r.has_value());
+    reader->leave("vec4");
+  }
+
+  REQUIRE(v2_1 == v2_2);
+  REQUIRE(v3_1 == v3_2);
+  REQUIRE(v4_1 == v4_2);
 }
