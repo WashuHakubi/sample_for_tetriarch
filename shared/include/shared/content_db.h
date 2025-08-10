@@ -44,11 +44,51 @@ struct ContentPtr {
     : id_(id) {
   }
 
-  ContentPtr(ContentPtr const&) = default;
-  ContentPtr& operator=(ContentPtr const&) = default;
+  ContentPtr(ContentPtr const& other) {
+    if (other.zero_) {
+      id_ = other.id_;
+    } else {
+      zero_ = 0;
+      ptr_ = other.ptr_;
+    }
+  }
 
-  ContentPtr(ContentPtr&&) = default;
-  ContentPtr& operator=(ContentPtr&&) = default;
+  ContentPtr& operator=(ContentPtr const& other) {
+    if (std::addressof(other) == this) {
+      return *this;
+    }
+
+    if (other.zero_) {
+      id_ = other.id_;
+    } else {
+      zero_ = 0;
+      ptr_ = other.ptr_;
+    }
+    return *this;
+  }
+
+  ContentPtr(ContentPtr&& other) noexcept {
+    if (other.zero_) {
+      id_ = other.id_;
+    } else {
+      zero_ = 0;
+      ptr_ = std::exchange(other.ptr_, nullptr);
+    }
+  }
+
+  ContentPtr& operator=(ContentPtr&& other) noexcept {
+    if (std::addressof(other) == this) {
+      return *this;
+    }
+
+    if (other.zero_) {
+      id_ = other.id_;
+    } else {
+      zero_ = 0;
+      ptr_ = std::exchange(other.ptr_, nullptr);
+    }
+    return *this;
+  }
 
   std::shared_ptr<T> const& ptr() const {
     if (zero_ != 0) [[unlikely]] {
@@ -56,7 +96,7 @@ struct ContentPtr {
       zero_ = 0;
     }
 
-    return ptr;
+    return ptr_;
   }
 
   auto guid() const -> xg::Guid const& {
@@ -68,7 +108,7 @@ struct ContentPtr {
   }
 
   T* operator->() const {
-    return ptr().get();
+    return ptr().operator->();
   }
 
   T& operator*() const {
