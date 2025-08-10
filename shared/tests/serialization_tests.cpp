@@ -420,6 +420,6 @@ TEST_CASE("Can serialize pairs/tuples") {
     HasTuple s2;
     r = serialization::deserialize(*reader, s2);
     REQUIRE(r.has_value());
-    //REQUIRE(s2.p == s1.p);
+    REQUIRE(s2.t == s1.t);
   }
 }
