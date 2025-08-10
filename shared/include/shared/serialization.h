@@ -277,71 +277,6 @@ template <class T>
 struct CustomSerializable : std::false_type {
 };
 
-template <class F, class S>
-struct CustomSerializable<std::pair<F, S>> : std::true_type {
-  static auto serialize(TSerializeWriter auto& writer, std::pair<F, S> const& value) {
-    return writer.write("f", value.first)
-                 .and_then(
-                     [&value, &writer] {
-                       return writer.write("s", value.second);
-                     });
-  }
-
-  static auto deserialize(TSerializeReader auto& reader, std::pair<F, S>& value) {
-    return reader.read("f", value.first)
-                 .and_then(
-                     [&value, &reader] {
-                       return reader.read("s", value.second);
-                     });
-  }
-};
-
-template <class... Args>
-struct CustomSerializable<std::tuple<Args...>> : std::true_type {
-  using value_type = std::tuple<Args...>;
-
-  static auto serialize(TSerializeWriter auto& writer, value_type const& value) -> Result {
-    if (auto r = writer.array("t", std::tuple_size_v<value_type>); !r) {
-      return r;
-    }
-
-    return serialize<std::tuple_size_v<value_type>, 0>(writer, value);
-  }
-
-  static auto deserialize(TSerializeReader auto& reader, value_type& value) -> Result {
-    size_t n;
-    if (auto r = reader.array("t", n); !r) {
-      return r;
-    }
-    assert(n == std::tuple_size_v<value_type>);
-    return deserialize<std::tuple_size_v<value_type>, 0>(reader, value);
-  }
-
-private:
-  template <size_t N, size_t I>
-  static auto serialize(TSerializeWriter auto& writer, value_type const& value) -> Result {
-    if constexpr (I < N) {
-      if (auto r = writer.write("t", std::get<I>(value)); !r) {
-        return r;
-      }
-      return serialize<N, I + 1>(writer, value);
-    }
-    return {};
-  }
-
-  template <size_t N, size_t I>
-  static auto deserialize(TSerializeReader auto& reader, value_type& value) -> Result {
-    if constexpr (I < N) {
-      auto& v = std::get<I>(value);
-      if (auto r = reader.read("t", v); !r) {
-        return r;
-      }
-      return deserialize<N, I + 1>(reader, value);
-    }
-    return {};
-  }
-};
-
 namespace detail {
 /// Checks if we have a valid member tuple
 template <class T>
@@ -349,6 +284,7 @@ struct IsMemberTuple : std::false_type {
 };
 
 template <class... Ts>
+  requires(std::is_member_object_pointer_v<Ts> && ...)
 struct IsMemberTuple<std::tuple<std::pair<char const*, Ts>...>> : std::true_type {
 };
 
@@ -588,4 +524,69 @@ auto serializeMembers(
     return detail::deserializeMembers(reader, value, members);
   }
 }
+
+template <class F, class S>
+struct CustomSerializable<std::pair<F, S>> : std::true_type {
+  static auto serialize(TSerializeWriter auto& writer, std::pair<F, S> const& value) {
+    return detail::serializeItem(writer, "f", value.first)
+        .and_then(
+            [&value, &writer] {
+              return detail::serializeItem(writer, "s", value.second);
+            });
+  }
+
+  static auto deserialize(TSerializeReader auto& reader, std::pair<F, S>& value) {
+    return detail::deserializeItem(reader, "f", value.first)
+        .and_then(
+            [&value, &reader] {
+              return detail::deserializeItem(reader, "s", value.second);
+            });
+  }
+};
+
+template <class... Args>
+struct CustomSerializable<std::tuple<Args...>> : std::true_type {
+  using value_type = std::tuple<Args...>;
+
+  static auto serialize(TSerializeWriter auto& writer, value_type const& value) -> Result {
+    if (auto r = writer.array("t", std::tuple_size_v<value_type>); !r) {
+      return r;
+    }
+
+    return serialize<std::tuple_size_v<value_type>, 0>(writer, value);
+  }
+
+  static auto deserialize(TSerializeReader auto& reader, value_type& value) -> Result {
+    size_t n;
+    if (auto r = reader.array("t", n); !r) {
+      return r;
+    }
+    assert(n == std::tuple_size_v<value_type>);
+    return deserialize<std::tuple_size_v<value_type>, 0>(reader, value);
+  }
+
+private:
+  template <size_t N, size_t I>
+  static auto serialize(TSerializeWriter auto& writer, value_type const& value) -> Result {
+    if constexpr (I < N) {
+      if (auto r = detail::serializeItem(writer, "t", std::get<I>(value)); !r) {
+        return r;
+      }
+      return serialize<N, I + 1>(writer, value);
+    }
+    return {};
+  }
+
+  template <size_t N, size_t I>
+  static auto deserialize(TSerializeReader auto& reader, value_type& value) -> Result {
+    if constexpr (I < N) {
+      auto& v = std::get<I>(value);
+      if (auto r = detail::deserializeItem(reader, "t", v); !r) {
+        return r;
+      }
+      return deserialize<N, I + 1>(reader, value);
+    }
+    return {};
+  }
+};
 }

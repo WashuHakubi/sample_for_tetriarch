@@ -371,3 +371,55 @@ TEST_CASE("Can binary serialize complex arrays") {
   REQUIRE(r.has_value());
   REQUIRE(s2.a == s.a);
 }
+
+TEST_CASE("Can serialize pairs/tuples") {
+  struct HasPair {
+    std::pair<float, int> p;
+
+    static auto serializeMembers() {
+      return std::make_tuple(
+          std::make_pair("p", &HasPair::p));
+    }
+  };
+
+  struct HasTuple {
+    std::tuple<float, int, B> t;
+
+    static auto serializeMembers() {
+      return std::make_tuple(
+          std::make_pair("t", &HasTuple::t));
+    }
+  };
+  {
+    const auto writer = serialization::createJsonWriter();
+    HasPair s1 = {{1.0, 2}};
+    auto r = serialization::serialize(*writer, s1);
+    REQUIRE(r.has_value());
+
+    auto data = writer->data();
+    REQUIRE(data == R"({"p":{"f":1.0,"s":2}})");
+
+    const auto reader = serialization::createJsonReader(data);
+    HasPair s2;
+    r = serialization::deserialize(*reader, s2);
+    REQUIRE(r.has_value());
+    REQUIRE(s2.p == s1.p);
+  }
+
+  {
+    const auto writer = serialization::createJsonWriter();
+    HasTuple s1 = {{1.0, 2, {3}}};
+
+    auto r = serialization::serialize(*writer, s1);
+    REQUIRE(r.has_value());
+
+    auto data = writer->data();
+    REQUIRE(data == R"({"t":{"t":[1.0,2,{"a":3}]}})");
+
+    const auto reader = serialization::createJsonReader(data);
+    HasTuple s2;
+    r = serialization::deserialize(*reader, s2);
+    REQUIRE(r.has_value());
+    //REQUIRE(s2.p == s1.p);
+  }
+}
