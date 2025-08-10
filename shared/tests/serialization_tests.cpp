@@ -427,3 +427,37 @@ TEST_CASE("Can serialize pairs/tuples") {
     REQUIRE(s2.t == s1.t);
   }
 }
+
+TEST_CASE("Can serialize/deserialize private members") {
+  class S {
+    std::pair<float, int> p;
+
+  public:
+    S() = default;
+
+    S(float f, int i)
+      : p{f, i} {
+    }
+
+    static auto serializeMembers() {
+      return std::make_tuple(
+          std::make_pair("p", &S::p));
+    }
+
+    bool operator==(S const&) const = default;
+  };
+
+  const auto writer = serialization::createJsonWriter();
+  S s1 = {1.0, 2};
+  auto r = serialization::serialize(*writer, s1);
+  REQUIRE(r.has_value());
+
+  auto data = writer->data();
+  REQUIRE(data == R"({"p":{"f":1.0,"s":2}})");
+
+  const auto reader = serialization::createJsonReader(data);
+  S s2;
+  r = serialization::deserialize(*reader, s2);
+  REQUIRE(r.has_value());
+  REQUIRE(s2 == s1);
+}
