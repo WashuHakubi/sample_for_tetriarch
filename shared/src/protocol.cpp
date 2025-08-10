@@ -45,7 +45,7 @@ bool isCompatible(ProtocolVersion const& ours, ProtocolVersion const& theirs) {
 
 auto dispatchPacket(uint32_t version, serialization::IReader& reader) -> serialization::Result {
   PacketType type;
-  if (auto r = serialization::detail::deserializeItem(reader, "type", type); !r) {
+  if (auto r = serialization::detail::deserializeItem(reader, "$type", type); !r) {
     return r;
   }
 

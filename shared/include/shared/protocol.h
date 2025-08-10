@@ -60,7 +60,7 @@ auto dispatchPacket(uint32_t version, serialization::IReader& reader) -> seriali
 
 auto writePacket(serialization::IWriter& writer, auto packet) -> serialization::Result {
   auto type = std::remove_cvref_t<decltype(packet)>::PacketType;
-  if (auto r = serialization::detail::serializeItem(writer, "type", type); !r) {
+  if (auto r = serialization::detail::serializeItem(writer, "$type", type); !r) {
     return r;
   }
 
