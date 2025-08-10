@@ -7,9 +7,8 @@
 
 #pragma once
 
-#include <glm/vec2.hpp>
-#include <glm/vec3.hpp>
-#include <glm/vec4.hpp>
+#include <glm/glm.hpp>
+#include <glm/ext.hpp>
 
 #include "shared/serialization.h"
 
@@ -41,6 +40,17 @@ struct SerializeMembers<glm::vec<4, T, Q>> : std::true_type {
         std::make_pair("y", &glm::vec<4, T, Q>::y),
         std::make_pair("z", &glm::vec<4, T, Q>::z),
         std::make_pair("w", &glm::vec<4, T, Q>::w));
+  }
+};
+
+template <typename T, glm::qualifier Q>
+struct SerializeMembers<glm::qua<T, Q>> : std::true_type {
+  static auto getSerializeMembers() {
+    return std::make_tuple(
+        std::make_pair("x", &glm::qua<T, Q>::x),
+        std::make_pair("y", &glm::qua<T, Q>::y),
+        std::make_pair("z", &glm::qua<T, Q>::z),
+        std::make_pair("w", &glm::qua<T, Q>::w));
   }
 };
 }
