@@ -193,6 +193,8 @@ struct IReader {
 };
 
 struct IBinReader : IReader {
+  virtual void reset(std::span<char> buffer) = 0;
+
   [[nodiscard]] virtual auto fieldMapping() const ->
     std::unordered_map<
       std::tuple<std::string, int>,

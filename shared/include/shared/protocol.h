@@ -49,6 +49,10 @@ void setPacketHandlers(
     uint32_t version,
     std::vector<std::function<serialization::Result(serialization::IBinReader& reader)>> handlers);
 
+/// Dispatches to the appropriate packet handler for the packet type and protocol version.
+/// The type is expected to be the first short read from the buffer, followed by the packet data.
+auto dispatchPacket(uint32_t version, serialization::IBinReader& reader) -> serialization::Result;
+
 namespace v0 {
 /// Updates the position and rotation of an entity. Scale is updated separately as it does not usually change.
 struct TransformUpdate : Packet<PacketType::Transform> {

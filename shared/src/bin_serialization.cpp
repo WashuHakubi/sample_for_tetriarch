@@ -210,7 +210,11 @@ struct BinReader : Reader<BinReader, IBinReader> {
             });
   }
 
-  [[nodiscard]] auto fieldMapping() const ->
+  void reset(std::span<char> buffer) override {
+    readPos_ = 0;
+    data_ = buffer;
+  }
+   [[nodiscard]] auto fieldMapping() const ->
     std::unordered_map<
       std::tuple<std::string, int>,
       std::tuple<size_t, BinFieldType>> const& override {
@@ -264,6 +268,14 @@ struct TrackingBinReader : Reader<TrackingBinReader, IBinReader> {
   auto read(std::string_view name, auto& value) -> Result {
     expect(name, BinFieldType::Value);
     return reader_.read(name, value);
+  }
+
+  void reset(std::span<char> buffer) override {
+    fieldMappings_ = {};
+    stack_ = {};
+    stack_.push(false);
+    seq_ = 0;
+    return reader_.reset(buffer);
   }
 
   auto fieldMapping() const ->

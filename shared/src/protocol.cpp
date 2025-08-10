@@ -26,7 +26,9 @@ auto getPacketHandler(
     PacketType type) -> std::function<serialization::Result(serialization::IBinReader& reader)> const& {
   assert(s_versionToPacketTypeToHandler.size() > version);
   auto const& handlers = s_versionToPacketTypeToHandler[version];
-  return handlers[static_cast<int>(type)];
+
+  assert(handlers.size() > static_cast<uint16_t>(type));
+  return handlers[static_cast<uint16_t>(type)];
 }
 
 bool isCompatible(ProtocolVersion const& ours, ProtocolVersion const& theirs) {
@@ -39,5 +41,17 @@ bool isCompatible(ProtocolVersion const& ours, ProtocolVersion const& theirs) {
   }
 
   return s_versionToPacketTypeToHandler[theirs.version].empty();
+}
+
+auto dispatchPacket(uint32_t version, serialization::IBinReader& reader) -> serialization::Result {
+  PacketType type;
+  if (auto r = serialization::detail::deserializeItem(reader, "type", type); !r) {
+    return r;
+  }
+
+  if (auto const& dispatcher = getPacketHandler(version, type)) {
+    return dispatcher(reader);
+  }
+  return {};
 }
 }
