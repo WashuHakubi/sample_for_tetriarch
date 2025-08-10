@@ -24,14 +24,22 @@ fetch_dependency(nlohmann_json
         GIT_SOURCE https://github.com/nlohmann/json.git
         VERSION v3.11.3
         CONFIGURATION ${CMAKE_BUILD_TYPE}
-        ROOT ${PROJECT_SOURCE_DIR}/ext
+        ROOT ${PROJECT_SOURCE_DIR}/ext/${CMAKE_BUILD_TYPE}
 )
+
+#fetch_dependency(sse2neon
+#        GIT_SOURCE https://github.com/DLTcollab/sse2neon.git
+#        VERSION v1.8.0
+#        FETCH_ONLY
+#        OUT_SOURCE_DIR SSE2NEON_OUT_DIR
+#        ROOT ${PROJECT_SOURCE_DIR}/ext/${CMAKE_BUILD_TYPE}
+#)
 
 fetch_dependency(Catch2
         GIT_SOURCE https://github.com/catchorg/Catch2.git
         VERSION v3.8.0
         CONFIGURATION ${CMAKE_BUILD_TYPE}
-        ROOT ${PROJECT_SOURCE_DIR}/ext
+        ROOT ${PROJECT_SOURCE_DIR}/ext/${CMAKE_BUILD_TYPE}
 )
 
 fetch_dependency(
@@ -39,7 +47,7 @@ fetch_dependency(
         GIT_SOURCE https://github.com/WashuHakubi/concurrencpp.git
         VERSION origin/master
         CONFIGURATION ${CMAKE_BUILD_TYPE}
-        ROOT ${PROJECT_SOURCE_DIR}/ext
+        ROOT ${PROJECT_SOURCE_DIR}/ext/${CMAKE_BUILD_TYPE}
 )
 
 fetch_dependency(
@@ -47,7 +55,7 @@ fetch_dependency(
         GIT_SOURCE https://github.com/biojppm/rapidyaml.git
         VERSION v0.9.0
         CONFIGURATION ${CMAKE_BUILD_TYPE}
-        ROOT ${PROJECT_SOURCE_DIR}/ext
+        ROOT ${PROJECT_SOURCE_DIR}/ext/${CMAKE_BUILD_TYPE}
 )
 
 fetch_dependency(
@@ -58,7 +66,7 @@ fetch_dependency(
         CONFIGURE_OPTIONS -DSDL_SHARED=OFF
         -DSDL_STATIC=ON
         -DBUILD_SHARED_LIBS=OFF
-        ROOT ${PROJECT_SOURCE_DIR}/ext
+        ROOT ${PROJECT_SOURCE_DIR}/ext/${CMAKE_BUILD_TYPE}
 )
 
 fetch_dependency(
@@ -66,7 +74,7 @@ fetch_dependency(
         GIT_SOURCE https://github.com/WashuHakubi/crossguid.git
         VERSION origin/master
         CONFIGURATION ${CMAKE_BUILD_TYPE}
-        ROOT ${PROJECT_SOURCE_DIR}/ext
+        ROOT ${PROJECT_SOURCE_DIR}/ext/${CMAKE_BUILD_TYPE}
         CONFIGURE_OPTIONS -DCROSSGUID_TESTS=OFF
 )
 
@@ -76,7 +84,7 @@ fetch_dependency(
         VERSION VER-2-13-3
         CONFIGURATION ${CMAKE_BUILD_TYPE}
         CONFIGURE_OPTIONS
-        ROOT ${PROJECT_SOURCE_DIR}/ext
+        ROOT ${PROJECT_SOURCE_DIR}/ext/${CMAKE_BUILD_TYPE}
 )
 
 fetch_dependency(
@@ -86,7 +94,7 @@ fetch_dependency(
         CONFIGURATION ${CMAKE_BUILD_TYPE}
         CONFIGURE_OPTIONS -DENABLE_ARC=OFF
         -DBUILD_SHARED_LIBS=OFF
-        ROOT ${PROJECT_SOURCE_DIR}/ext
+        ROOT ${PROJECT_SOURCE_DIR}/ext/${CMAKE_BUILD_TYPE}
 )
 
 fetch_dependency(
@@ -99,7 +107,7 @@ fetch_dependency(
         -DRMLUI_FONT_ENGINE=freetype
         -DRMLUI_THIRDPARTY_CONTAINERS=OFF
         -DBUILD_SHARED_LIBS=OFF
-        ROOT ${PROJECT_SOURCE_DIR}/ext
+        ROOT ${PROJECT_SOURCE_DIR}/ext/${CMAKE_BUILD_TYPE}
         OUT_SOURCE_DIR RML_OUT_DIR
 )
 
@@ -109,7 +117,7 @@ fetch_dependency(
         VERSION v0.8.0
         CONFIGURATION ${CMAKE_BUILD_TYPE}
         CONFIGURE_OPTIONS -DBUILD_SHARED_LIBS=OFF
-        ROOT ${PROJECT_SOURCE_DIR}/ext
+        ROOT ${PROJECT_SOURCE_DIR}/ext/${CMAKE_BUILD_TYPE}
 )
 
 # Add the RmlUi SDL backend. This can be tweaked to support any of the SDL backends.

@@ -80,7 +80,6 @@ private:
     data_->append(bytes, bytes + sizeof(T));
   }
 
-
   std::string* data_;
 };
 

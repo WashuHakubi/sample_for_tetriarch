@@ -7,6 +7,8 @@
 
 #include "shared/protocol.h"
 
+#include "ng-log/logging.h"
+
 namespace ewok::shared::protocol {
 std::vector<std::vector<std::function<serialization::Result(serialization::IReader& reader)>>>
 s_versionToPacketTypeToHandler;
@@ -52,6 +54,8 @@ auto dispatchPacket(uint32_t version, serialization::IReader& reader) -> seriali
   if (auto const& dispatcher = getPacketHandler(version, type)) {
     return dispatcher(reader);
   }
+
+  LOG(WARNING) << "No dispatcher for packet type: " << static_cast<std::underlying_type_t<PacketType>>(type);
   return {};
 }
 }
