@@ -302,10 +302,23 @@ concept TMemberTuple = IsMemberTuple<T>::value;
 /// @endcode
 template <class T>
 concept HasSerializeMembers = requires { { T::serializeMembers() } -> TMemberTuple; };
+}
 
+template <class T>
+struct SerializeMembers : std::false_type {
+};
+
+template <detail::HasSerializeMembers T>
+struct SerializeMembers<T> : std::true_type {
+  static auto getSerializeMembers() {
+    return T::serializeMembers();
+  }
+};
+
+namespace detail {
 /// Checks if a type is either a custom serializable type or has a valid serializeMembers method.
 template <class T>
-concept TSerializable = CustomSerializable<T>::value || HasSerializeMembers<T>;
+concept TSerializable = CustomSerializable<T>::value || SerializeMembers<T>::value;
 
 /// Utility template to get the type from a member pointer
 template <class T>
@@ -348,7 +361,7 @@ namespace detail {
 auto deserializeItem(TSerializeReader auto& reader, std::string_view name, auto& value) -> Result {
   using MemberType = std::remove_cvref_t<decltype(value)>;
 
-  if constexpr (CustomSerializable<MemberType>::value || detail::HasSerializeMembers<MemberType>) {
+  if constexpr (CustomSerializable<MemberType>::value || SerializeMembers<MemberType>::value) {
     // If the member is a custom serializable type or supports serializeMembers() then deserialize it recursively
     if (auto r = reader.enter(name); !r) {
       return r;
@@ -398,7 +411,7 @@ auto deserializeItem(TSerializeReader auto& reader, std::string_view name, auto&
 auto serializeItem(TSerializeWriter auto& writer, std::string_view name, auto const& value) -> Result {
   using MemberType = std::remove_cvref_t<decltype(value)>;
 
-  if constexpr (CustomSerializable<MemberType>::value || detail::HasSerializeMembers<MemberType>) {
+  if constexpr (CustomSerializable<MemberType>::value || SerializeMembers<MemberType>::value) {
     // If the member is a custom serializable type or supports serializeMembers() then serialize it recursively
     if (auto r = writer.enter(name); !r) {
       return r;
@@ -425,7 +438,7 @@ auto serializeItem(TSerializeWriter auto& writer, std::string_view name, auto co
 
     return writer.leave(name);
   } else if constexpr (std::is_enum_v<MemberType>) {
-    // For enumerations we serialize them as their underlying type
+    // For enumerations, we serialize them as their underlying type
     auto v = static_cast<std::underlying_type_t<MemberType>>(value);
     return writer.write(name, v);
   } else {
@@ -501,13 +514,14 @@ auto serializeMembers(
 [[nodiscard]] auto serialize(
     TSerializeWriter auto& writer,
     detail::TSerializable auto const& value) -> Result {
-  using CustomSerializable = CustomSerializable<std::remove_cvref_t<decltype(value)>>;
+  using ValueType = std::remove_cvref_t<decltype(value)>;
+  using CustomSerializable = CustomSerializable<ValueType>;
   if constexpr (CustomSerializable::value) {
     // Custom serializable types should serialize themselves.
     return CustomSerializable::serialize(writer, value);
   } else {
     // Otherwise serialize each member
-    auto members = value.serializeMembers();
+    auto members = SerializeMembers<ValueType>::getSerializeMembers();
     return detail::serializeMembers(writer, value, members);
   }
 }
@@ -515,12 +529,13 @@ auto serializeMembers(
 [[nodiscard]] auto deserialize(
     TSerializeReader auto& reader,
     detail::TSerializable auto& value) -> Result {
-  using CustomSerializable = CustomSerializable<std::remove_cvref_t<decltype(value)>>;
+  using ValueType = std::remove_cvref_t<decltype(value)>;
+  using CustomSerializable = CustomSerializable<ValueType>;
   if constexpr (CustomSerializable::value) {
     // Custom serializable types should deserialize themselves.
     return CustomSerializable::deserialize(reader, value);
   } else {
-    auto members = value.serializeMembers();
+    auto members = SerializeMembers<ValueType>::getSerializeMembers();
     return detail::deserializeMembers(reader, value, members);
   }
 }
