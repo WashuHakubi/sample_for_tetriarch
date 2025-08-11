@@ -5,14 +5,15 @@
  *  file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
  */
 
-#include <random>
-
-#include "design_data/design_data.h"
-
 #include <shared/hash.h>
 #include <shared/content_db.h>
 #include <shared/math.h>
 #include <shared/message_dispatch.h>
+
+#include "design_data/design_data.h"
+#include "systems/spawn_system.h"
+#include "systems/mob_system.h"
+
 
 #include <ng-log/logging.h>
 
@@ -79,6 +80,36 @@ int main(int argc, char** argv) {
       "x": 0.0,
       "y": 0.0,
       "z": 0.0
+    },
+    {
+      "x": 1.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    {
+      "x": -1.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    {
+      "x": 0.0,
+      "y": 0.0,
+      "z": 1.0
+    },
+    {
+      "x": 0.0,
+      "y": 0.0,
+      "z": -1.0
+    },
+    {
+      "x": 1.0,
+      "y": 0.0,
+      "z": 1.0
+    },
+    {
+      "x": 1.0,
+      "y": 0.0,
+      "z": -1.0
     }
   ],
   "probabilities": [
@@ -89,8 +120,8 @@ int main(int argc, char** argv) {
       "s": 1.0
     }
   ],
-  "minSpawnCount": 1,
-  "maxSpawnCount": 1,
+  "minSpawnCount": 3,
+  "maxSpawnCount": 5,
   "minSpawnAtOnce": 1,
   "maxSpawnAtOnce": 1,
   "timeBetweenSpawns": 2.0
@@ -123,5 +154,19 @@ int main(int argc, char** argv) {
     std::cout << writer->data() << std::endl;
   }
 
+  // MobSystem must exist before SpawnSystem, or else the initialization needs to be handled separately from construction.
+  auto mobSystem = std::make_shared<server::MobSystem>();
+  auto spawnSystem = std::make_shared<server::SpawnSystem>();
+
+  // All mobs should have spawned.
+
+  // Kill some mobs
+  shared::sendMessage(server::MobDamageRequest{0, 1000});
+  shared::sendMessage(server::MobDamageRequest{1, 1000});
+  shared::sendMessage(server::MobDamageRequest{2, 1000});
+
+  spawnSystem->update(1);
+  spawnSystem->update(1);
+  spawnSystem->update(1);
   return 0;
 }

@@ -54,3 +54,21 @@ struct SerializeMembers<glm::qua<T, Q>> : std::true_type {
   }
 };
 }
+
+template <typename T, glm::qualifier Q>
+std::ostream& operator<<(std::ostream& out, glm::vec<2, T, Q> const& vec) {
+  out << "<" << vec.x << ", " << vec.y << ">";
+  return out;
+}
+
+template <typename T, glm::qualifier Q>
+std::ostream& operator<<(std::ostream& out, glm::vec<3, T, Q> const& vec) {
+  out << "<" << vec.x << ", " << vec.y << ", " << vec.z << ">";
+  return out;
+}
+
+template <typename T, glm::qualifier Q>
+std::ostream& operator<<(std::ostream& out, glm::vec<4, T, Q> const& vec) {
+  out << "<" << vec.x << ", " << vec.y << ", " << vec.z << ", " << vec.w << ">";
+  return out;
+}

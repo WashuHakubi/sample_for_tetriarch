@@ -25,6 +25,7 @@ void ewok::server::MobSystem::onSpawnMobRequest(SpawnMobRequest const& req) {
     mob = &mobs_[id];
   }
 
+  LOG(INFO) << "Spawned mob:" << id << " " << mob->mobDef.guid() << " for spawn:" << mob->spawnId;
   shared::sendMessage(MobSpawned{id, mob->spawnId, mob->mobDef, mob->curHealth, mob->position, mob->rotation});
 }
 
@@ -39,6 +40,7 @@ void ewok::server::MobSystem::onDamageMobRequest(MobDamageRequest const& req) {
   shared::sendMessage(MobHealthChanged{req.id, mob.curHealth});
 
   if (mob.curHealth <= 0) {
+    LOG(INFO) << "mob:" << req.id << " died.";
     mob.dead = true;
     freeIds_.push_back(req.id);
     shared::sendMessage(MobKilled{req.id, mob.spawnId});

@@ -10,9 +10,13 @@
 
 namespace ewok::server {
 struct Random {
-  static uint32_t next(uint32_t min, uint32_t max) { return std::uniform_int_distribution{min, max}(s_gen); }
+  static uint32_t next(uint32_t minInclusive, uint32_t maxInclusive) {
+    return std::uniform_int_distribution{minInclusive, maxInclusive}(s_gen);
+  }
 
-  static float nextReal(float min = 0, float max = 1) { return std::uniform_real_distribution{min, max}(s_gen); }
+  static float nextReal(float minInclusive = 0, float maxExclusive = 1) {
+    return std::uniform_real_distribution{minInclusive, maxExclusive}(s_gen);
+  }
 
 private:
   static std::mt19937 s_gen;

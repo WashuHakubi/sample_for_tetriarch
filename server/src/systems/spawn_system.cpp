@@ -5,14 +5,29 @@
  *  file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
  */
 
+#include <shared/content_db.h>
+
 #include "systems/spawn_system.h"
 #include "random.h"
 
 ewok::server::SpawnSystem::SpawnSystem() {
   msgHandle_ = shared::subscribeMessage([this](MobKilled const& msg) { this->onMobKilled(msg); });
+
+  auto spawnDefs = shared::getContentDb()->getAllInScope<design_data::SpawnDef>(shared::ContentScope::Map);
+  spawns_.reserve(spawnDefs.size());
+
+  uint32_t id{};
+  for (auto&& def : spawnDefs) {
+    // Every spawn needs some mobs spawned.
+    auto& spawn = spawns_.emplace_back(id++, def);
+
+    // Spawn a number of mobs between min and max spawn count. This avoids spawns taking a bunch of time after startup.
+    auto spawnCount = Random::next(spawn.spawnDef->minSpawnCount, spawn.spawnDef->maxSpawnCount);
+    spawnMobs(spawn, spawnCount);
+  }
 }
 
-inline void ewok::server::SpawnSystem::update(float dt) {
+void ewok::server::SpawnSystem::update(float dt) {
   // Only walk spawns we need.
   for (size_t i = 0; i < needsSpawns_.size();) {
     auto& spawn = spawns_[needsSpawns_[i]];
@@ -29,9 +44,6 @@ inline void ewok::server::SpawnSystem::update(float dt) {
       continue;
     }
 
-    // Move to the next item
-    ++i;
-
     if (spawn.needsSpawn) [[unlikely]]{
       spawn.spawnTime -= dt;
 
@@ -42,52 +54,63 @@ inline void ewok::server::SpawnSystem::update(float dt) {
 
       // The countdown has expired, so spawn some mobs!
       auto spawnCount = Random::next(spawn.spawnDef->minSpawnAtOnce, spawn.spawnDef->maxSpawnAtOnce);
-
-      // Make sure we don't exceed the max spawn count
-      auto const nextSpawnCount = std::max(spawn.curSpawnCount + spawnCount, spawn.spawnDef->maxSpawnCount);
-
-      // and recompute the number of mobs we need to spawn
-      spawnCount = nextSpawnCount - spawn.curSpawnCount;
-
-      // Get the sum of the total probabilities for the mob spawns.
-      const auto probSum = std::accumulate(
-          spawn.spawnDef->spawnProbabilities.begin(),
-          spawn.spawnDef->spawnProbabilities.end(),
-          0.0f,
-          [](auto lhs, auto const& rhs) { return lhs + rhs.second; });
-
-      for (auto j = 0u; j < spawnCount; ++j) {
-        // Pick a random position in the spawn positions to spawn the mob at.
-        // A smarter method would check if the spawn position is "occupied"
-        auto const spawnPosIdx = Random::next(0, spawn.spawnDef->spawnPositions.size());
-        auto const& spawnPos = spawn.spawnDef->spawnPositions[spawnPosIdx];
-
-        // Roll a probability for the mob spawn.
-        const auto chosenProb = Random::nextReal(0, probSum);
-        auto curProb = 0.0f;
-
-        // Walk each mob in the stack of probabilities, adding their probability to curProb. Then if the chosen
-        // probability is less than or equal to the sum we have the mob which should be selected.
-        // For example, given: [orc:1,goblin:2] and a probability of 1.5. First we add the orc's probability to
-        // curProb, curProb = 1, 1.5 is not less than or equal to 1, so we move to the next mob
-        // curProb = 3, 1.5 is less than 3 so we spawn the goblin.
-        for (auto&& [mob, prob] : spawn.spawnDef->spawnProbabilities) {
-          curProb += prob;
-          if (chosenProb <= curProb) {
-            shared::sendMessage(SpawnMobRequest{mob, spawn.id, spawnPos, glm::quat{}});
-            break;
-          }
-        }
-      }
-
-      // Update our spawn count to the number of mobs spawned.
-      spawn.curSpawnCount = nextSpawnCount;
+      spawnMobs(spawn, spawnCount);
 
       // This ensures we don't do large spawns repeatedly. If we've met the amount needed for minSpawnCount then the
       // next time we're through the loop the first if condition will remove us.
       spawn.spawnTime = spawn.spawnDef->timeBetweenSpawns;
     }
+
+    // Move to the next item
+    ++i;
   }
+}
+
+void ewok::server::SpawnSystem::spawnMobs(std::vector<SpawnData>::value_type& spawn, uint32_t spawnCount) {
+  // Make sure we don't exceed the max spawn count
+  auto const nextSpawnCount = std::min(spawn.curSpawnCount + spawnCount, spawn.spawnDef->maxSpawnCount);
+
+  // and recompute the number of mobs we need to spawn
+  spawnCount = nextSpawnCount - spawn.curSpawnCount;
+  LOG(INFO) << "Spawning " << spawnCount << " for spawn:" << spawn.id << " " << spawn.spawnDef.guid();
+
+  // Get the sum of the total probabilities for the mob spawns.
+  const auto probSum = std::accumulate(
+      spawn.spawnDef->spawnProbabilities.begin(),
+      spawn.spawnDef->spawnProbabilities.end(),
+      0.0f,
+      [](auto lhs, auto const& rhs) { return lhs + rhs.second; });
+
+  for (auto j = 0u; j < spawnCount; ++j) {
+    // Pick a random position in the spawn positions to spawn the mob at.
+    // A smarter method would check if the spawn position is "occupied"
+    auto const spawnPosIdx = Random::next(0, spawn.spawnDef->spawnPositions.size() - 1);
+    auto const& spawnPos = spawn.spawnDef->spawnPositions[spawnPosIdx];
+
+    // Roll a probability for the mob spawn.
+    const auto chosenProb = Random::nextReal(0, probSum);
+    auto curProb = 0.0f;
+
+    // Walk each mob in the stack of probabilities, adding their probability to curProb. Then if the chosen
+    // probability is less than or equal to the sum we have the mob which should be selected.
+    // For example, given: [orc:1,goblin:2] and a probability of 1.5. First we add the orc's probability to
+    // curProb, curProb = 1, 1.5 is not less than or equal to 1, so we move to the next mob
+    // curProb = 3, 1.5 is less than 3 so we spawn the goblin.
+    for (auto&& [mob, prob] : spawn.spawnDef->spawnProbabilities) {
+      curProb += prob;
+      if (chosenProb <= curProb) {
+        LOG(INFO) << "Requesting spawn of " << mob.guid() << " for spawn:" << spawn.id << " "
+            << spawn.spawnDef.guid()
+            << " at "
+            << spawnPos;
+        shared::sendMessage(SpawnMobRequest{mob, spawn.id, spawnPos, glm::quat{}});
+        break;
+      }
+    }
+  }
+
+  // Update our spawn count to the number of mobs spawned.
+  spawn.curSpawnCount = nextSpawnCount;
 }
 
 void ewok::server::SpawnSystem::onMobKilled(MobKilled const& mobKilled) {

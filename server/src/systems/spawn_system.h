@@ -37,7 +37,7 @@ struct SpawnData {
   float spawnTime{};
 };
 
-// Example system for handling spawning
+// Example system for handling spawning, this system depends on MobSystem already existing.
 class SpawnSystem {
 public:
   SpawnSystem();
@@ -45,6 +45,8 @@ public:
   void update(float dt);
 
 private:
+  static void spawnMobs(std::vector<SpawnData>::value_type& spawn, uint32_t spawnCount);
+
   void onMobKilled(MobKilled const& mobKilled);
 
   std::vector<SpawnData> spawns_{};
