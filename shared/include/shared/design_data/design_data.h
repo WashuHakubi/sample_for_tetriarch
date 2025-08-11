@@ -7,4 +7,6 @@
 #pragma once
 
 #include <shared/content_db.h>
+#include <shared/math.h>
+
 #include <shared/design_data/mob_def.h>

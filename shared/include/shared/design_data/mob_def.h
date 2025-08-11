@@ -17,18 +17,26 @@ enum class MobRarity {
   Unique
 };
 
-struct MobDef : shared::ContentDef {
+struct MobDef : ContentDef {
   // Name of the mob
   std::string name;
 
   // Rarity of the mob
   MobRarity rarity{};
 
+  // Base health of the mob
+  uint32_t health{};
+
+  // Model prefab for this mob
+  std::string model;
+
   static constexpr auto serializationMembers() {
     return std::make_tuple(
         std::make_pair("id", &MobDef::id),
         std::make_pair("name", &MobDef::name),
-        std::make_pair("rarity", &MobDef::rarity));
+        std::make_pair("rarity", &MobDef::rarity),
+        std::make_pair("health", &MobDef::health),
+        std::make_pair("model", &MobDef::model));
   }
 };
 }

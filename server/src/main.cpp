@@ -7,36 +7,59 @@
 
 #include <random>
 
-#include "shared/math.h"
-#include "shared/content_db.h"
-
 #include "design_data/design_data.h"
+#include "shared/content_db.h"
+#include "shared/math.h"
+#include "shared/message_dispatch.h"
 
 using namespace ewok;
 
 namespace ewok::server {
+class MobSystem;
+class SpawnSystem;
+
+struct MobKilled {
+  uint32_t id;
+  uint32_t spawnId;
+};
+
+struct SpawnMobRequest {
+  shared::design_data::MobDefPtr mob;
+  uint32_t spawnId;
+  glm::vec3 position;
+  glm::quat rotation;
+};
+
+struct DamageMobRequest {
+  uint32_t id;
+  int32_t amount;
+};
+
+struct MobHealthChanged {
+  uint32_t id;
+  int32_t curHealth;
+};
+
+struct MobSpawned {
+  uint32_t id;
+  uint32_t spawnId;
+  int32_t curHealth;
+  glm::vec3 position;
+  glm::quat rotation;
+};
+
 struct Random {
-  static uint32_t next(uint32_t min, uint32_t max) {
-    return std::uniform_int_distribution{min, max}(s_gen);
-  }
+  static uint32_t next(uint32_t min, uint32_t max) { return std::uniform_int_distribution{min, max}(s_gen); }
 
-  static float nextReal(float min = 0, float max = 1) {
-    return std::uniform_real_distribution{min, max}(s_gen);
-  }
+  static float nextReal(float min = 0, float max = 1) { return std::uniform_real_distribution{min, max}(s_gen); }
 
-private:
+ private:
   static std::mt19937 s_gen;
 };
 
 struct SpawnData {
-  SpawnData(uint32_t id, design_data::SpawnDefPtr spawnDef)
-    : id(id),
-      spawnDef(std::move(spawnDef)),
-      minSpawnCount(this->spawnDef->minSpawnCount) {
-  }
-
-  // Id of this spawn, mobs will have the ID of the thing that spawned them.
-  uint32_t id{};
+  SpawnData(design_data::SpawnDefPtr spawnDef)
+      : spawnDef(std::move(spawnDef)), minSpawnCount(this->spawnDef->minSpawnCount) {}
 
   // Pointer to the design data for this spawn
   design_data::SpawnDefPtr spawnDef{};
@@ -56,9 +79,15 @@ struct SpawnData {
 
 // Example system for handling spawning
 class SpawnSystem {
-public:
+ public:
+  SpawnSystem() {
+    msgHandle_ = shared::MessageDispatch<MobKilled>::subscribe([this](auto const& msg) { this->onMobKilled(msg); });
+  }
+
   void update(float dt) {
-    for (auto&& spawn : spawns_) {
+    for (uint32_t id = 0; id < spawns_.size(); ++id) {
+      auto& spawn = spawns_[id];
+
       if (!spawn.needsSpawn && spawn.curSpawnCount < spawn.minSpawnCount) {
         spawn.needsSpawn = true;
         spawn.spawnTime = spawn.spawnDef->timeBetweenSpawns;
@@ -75,12 +104,7 @@ public:
 
         // If our countdown to the spawn has passed then perform a spawn action.
         if (spawn.spawnTime <= 0.0f) {
-          // This ensures we don't do large spawns repeatedly.
-          spawn.needsSpawn = false;
-
-          auto spawnCount = Random::next(
-              spawn.spawnDef->minSpawnAtOnce,
-              spawn.spawnDef->maxSpawnAtOnce);
+          auto spawnCount = Random::next(spawn.spawnDef->minSpawnAtOnce, spawn.spawnDef->maxSpawnAtOnce);
 
           // Make sure we don't exceed the max spawn count
           const auto nextSpawnCount = std::max(spawn.curSpawnCount + spawnCount, spawn.spawnDef->maxSpawnCount);
@@ -96,6 +120,9 @@ public:
               [](auto lhs, auto const& rhs) { return lhs + rhs.second; });
 
           for (auto i = 0u; i < spawnCount; ++i) {
+            auto spawnPosIdx = Random::next(0, spawn.spawnDef->spawnPositions.size());
+            auto const& spawnPos = spawn.spawnDef->spawnPositions[spawnPosIdx];
+
             // Roll a probability for the mob spawn.
             const auto chosenProb = Random::nextReal(0, probSum);
             auto curProb = 0.0f;
@@ -108,21 +135,116 @@ public:
             for (auto&& [mob, prob] : spawn.spawnDef->spawnProbabilities) {
               curProb += prob;
               if (chosenProb <= curProb) {
-                // TODO: Spawn mob
+                shared::sendMessage(SpawnMobRequest{mob, id, spawnPos, glm::quat{}});
                 break;
               }
             }
           }
+
+          // Update our spawn count to the number of mobs spawned.
           spawn.curSpawnCount = nextSpawnCount;
+
+          // This ensures we don't do large spawns repeatedly.
+          spawn.needsSpawn = false;
         }
       }
     }
   }
 
-private:
+ private:
+  void onMobKilled(MobKilled const& mobKilled) {
+    auto& spawn = spawns_[mobKilled.spawnId];
+    --spawn.curSpawnCount;
+    assert(spawn.curSpawnCount >= 0);
+  }
+
   std::vector<SpawnData> spawns_{};
+  shared::MessageDispatch<MobKilled>::Handle msgHandle_;
 };
-}
+
+struct MobData {
+  MobData(uint32_t spawnId, shared::design_data::MobDefPtr mobDef, glm::vec3 position, glm::quat rotation)
+      : spawnId(spawnId), mobDef(std::move(mobDef)), position(position), rotation(rotation) {
+    curHealth = maxHealth = static_cast<int32_t>(mobDef->health);
+  }
+
+  bool dead{false};
+
+  uint32_t spawnId;
+
+  shared::design_data::MobDefPtr mobDef;
+
+  glm::vec3 position{};
+
+  glm::quat rotation{};
+
+  int32_t maxHealth{};
+
+  int32_t curHealth{};
+};
+
+class MobSystem {
+ public:
+  MobSystem() {
+    spawnMobRequest_ = shared::MessageDispatch<SpawnMobRequest>::subscribe([this](auto const& msg) {
+      onSpawnMobRequest(msg);
+    });
+
+    damageMobRequest_ = shared::MessageDispatch<DamageMobRequest>::subscribe([this](auto const& msg) {
+      onDamageMobRequest(msg);
+    });
+  }
+
+  void update(float dt) {
+    for (uint32_t id = 0; id < mobs_.size(); ++id) {
+      auto& mob = mobs_[id];
+      if (mob.dead) {
+        continue;
+      }
+
+      if (mob.curHealth <= 0) {
+        shared::sendMessage(MobKilled{id, mob.spawnId});
+        mob.dead = true;
+        freeIds_.push_back(id);
+      }
+    }
+  }
+
+ private:
+  void onSpawnMobRequest(SpawnMobRequest const& req) {
+    uint32_t id;
+    MobData const* mob;
+    if (freeIds_.empty()) {
+      id = mobs_.size();
+      mob = &mobs_.emplace_back(req.spawnId, req.mob, req.position, req.rotation);
+    } else {
+      id = freeIds_.back();
+      freeIds_.pop_back();
+      mobs_[id] = {req.spawnId, req.mob, req.position, req.rotation};
+      mob = &mobs_[id];
+    }
+
+    shared::sendMessage(MobSpawned{id, mob->spawnId, mob->curHealth, mob->position, mob->rotation});
+  }
+
+  void onDamageMobRequest(DamageMobRequest const& req) {
+    auto& mob = mobs_[req.id];
+
+    if (mob.dead) {
+      return;
+    }
+
+    mob.curHealth = std::clamp(mob.curHealth - req.amount, 0, mob.maxHealth);
+    shared::sendMessage(MobHealthChanged{req.id, mob.curHealth});
+  }
+
+  std::vector<MobData> mobs_;
+  std::vector<uint32_t> freeIds_;
+  shared::MessageDispatch<SpawnMobRequest>::Handle spawnMobRequest_;
+  shared::MessageDispatch<DamageMobRequest>::Handle damageMobRequest_;
+};
+
+} // namespace ewok::server
 
 struct FakeContentDb : shared::IContentDb {
   template <class T>
@@ -139,7 +261,7 @@ struct FakeContentDb : shared::IContentDb {
     abort();
   }
 
-private:
+ private:
   std::unordered_map<xg::Guid, std::shared_ptr<void>> db_;
 };
 
@@ -152,7 +274,9 @@ int main() {
     "g": "b5f8b8ee-d67b-4312-b8cf-944934342004"
   },
   "name": "Wolf",
-  "rarity": 0
+  "rarity": 0,
+  "maxHealth": 100,
+  "model": "wolf.prefab"
 })";
 
   std::string_view spawnDefStr = R"({
