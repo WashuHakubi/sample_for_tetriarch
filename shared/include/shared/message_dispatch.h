@@ -43,7 +43,7 @@ struct MessageDispatch {
   }
 
 private:
-  struct HandleData : MessageDispatchAutoRelease {
+  struct HandleData final : MessageDispatchAutoRelease {
     explicit HandleData(size_t id)
       : id_(id) {
     }

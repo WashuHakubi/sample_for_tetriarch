@@ -13,8 +13,9 @@
 
 namespace ewok::server {
 struct SpawnData {
-  explicit SpawnData(design_data::SpawnDefPtr spawnDef)
-    : spawnDef(std::move(spawnDef)),
+  explicit SpawnData(uint32_t id, design_data::SpawnDefPtr spawnDef)
+    : id(id),
+      spawnDef(std::move(spawnDef)),
       minSpawnCount(this->spawnDef->minSpawnCount) {
   }
 

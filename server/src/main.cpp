@@ -21,12 +21,18 @@ using namespace ewok;
 struct FakeContentDb : shared::IContentDb {
   template <class T>
     requires(std::is_base_of_v<shared::ContentDef, T>)
-  void registerItem(T const* p) {
+  void registerItem(T const* p, shared::ContentScope scope) {
     auto id = p->id;
     db_.emplace(std::make_pair(id, std::type_index{typeid(T)}), p);
+
+    const auto [items, _] = scopedContent_.emplace(
+        std::make_pair(std::type_index{typeid(T)}, scope),
+        std::vector<void const*>{});
+    items->second.push_back(p);
   }
 
-  auto get(const xg::Guid& id, std::type_index type) -> void const* override {
+protected:
+  auto get(xg::Guid const& id, std::type_index type) -> void const* override {
     if (auto const it = db_.find({id, type}); it != db_.end()) {
       return it->second;
     }
@@ -34,8 +40,17 @@ struct FakeContentDb : shared::IContentDb {
     LOG(FATAL) << "Could not find content item matching: " << id << " and " << type.name();
   }
 
+  std::vector<void const*> getAllInScope(std::type_index type, shared::ContentScope scope) override {
+    if (auto const it = scopedContent_.find({type, scope}); it != scopedContent_.end()) {
+      return it->second;
+    }
+
+    return {};
+  }
+
 private:
   std::unordered_map<std::pair<xg::Guid, std::type_index>, void const*> db_;
+  std::unordered_map<std::pair<std::type_index, shared::ContentScope>, std::vector<void const*>> scopedContent_;
 };
 
 int main(int argc, char** argv) {
@@ -88,7 +103,7 @@ int main(int argc, char** argv) {
   {
     [[maybe_unused]] auto r = shared::serialization::deserialize(*reader, *mobDef);
     assert(r.has_value());
-    contentDb->registerItem(mobDef.get());
+    contentDb->registerItem(mobDef.get(), shared::ContentScope::Global);
   }
 
   {
@@ -96,7 +111,7 @@ int main(int argc, char** argv) {
 
     [[maybe_unused]] auto r = shared::serialization::deserialize(*reader, *spawnDef);
     assert(r.has_value());
-    contentDb->registerItem(spawnDef.get());
+    contentDb->registerItem(spawnDef.get(), shared::ContentScope::Map);
   }
 
   server::design_data::SpawnDefPtr p{xg::Guid("c119994e-d152-406c-9aa3-8e3b3a555151")};

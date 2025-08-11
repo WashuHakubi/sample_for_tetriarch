@@ -18,7 +18,7 @@ struct MobData {
       mobDef(std::move(mobDef)),
       position(position),
       rotation(rotation) {
-    curHealth = maxHealth = static_cast<int32_t>(mobDef->health);
+    curHealth = maxHealth = static_cast<int32_t>(this->mobDef->health);
   }
 
   bool dead{false};

@@ -17,109 +17,46 @@ struct ContentDef {
   xg::Guid id;
 };
 
-struct IContentDb {
-  virtual ~IContentDb() = default;
+enum class ContentScope {
+  // Content that is shared across the entire game
+  Global,
 
-  virtual void const* get(xg::Guid const& id, std::type_index type) = 0;
-
-  template <class T>
-    requires(std::is_base_of_v<ContentDef, T>)
-  T const* get(xg::Guid const& id) {
-    return static_cast<T const*>(get(id, typeid(T)));
-  }
+  // Content specific to a map
+  Map,
 };
-
-using IContentDbPtr = std::shared_ptr<IContentDb>;
-
-// Initializes the content db.
-void initializeContentDb(IContentDbPtr const& ptr);
-
-// Gets the content db.
-auto getContentDb() -> IContentDbPtr const&;
 
 /// A pointer to a piece of content. This is serialized as the content item's GUID.
 template <class T>
 struct ContentPtr {
   ContentPtr() = default;
 
-  explicit ContentPtr(xg::Guid const& id)
-    : id_(id) {
-  }
+  explicit constexpr ContentPtr(xg::Guid const& id);
 
-  ContentPtr(ContentPtr const& other) {
-    if (other.zero_) {
-      id_ = other.id_;
-    } else {
-      zero_ = 0;
-      ptr_ = other.ptr_;
-    }
-  }
+  explicit constexpr ContentPtr(T const* p);
 
-  ContentPtr(ContentPtr&& other) noexcept {
-    if (other.zero_) {
-      id_ = other.id_;
-    } else {
-      zero_ = 0;
-      ptr_ = std::exchange(other.ptr_, nullptr);
-    }
-  }
+  constexpr ContentPtr(ContentPtr const& other);
 
-  ContentPtr& operator=(ContentPtr const& other) {
-    if (std::addressof(other) == this) {
-      return *this;
-    }
+  constexpr ContentPtr(ContentPtr&& other) noexcept;
 
-    if (other.zero_) {
-      id_ = other.id_;
-    } else {
-      zero_ = 0;
-      ptr_ = other.ptr_;
-    }
-    return *this;
-  }
+  constexpr ContentPtr& operator=(ContentPtr const& other);
 
-  ContentPtr& operator=(ContentPtr&& other) noexcept {
-    if (std::addressof(other) == this) {
-      return *this;
-    }
+  constexpr ContentPtr& operator=(ContentPtr&& other) noexcept;
 
-    if (other.zero_) {
-      id_ = other.id_;
-    } else {
-      zero_ = 0;
-      ptr_ = std::exchange(other.ptr_, nullptr);
-    }
-    return *this;
-  }
+  auto guid() const -> xg::Guid const&;
 
-  auto guid() const -> xg::Guid const& {
-    if (zero_ != 0) [[unlikely]] {
-      return id_;
-    }
-
-    return ptr_->id;
-  }
-
-  T const* operator->() const {
+  constexpr T const* operator->() const {
     return ptr();
   }
 
-  T const& operator*() const {
+  constexpr T const& operator*() const {
     return *ptr();
   }
 
 private:
-  T const* ptr() const {
-    if (zero_ != 0) [[unlikely]] {
-      ptr_ = getContentDb()->get<T>(id_);
-      zero_ = 0;
-    }
-
-    return ptr_;
-  }
+  T const* ptr() const;
 
   union {
-    // GUID of the content item. This is only valid if zero_ != 0. The high part of this guid is never zero.
+    // GUID of the content item. This is only valid if zero_ != 0. The high part of this guid is never zero when valid.
     xg::Guid id_{};
 
     struct {
@@ -130,6 +67,124 @@ private:
     };
   };
 };
+
+struct IContentDb {
+  virtual ~IContentDb() = default;
+
+  template <class T>
+    requires(std::is_base_of_v<ContentDef, T>)
+  T const* get(xg::Guid const& id) {
+    return static_cast<T const*>(get(id, typeid(T)));
+  }
+
+  template <class T>
+    requires(std::is_base_of_v<ContentDef, T>)
+  std::vector<ContentPtr<T>> getAllInScope(ContentScope scope) {
+    std::vector<ContentPtr<T>> result;
+    auto const ptrs = getAllInScope(typeid(T), scope);
+    result.reserve(ptrs.size());
+    for (auto const& ptr : ptrs) {
+      result.emplace_back(ContentPtr<T>(static_cast<T const*>(ptr)));
+    }
+    return result;
+  }
+
+protected:
+  virtual void const* get(xg::Guid const& id, std::type_index type) = 0;
+
+  virtual std::vector<void const*> getAllInScope(std::type_index type, ContentScope scope) = 0;
+};
+
+using IContentDbPtr = std::shared_ptr<IContentDb>;
+
+// Initializes the content db.
+void initializeContentDb(IContentDbPtr const& ptr);
+
+// Gets the content db.
+auto getContentDb() -> IContentDbPtr const&;
+
+
+template <class T>
+constexpr ContentPtr<T>::ContentPtr(xg::Guid const& id)
+  : id_(id) {
+  static_assert(std::is_base_of_v<ContentDef, T>);
+}
+
+template <class T>
+constexpr ContentPtr<T>::ContentPtr(T const* p)
+  : zero_(0),
+    ptr_(p) {
+  static_assert(std::is_base_of_v<ContentDef, T>);
+}
+
+template <class T>
+constexpr ContentPtr<T>::ContentPtr(ContentPtr const& other) {
+  if (other.zero_) {
+    id_ = other.id_;
+  } else {
+    zero_ = 0;
+    ptr_ = other.ptr_;
+  }
+}
+
+template <class T>
+constexpr ContentPtr<T>::ContentPtr(ContentPtr&& other) noexcept {
+  if (other.zero_) {
+    id_ = other.id_;
+  } else {
+    zero_ = 0;
+    ptr_ = std::exchange(other.ptr_, nullptr);
+  }
+}
+
+template <class T>
+constexpr ContentPtr<T>& ContentPtr<T>::operator=(ContentPtr const& other) {
+  if (std::addressof(other) == this) {
+    return *this;
+  }
+
+  if (other.zero_) {
+    id_ = other.id_;
+  } else {
+    zero_ = 0;
+    ptr_ = other.ptr_;
+  }
+  return *this;
+}
+
+template <class T>
+constexpr ContentPtr<T>& ContentPtr<T>::operator=(ContentPtr&& other) noexcept {
+  if (std::addressof(other) == this) {
+    return *this;
+  }
+
+  if (other.zero_) {
+    id_ = other.id_;
+  } else {
+    zero_ = 0;
+    ptr_ = std::exchange(other.ptr_, nullptr);
+  }
+  return *this;
+}
+
+template <class T>
+auto ContentPtr<T>::guid() const -> xg::Guid const& {
+  if (zero_ != 0) [[unlikely]] {
+    return id_;
+  }
+
+  return ptr_->id;
+}
+
+template <class T>
+T const* ContentPtr<T>::ptr() const {
+  if (zero_ != 0) [[unlikely]] {
+    ptr_ = getContentDb()->get<T>(id_);
+    zero_ = 0;
+  }
+
+  return ptr_;
+}
 }
 
 template <>
