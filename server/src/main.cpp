@@ -122,7 +122,7 @@ int main(int argc, char** argv) {
       "s": 1.0
     }
   ],
-  "minSpawnCount": 3,
+  "minSpawnCount": 4,
   "maxSpawnCount": 5,
   "minSpawnAtOnce": 1,
   "maxSpawnAtOnce": 1,
@@ -164,12 +164,6 @@ int main(int argc, char** argv) {
   auto const& mobs = server::MobSystemDebug::debugGetSpawns(*mobSystem);
   assert(mobs.size() >= 3);
 
-  // Kill some mobs
-  for (auto i = 0u; i < 3; ++i) {
-    assert(!mobs[i].dead);
-    shared::sendMessage(server::MobDamageRequest{i, 1000});
-  }
-
   auto countDeadMobs = [&]() {
     return std::accumulate(
         mobs.begin(),
@@ -180,8 +174,18 @@ int main(int argc, char** argv) {
         });
   };
 
-  // 3 mobs should be dead.
+  // There should be no dead mobs yet.
+  assert(countDeadMobs() == 0);
+
+  // Kill some mobs
+  for (auto i = 0u; i < 3; ++i) {
+    assert(!mobs[i].dead);
+    shared::sendMessage(server::MobDamageRequest{i, 1000});
+  }
+
+  // 3 mobs should be dead. We require between 4 and 5 mobs and we killed 3, so we either have 1 or 2 mobs alive.
   assert(countDeadMobs() == 3);
+  assert(mobs.size() - countDeadMobs() >= 1);
 
   // No mobs should spawn
   spawnSystem->update(1);
@@ -194,5 +198,14 @@ int main(int argc, char** argv) {
   // No more mobs should have spawned yet
   spawnSystem->update(1);
   assert(countDeadMobs() == 2);
+
+  // Another mob should have spawned
+  spawnSystem->update(1);
+  assert(countDeadMobs() == 1);
+
+  // Another mob should have spawned if we only had 4 mobs
+  spawnSystem->update(1);
+  spawnSystem->update(1);
+  assert((mobs.size() == 5 && countDeadMobs() == 1) || countDeadMobs() == 0);
   return 0;
 }
