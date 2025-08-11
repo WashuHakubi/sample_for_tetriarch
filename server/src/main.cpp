@@ -5,6 +5,8 @@
  *  file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
  */
 
+#include <numeric>
+
 #include <shared/hash.h>
 #include <shared/content_db.h>
 #include <shared/math.h>
@@ -159,14 +161,38 @@ int main(int argc, char** argv) {
   auto spawnSystem = std::make_shared<server::SpawnSystem>();
 
   // All mobs should have spawned.
+  auto const& mobs = server::MobSystemDebug::debugGetSpawns(*mobSystem);
+  assert(mobs.size() >= 3);
 
   // Kill some mobs
-  shared::sendMessage(server::MobDamageRequest{0, 1000});
-  shared::sendMessage(server::MobDamageRequest{1, 1000});
-  shared::sendMessage(server::MobDamageRequest{2, 1000});
+  for (auto i = 0u; i < 3; ++i) {
+    assert(!mobs[i].dead);
+    shared::sendMessage(server::MobDamageRequest{i, 1000});
+  }
 
+  auto countDeadMobs = [&]() {
+    return std::accumulate(
+        mobs.begin(),
+        mobs.end(),
+        0,
+        [](auto lhs, auto const& mob) {
+          return lhs + (mob.dead ? 1 : 0);
+        });
+  };
+
+  // 3 mobs should be dead.
+  assert(countDeadMobs() == 3);
+
+  // No mobs should spawn
   spawnSystem->update(1);
+  assert(countDeadMobs() == 3);
+
+  // A mob should have spawned
   spawnSystem->update(1);
+  assert(countDeadMobs() == 2);
+
+  // No more mobs should have spawned yet
   spawnSystem->update(1);
+  assert(countDeadMobs() == 2);
   return 0;
 }

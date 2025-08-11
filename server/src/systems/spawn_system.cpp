@@ -47,18 +47,15 @@ void ewok::server::SpawnSystem::update(float dt) {
     if (spawn.needsSpawn) [[unlikely]]{
       spawn.spawnTime -= dt;
 
-      if (spawn.spawnTime > 0.0f) [[likely]] {
-        // If our countdown to the spawn has not passed then skip.
-        continue;
+      if (spawn.spawnTime <= 0.0f) {
+        // The countdown has expired, so spawn some mobs!
+        auto spawnCount = Random::next(spawn.spawnDef->minSpawnAtOnce, spawn.spawnDef->maxSpawnAtOnce);
+        spawnMobs(spawn, spawnCount);
+
+        // This ensures we don't do large spawns repeatedly. If we've met the amount needed for minSpawnCount then the
+        // next time we're through the loop the first if condition will remove us.
+        spawn.spawnTime = spawn.spawnDef->timeBetweenSpawns;
       }
-
-      // The countdown has expired, so spawn some mobs!
-      auto spawnCount = Random::next(spawn.spawnDef->minSpawnAtOnce, spawn.spawnDef->maxSpawnAtOnce);
-      spawnMobs(spawn, spawnCount);
-
-      // This ensures we don't do large spawns repeatedly. If we've met the amount needed for minSpawnCount then the
-      // next time we're through the loop the first if condition will remove us.
-      spawn.spawnTime = spawn.spawnDef->timeBetweenSpawns;
     }
 
     // Move to the next item

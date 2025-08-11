@@ -40,7 +40,13 @@ class MobSystem {
 public:
   MobSystem();
 
+  auto debugGetMobs() -> std::vector<MobData> const& {
+    return mobs_;
+  }
+
 private:
+  friend struct MobSystemDebug;
+
   void onSpawnMobRequest(SpawnMobRequest const& req);
 
   void onDamageMobRequest(MobDamageRequest const& req);
@@ -49,5 +55,11 @@ private:
   std::vector<uint32_t> freeIds_;
   shared::MsgDispatchHandle spawnMobRequest_;
   shared::MsgDispatchHandle damageMobRequest_;
+};
+
+struct MobSystemDebug {
+  static auto debugGetSpawns(MobSystem const& system) -> std::vector<MobData> const& {
+    return system.mobs_;
+  }
 };
 } // namespace ewok::server

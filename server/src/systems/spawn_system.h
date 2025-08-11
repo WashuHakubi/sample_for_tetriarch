@@ -45,6 +45,8 @@ public:
   void update(float dt);
 
 private:
+  friend struct SpawnSystemDebug;
+
   static void spawnMobs(std::vector<SpawnData>::value_type& spawn, uint32_t spawnCount);
 
   void onMobKilled(MobKilled const& mobKilled);
@@ -52,5 +54,15 @@ private:
   std::vector<SpawnData> spawns_{};
   std::vector<uint32_t> needsSpawns_{};
   shared::MsgDispatchHandle msgHandle_;
+};
+
+struct SpawnSystemDebug {
+  static auto debugGetSpawns(SpawnSystem const& system) -> std::vector<SpawnData> const& {
+    return system.spawns_;
+  }
+
+  static auto debugGetNeedsSpawn(SpawnSystem const& system) -> std::vector<uint32_t> const& {
+    return system.needsSpawns_;
+  }
 };
 }
