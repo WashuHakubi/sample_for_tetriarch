@@ -136,7 +136,7 @@ struct FakeContentDb : shared::IContentDb {
     if (auto it = db_.find(id); it != db_.end()) {
       return it->second;
     }
-    return nullptr;
+    abort();
   }
 
 private:
@@ -201,7 +201,7 @@ int main() {
 
   {
     auto writer = shared::serialization::createJsonWriter(true);
-    auto r = shared::serialization::serialize(*writer, *p);
+    [[maybe_unused]] auto r = shared::serialization::serialize(*writer, *p);
     assert(r.has_value());
     std::cout << writer->data() << std::endl;
   }

@@ -49,22 +49,8 @@ struct ContentPtr {
       id_ = other.id_;
     } else {
       zero_ = 0;
-      ptr_ = other.ptr_;
+      new (&ptr_) std::shared_ptr{other.ptr_};
     }
-  }
-
-  ContentPtr& operator=(ContentPtr const& other) {
-    if (std::addressof(other) == this) {
-      return *this;
-    }
-
-    if (other.zero_) {
-      id_ = other.id_;
-    } else {
-      zero_ = 0;
-      ptr_ = other.ptr_;
-    }
-    return *this;
   }
 
   ContentPtr(ContentPtr&& other) noexcept {
@@ -72,8 +58,36 @@ struct ContentPtr {
       id_ = other.id_;
     } else {
       zero_ = 0;
-      ptr_ = std::exchange(other.ptr_, nullptr);
+      new (&ptr_) std::shared_ptr{std::exchange(other.ptr_, nullptr)};
     }
+  }
+
+  ~ContentPtr() noexcept {
+    if (zero_) {
+      return;
+    }
+
+    // Cleanup any memory we're pointing to
+    ptr_.~shared_ptr<T>();
+  }
+
+  ContentPtr& operator=(ContentPtr const& other) {
+    if (std::addressof(other) == this) {
+      return *this;
+    }
+
+    if (!zero_) {
+      // Cleanup any memory we're pointing to
+      ptr_.~shared_ptr<T>();
+    }
+
+    if (other.zero_) {
+      id_ = other.id_;
+    } else {
+      zero_ = 0;
+      new (&ptr_) std::shared_ptr{other.ptr_};
+    }
+    return *this;
   }
 
   ContentPtr& operator=(ContentPtr&& other) noexcept {
@@ -81,18 +95,23 @@ struct ContentPtr {
       return *this;
     }
 
+    if (!zero_) {
+      // Cleanup any memory we're pointing to
+      ptr_.~shared_ptr<T>();
+    }
+
     if (other.zero_) {
       id_ = other.id_;
     } else {
       zero_ = 0;
-      ptr_ = std::exchange(other.ptr_, nullptr);
+      new (&ptr_) std::shared_ptr{std::exchange(other.ptr_, nullptr)};
     }
     return *this;
   }
 
   std::shared_ptr<T> const& ptr() const {
     if (zero_ != 0) [[unlikely]] {
-      ptr_ = getContentDb()->get<T>(id_);
+      new (&ptr_) std::shared_ptr{getContentDb()->get<T>(id_)};
       zero_ = 0;
     }
 
