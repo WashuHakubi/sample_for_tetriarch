@@ -12,16 +12,14 @@
 #include <vector>
 
 namespace ewok::shared {
-template<class TMsg>
+template <class TMsg>
 struct MessageDispatch {
   struct HandleData {
     explicit HandleData(size_t id) : id_(id) {}
 
-    ~HandleData() {
-      unsubscribe(id_);
-    }
+    ~HandleData() { unsubscribe(id_); }
 
-  private:
+   private:
     friend struct MessageDispatch;
 
     size_t id_;
@@ -30,7 +28,7 @@ struct MessageDispatch {
   using Handle = std::unique_ptr<HandleData>;
 
   static void send(TMsg const& msg) {
-    for (auto && handler : s_handlers) {
+    for (auto&& handler : s_handlers) {
       if (handler) [[likely]] {
         handler(msg);
       }
@@ -49,7 +47,8 @@ struct MessageDispatch {
     s_handlers[id] = std::move(handler);
     return std::make_unique<HandleData>(id);
   }
-private:
+
+ private:
   static void unsubscribe(size_t id) {
     assert(id < s_handlers.size());
     assert(s_handlers[id]);
@@ -62,14 +61,47 @@ private:
   static std::vector<size_t> s_freeIds;
 };
 
-template<class TMsg>
+template <class TMsg>
 inline std::vector<std::function<void(TMsg const&)>> MessageDispatch<TMsg>::s_handlers;
 
-template<class TMsg>
+template <class TMsg>
 inline std::vector<size_t> MessageDispatch<TMsg>::s_freeIds;
 
-template<class TMsg>
+template <class TMsg>
+using MsgDispatchHandle = MessageDispatch<TMsg>::Handle;
+
+namespace detail {
+template <class T, class = void>
+struct DispatchSig;
+
+template <class TMsg>
+struct DispatchSig<void(TMsg)> {
+  using type = std::remove_cvref_t<TMsg>;
+};
+
+template <typename C, typename TMsg>
+struct DispatchSig<void (C::*)(TMsg)> {
+  using type = std::remove_cvref_t<TMsg>;
+};
+
+template <typename C, typename TMsg>
+struct DispatchSig<void (C::*)(TMsg) const> {
+  using type = std::remove_cvref_t<TMsg>;
+};
+
+// For lambdas, we need to reroute to the appropriate member function signature.
+template <typename T>
+struct DispatchSig<T, std::void_t<decltype(&T::operator())>> : DispatchSig<decltype(&T::operator())> {};
+} // namespace detail
+
+template <class TLambda>
+auto subscribeMessage(TLambda&& fn) {
+  using TMsg = detail::DispatchSig<TLambda>::type;
+  return MessageDispatch<TMsg>::subscribe(std::forward<TLambda>(fn));
+}
+
+template <class TMsg>
 void sendMessage(TMsg const& msg) {
   MessageDispatch<TMsg>::send(msg);
 }
-}
+} // namespace ewok::shared

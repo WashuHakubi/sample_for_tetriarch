@@ -81,7 +81,7 @@ struct SpawnData {
 class SpawnSystem {
  public:
   SpawnSystem() {
-    msgHandle_ = shared::MessageDispatch<MobKilled>::subscribe([this](auto const& msg) { this->onMobKilled(msg); });
+    msgHandle_ = shared::subscribeMessage([this](MobKilled const& msg) { this->onMobKilled(msg); });
   }
 
   void update(float dt) {
@@ -159,7 +159,7 @@ class SpawnSystem {
   }
 
   std::vector<SpawnData> spawns_{};
-  shared::MessageDispatch<MobKilled>::Handle msgHandle_;
+  shared::MsgDispatchHandle<MobKilled> msgHandle_;
 };
 
 struct MobData {
@@ -186,13 +186,9 @@ struct MobData {
 class MobSystem {
  public:
   MobSystem() {
-    spawnMobRequest_ = shared::MessageDispatch<SpawnMobRequest>::subscribe([this](auto const& msg) {
-      onSpawnMobRequest(msg);
-    });
+    spawnMobRequest_ = shared::subscribeMessage([this](SpawnMobRequest const& msg) { onSpawnMobRequest(msg); });
 
-    damageMobRequest_ = shared::MessageDispatch<DamageMobRequest>::subscribe([this](auto const& msg) {
-      onDamageMobRequest(msg);
-    });
+    damageMobRequest_ = shared::subscribeMessage([this](DamageMobRequest const& msg) { onDamageMobRequest(msg); });
   }
 
   void update(float dt) {
@@ -240,8 +236,8 @@ class MobSystem {
 
   std::vector<MobData> mobs_;
   std::vector<uint32_t> freeIds_;
-  shared::MessageDispatch<SpawnMobRequest>::Handle spawnMobRequest_;
-  shared::MessageDispatch<DamageMobRequest>::Handle damageMobRequest_;
+  shared::MsgDispatchHandle<SpawnMobRequest> spawnMobRequest_;
+  shared::MsgDispatchHandle<DamageMobRequest> damageMobRequest_;
 };
 
 } // namespace ewok::server
