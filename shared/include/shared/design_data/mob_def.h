@@ -25,7 +25,7 @@ struct MobDef : ContentDef {
   MobRarity rarity{};
 
   // Base health of the mob
-  uint32_t health{};
+  int32_t health{};
 
   // Model prefab for this mob
   std::string model;

@@ -125,7 +125,7 @@ TEST_CASE("Killing mobs below min spawn will trigger mob spawning") {
                 ++mobId,
                 req.spawnId,
                 req.mob,
-                static_cast<int32_t>(req.mob->health),
+                req.mob->health,
                 req.position,
                 req.rotation});
       });
@@ -142,7 +142,7 @@ TEST_CASE("Killing mobs below min spawn will trigger mob spawning") {
   REQUIRE(!debugSpawns[0].needsSpawn);
 
   // Kill one mob.
-  shared::sendMessage(server::MobKilled{0, 0});
+  shared::sendMessage(server::MobKilled{0, debugSpawns[0].id});
 
   // We should need a mob to spawn
   REQUIRE(debugSpawns[0].curSpawnCount == 3);
