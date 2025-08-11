@@ -43,6 +43,7 @@ struct MobHealthChanged {
 struct MobSpawned {
   uint32_t id;
   uint32_t spawnId;
+  shared::design_data::MobDefPtr mob;
   int32_t curHealth;
   glm::vec3 position;
   glm::quat rotation;
@@ -205,7 +206,7 @@ class MobSystem {
       mob = &mobs_[id];
     }
 
-    shared::sendMessage(MobSpawned{id, mob->spawnId, mob->curHealth, mob->position, mob->rotation});
+    shared::sendMessage(MobSpawned{id, mob->spawnId, mob->mobDef, mob->curHealth, mob->position, mob->rotation});
   }
 
   void onDamageMobRequest(DamageMobRequest const& req) {
