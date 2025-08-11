@@ -10,7 +10,8 @@
 #include <string>
 #include <stack>
 
-#include "nlohmann/json.hpp"
+#include <nlohmann/json.hpp>
+#include <ng-log/logging.h>
 
 namespace ewok::shared::serialization {
 struct JsonWriter final : Writer<JsonWriter> {
@@ -78,11 +79,13 @@ struct JsonReader final : Reader<JsonReader> {
   auto array(std::string_view name, size_t& count) -> Result override {
     auto& top = *json_.top().first;
     if (!top.contains(name)) {
+      LOG(ERROR) << "Failed to find field matching name: " << name;
       return std::unexpected{Error::FieldNotFound};
     }
 
     auto& next = top.at(name);
     if (!next.is_array()) {
+      LOG(ERROR) << "Expected array for " << name;
       return std::unexpected{Error::InvalidFormat};
     }
 
@@ -95,17 +98,20 @@ struct JsonReader final : Reader<JsonReader> {
     if (auto& top = *json_.top().first; top.is_array()) {
       auto& next = top.at(json_.top().second++);
       if (!next.is_object()) {
+        LOG(ERROR) << "Expected object in array for " << name;
         return std::unexpected{Error::InvalidFormat};
       }
 
       json_.emplace(&next, SIZE_MAX);
     } else {
       if (!top.contains(name)) {
+        LOG(ERROR) << "Failed to find field matching name: " << name;
         return std::unexpected{Error::FieldNotFound};
       }
 
       auto& next = top.at(name);
       if (!next.is_object()) {
+        LOG(ERROR) << "Expected object for " << name;
         return std::unexpected{Error::InvalidFormat};
       }
       json_.emplace(&next, SIZE_MAX);
@@ -131,6 +137,7 @@ struct JsonReader final : Reader<JsonReader> {
       value = top.at(json_.top().second++);
     } else {
       if (!top.contains(name)) {
+        LOG(ERROR) << "Failed to find field matching name: " << name;
         return std::unexpected{Error::FieldNotFound};
       }
 

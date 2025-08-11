@@ -6,6 +6,8 @@
  */
 #pragma once
 
+#include <typeindex>
+
 #include "shared/serialization.h"
 
 #include <crossguid/guid.hpp>
@@ -18,12 +20,12 @@ struct ContentDef {
 struct IContentDb {
   virtual ~IContentDb() = default;
 
-  virtual std::shared_ptr<void> get(xg::Guid const& id) = 0;
+  virtual void const* get(xg::Guid const& id, std::type_index type) = 0;
 
   template <class T>
     requires(std::is_base_of_v<ContentDef, T>)
-  std::shared_ptr<T> get(xg::Guid const& id) {
-    return std::static_pointer_cast<T>(get(id));
+  T const* get(xg::Guid const& id) {
+    return static_cast<T const*>(get(id, typeid(T)));
   }
 };
 
@@ -49,7 +51,7 @@ struct ContentPtr {
       id_ = other.id_;
     } else {
       zero_ = 0;
-      new (&ptr_) std::shared_ptr{other.ptr_};
+      ptr_ = other.ptr_;
     }
   }
 
@@ -58,17 +60,8 @@ struct ContentPtr {
       id_ = other.id_;
     } else {
       zero_ = 0;
-      new (&ptr_) std::shared_ptr{std::exchange(other.ptr_, nullptr)};
+      ptr_ = std::exchange(other.ptr_, nullptr);
     }
-  }
-
-  ~ContentPtr() noexcept {
-    if (zero_) {
-      return;
-    }
-
-    // Cleanup any memory we're pointing to
-    ptr_.~shared_ptr<T>();
   }
 
   ContentPtr& operator=(ContentPtr const& other) {
@@ -76,16 +69,11 @@ struct ContentPtr {
       return *this;
     }
 
-    if (!zero_) {
-      // Cleanup any memory we're pointing to
-      ptr_.~shared_ptr<T>();
-    }
-
     if (other.zero_) {
       id_ = other.id_;
     } else {
       zero_ = 0;
-      new (&ptr_) std::shared_ptr{other.ptr_};
+      ptr_ = other.ptr_;
     }
     return *this;
   }
@@ -95,27 +83,13 @@ struct ContentPtr {
       return *this;
     }
 
-    if (!zero_) {
-      // Cleanup any memory we're pointing to
-      ptr_.~shared_ptr<T>();
-    }
-
     if (other.zero_) {
       id_ = other.id_;
     } else {
       zero_ = 0;
-      new (&ptr_) std::shared_ptr{std::exchange(other.ptr_, nullptr)};
+      ptr_ = std::exchange(other.ptr_, nullptr);
     }
     return *this;
-  }
-
-  std::shared_ptr<T> const& ptr() const {
-    if (zero_ != 0) [[unlikely]] {
-      new (&ptr_) std::shared_ptr{getContentDb()->get<T>(id_)};
-      zero_ = 0;
-    }
-
-    return ptr_;
   }
 
   auto guid() const -> xg::Guid const& {
@@ -126,15 +100,24 @@ struct ContentPtr {
     return ptr_->id;
   }
 
-  T* operator->() const {
-    return ptr().operator->();
+  T const* operator->() const {
+    return ptr();
   }
 
-  T& operator*() const {
+  T const& operator*() const {
     return *ptr();
   }
 
 private:
+  T const* ptr() const {
+    if (zero_ != 0) [[unlikely]] {
+      ptr_ = getContentDb()->get<T>(id_);
+      zero_ = 0;
+    }
+
+    return ptr_;
+  }
+
   union {
     // GUID of the content item. This is only valid if zero_ != 0. The high part of this guid is never zero.
     xg::Guid id_{};
@@ -143,7 +126,7 @@ private:
       // Flag that indicates this ID has been set. We do not allow the high part of our GUIDs to be non-zero
       mutable uint64_t zero_;
       // Pointer to the underlying item. This is only valid if zero_ == 0
-      mutable std::shared_ptr<T> ptr_;
+      mutable T const* ptr_;
     };
   };
 };

@@ -22,40 +22,9 @@
 #include <unordered_map>
 #include <vector>
 
-namespace ewok::shared {
-template <class T>
-void hash_combine(std::size_t& seed, T const& v) {
-  seed ^= std::hash<T>()(v) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
-}
+#include <ng-log/logging.h>
 
-// Recursive template code derived from Matthieu M.
-template <class Tuple, size_t Index = std::tuple_size_v<Tuple> - 1>
-struct HashValueImpl {
-  static void apply(size_t& seed, Tuple const& tuple) {
-    HashValueImpl<Tuple, Index - 1>::apply(seed, tuple);
-    hash_combine(seed, std::get<Index>(tuple));
-  }
-};
-
-template <class Tuple>
-struct HashValueImpl<Tuple, 0> {
-  static void apply(size_t& seed, Tuple const& tuple) {
-    hash_combine(seed, std::get<0>(tuple));
-  }
-};
-}
-
-namespace std {
-template <typename... TT>
-struct hash<std::tuple<TT...>> {
-  size_t
-  operator()(std::tuple<TT...> const& tt) const {
-    size_t seed = 0;
-    ewok::shared::HashValueImpl<std::tuple<TT...>>::apply(seed, tt);
-    return seed;
-  }
-};
-}
+#include "shared/hash.h"
 
 namespace ewok::shared::serialization {
 enum class Error {
@@ -602,7 +571,11 @@ struct CustomSerializable<std::tuple<Args...>> : std::true_type {
     if (auto r = reader.array("t", n); !r) {
       return r;
     }
-    assert(n == std::tuple_size_v<value_type>);
+
+    if (n != std::tuple_size_v<value_type>) {
+      LOG(ERROR) << "Expected " << std::tuple_size_v<value_type> << " but got " << n;
+      return std::unexpected{Error::InvalidFormat};
+    }
     return deserialize<std::tuple_size_v<value_type>, 0>(reader, value);
   }
 
