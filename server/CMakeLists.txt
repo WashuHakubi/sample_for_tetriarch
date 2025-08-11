@@ -11,3 +11,4 @@ target_link_libraries(server server_lib)
 
 add_executable(server_tests ${server_tests_FILES})
 target_link_libraries(server_tests server_lib Catch2::Catch2WithMain)
+target_include_directories(server_tests PRIVATE tests)

@@ -25,6 +25,10 @@ struct FakeContentDb : shared::IContentDb {
     content_.push_back(p);
   }
 
+  using IContentDb::get;
+
+  using IContentDb::getAllInScope;
+
 protected:
   auto get(xg::Guid const& id, std::type_index type) -> void const* override {
     if (auto const it = db_.find({id, type}); it != db_.end()) {
@@ -47,4 +51,6 @@ private:
   std::unordered_map<std::pair<xg::Guid, std::type_index>, void const*> db_;
   std::unordered_map<std::pair<std::type_index, shared::ContentScope>, std::vector<void const*>> scopedContent_;
 };
+
+void populateDb(FakeContentDb& contentDb);
 }

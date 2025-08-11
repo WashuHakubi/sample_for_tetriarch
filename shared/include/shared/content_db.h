@@ -63,6 +63,7 @@ private:
 };
 
 struct IContentDb {
+public:
   virtual ~IContentDb() = default;
 
   template <class T>
