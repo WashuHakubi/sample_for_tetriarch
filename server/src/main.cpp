@@ -191,21 +191,6 @@ class MobSystem {
     damageMobRequest_ = shared::subscribeMessage([this](DamageMobRequest const& msg) { onDamageMobRequest(msg); });
   }
 
-  void update(float dt) {
-    for (uint32_t id = 0; id < mobs_.size(); ++id) {
-      auto& mob = mobs_[id];
-      if (mob.dead) {
-        continue;
-      }
-
-      if (mob.curHealth <= 0) {
-        shared::sendMessage(MobKilled{id, mob.spawnId});
-        mob.dead = true;
-        freeIds_.push_back(id);
-      }
-    }
-  }
-
  private:
   void onSpawnMobRequest(SpawnMobRequest const& req) {
     uint32_t id;
@@ -232,6 +217,12 @@ class MobSystem {
 
     mob.curHealth = std::clamp(mob.curHealth - req.amount, 0, mob.maxHealth);
     shared::sendMessage(MobHealthChanged{req.id, mob.curHealth});
+
+    if (mob.curHealth <= 0) {
+      mob.dead = true;
+      freeIds_.push_back(req.id);
+      shared::sendMessage(MobKilled{req.id, mob.spawnId});
+    }
   }
 
   std::vector<MobData> mobs_;
