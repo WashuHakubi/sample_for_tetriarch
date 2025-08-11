@@ -12,9 +12,9 @@
 #include <shared/math.h>
 #include <shared/message_dispatch.h>
 
-#include "design_data/design_data.h"
-#include "systems/spawn_system.h"
-#include "systems/mob_system.h"
+#include <server/design_data/design_data.h>
+#include <server/systems/spawn_system.h>
+#include <server/systems/mob_system.h>
 
 
 #include <ng-log/logging.h>
@@ -61,7 +61,6 @@ int main(int argc, char** argv) {
   nglog::LogToStderr();
 
   auto contentDb = std::make_shared<FakeContentDb>();
-  shared::initializeContentDb(contentDb);
 
   std::string_view mobDefStr = R"({
   "id": {
@@ -151,14 +150,14 @@ int main(int argc, char** argv) {
 
   {
     auto writer = shared::serialization::createJsonWriter(true);
-    [[maybe_unused]] auto r = shared::serialization::serialize(*writer, *p);
+    [[maybe_unused]] auto r = shared::serialization::serialize(*writer, *p.resolve(*contentDb));
     assert(r.has_value());
     std::cout << writer->data() << std::endl;
   }
 
   // MobSystem must exist before SpawnSystem, or else the initialization needs to be handled separately from construction.
-  auto mobSystem = std::make_shared<server::MobSystem>();
-  auto spawnSystem = std::make_shared<server::SpawnSystem>();
+  auto mobSystem = std::make_shared<server::MobSystem>(contentDb);
+  auto spawnSystem = std::make_shared<server::SpawnSystem>(contentDb);
 
   // All mobs should have spawned.
   auto const& mobs = server::MobSystemDebug::debugGetSpawns(*mobSystem);

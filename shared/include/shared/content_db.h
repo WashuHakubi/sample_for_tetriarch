@@ -13,6 +13,8 @@
 #include <crossguid/guid.hpp>
 
 namespace ewok::shared {
+struct IContentDb;
+
 struct ContentDef {
   xg::Guid id;
 };
@@ -44,17 +46,9 @@ struct ContentPtr {
 
   auto guid() const -> xg::Guid const&;
 
-  constexpr T const* operator->() const {
-    return ptr();
-  }
-
-  constexpr T const& operator*() const {
-    return *ptr();
-  }
+  T const* resolve(IContentDb& contentDb) const;
 
 private:
-  T const* ptr() const;
-
   union {
     // GUID of the content item. This is only valid if zero_ != 0. The high part of this guid is never zero when valid.
     xg::Guid id_{};
@@ -96,13 +90,6 @@ protected:
 };
 
 using IContentDbPtr = std::shared_ptr<IContentDb>;
-
-// Initializes the content db.
-void initializeContentDb(IContentDbPtr const& ptr);
-
-// Gets the content db.
-auto getContentDb() -> IContentDbPtr const&;
-
 
 template <class T>
 constexpr ContentPtr<T>::ContentPtr(xg::Guid const& id)
@@ -177,9 +164,9 @@ auto ContentPtr<T>::guid() const -> xg::Guid const& {
 }
 
 template <class T>
-T const* ContentPtr<T>::ptr() const {
+T const* ContentPtr<T>::resolve(IContentDb& contentDb) const {
   if (zero_ != 0) [[unlikely]] {
-    ptr_ = getContentDb()->get<T>(id_);
+    ptr_ = contentDb.get<T>(id_);
     zero_ = 0;
   }
 

@@ -8,21 +8,21 @@
 
 #include <shared/message_dispatch.h>
 
-#include "systems/spawn_messages.h"
-#include "systems/mob_messages.h"
+#include "server/systems/spawn_messages.h"
+#include "mob_messages.h"
 
 namespace ewok::server {
 struct SpawnData {
-  explicit SpawnData(uint32_t id, design_data::SpawnDefPtr spawnDef)
+  explicit SpawnData(uint32_t id, design_data::SpawnDef const* spawnDef, shared::IContentDb& contentDb)
     : id(id),
-      spawnDef(std::move(spawnDef)),
+      spawnDef(spawnDef),
       minSpawnCount(this->spawnDef->minSpawnCount) {
   }
 
   uint32_t id;
 
   // Pointer to the design data for this spawn
-  design_data::SpawnDefPtr spawnDef{};
+  design_data::SpawnDef const* spawnDef{};
 
   // Copy of the spawn count value, since we use this frequently we cache this here.
   uint32_t minSpawnCount{};
@@ -40,17 +40,18 @@ struct SpawnData {
 // Example system for handling spawning, this system depends on MobSystem already existing.
 class SpawnSystem {
 public:
-  SpawnSystem();
+  SpawnSystem(shared::IContentDbPtr contentDb);
 
   void update(float dt);
 
 private:
   friend struct SpawnSystemDebug;
 
-  static void spawnMobs(std::vector<SpawnData>::value_type& spawn, uint32_t spawnCount);
+  void spawnMobs(std::vector<SpawnData>::value_type& spawn, uint32_t spawnCount);
 
   void onMobKilled(MobKilled const& mobKilled);
 
+  shared::IContentDbPtr contentDb_;
   std::vector<SpawnData> spawns_{};
   std::vector<uint32_t> needsSpawns_{};
   shared::MsgDispatchHandle msgHandle_;

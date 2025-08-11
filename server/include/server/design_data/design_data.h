@@ -6,13 +6,5 @@
  */
 #pragma once
 
-#include "../design_data/design_data.h"
-
-namespace ewok::server {
-struct SpawnMobRequest {
-  shared::design_data::MobDefPtr mob;
-  uint32_t spawnId;
-  glm::vec3 position;
-  glm::quat rotation;
-};
-}
+#include <shared/design_data/design_data.h>
+#include "server/design_data/spawn_def.h"

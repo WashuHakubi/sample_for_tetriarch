@@ -28,7 +28,7 @@ struct MobHealthChanged {
 struct MobSpawned {
   uint32_t id;
   uint32_t spawnId;
-  shared::design_data::MobDefPtr mob;
+  shared::design_data::MobDef const* mob;
   int32_t curHealth;
   glm::vec3 position;
   glm::quat rotation;

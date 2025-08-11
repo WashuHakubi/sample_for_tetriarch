@@ -5,9 +5,10 @@
  *  file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
  */
 
-#include "systems/mob_system.h"
+#include "../../include/server/systems/mob_system.h"
 
-ewok::server::MobSystem::MobSystem() {
+ewok::server::MobSystem::MobSystem(shared::IContentDbPtr contentDb)
+  : contentDb_(std::move(contentDb)) {
   spawnMobRequest_ = shared::subscribeMessage([this](SpawnMobRequest const& msg) { onSpawnMobRequest(msg); });
   damageMobRequest_ = shared::subscribeMessage([this](MobDamageRequest const& msg) { onDamageMobRequest(msg); });
 }
@@ -25,7 +26,7 @@ void ewok::server::MobSystem::onSpawnMobRequest(SpawnMobRequest const& req) {
     mob = &mobs_[id];
   }
 
-  LOG(INFO) << "Spawned mob:" << id << " " << mob->mobDef.guid() << " for spawn:" << mob->spawnId;
+  LOG(INFO) << "Spawned mob:" << id << " " << mob->mobDef->id << " for spawn:" << mob->spawnId;
   shared::sendMessage(MobSpawned{id, mob->spawnId, mob->mobDef, mob->curHealth, mob->position, mob->rotation});
 }
 

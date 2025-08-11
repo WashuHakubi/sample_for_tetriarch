@@ -8,15 +8,4 @@
 #include "shared/content_db.h"
 
 namespace ewok::shared {
-static IContentDbPtr s_contentDb;
-
-void initializeContentDb(IContentDbPtr const& ptr) {
-  assert(s_contentDb == nullptr);
-  s_contentDb = ptr;
-}
-
-auto getContentDb() -> IContentDbPtr const& {
-  assert(s_contentDb != nullptr);
-  return s_contentDb;
-}
 }

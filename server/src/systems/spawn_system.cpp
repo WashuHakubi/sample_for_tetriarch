@@ -7,22 +7,24 @@
 
 #include <shared/content_db.h>
 
-#include "systems/spawn_system.h"
-#include "random.h"
+#include "../../include/server/systems/spawn_system.h"
+#include "../../include/server/random.h"
 
-ewok::server::SpawnSystem::SpawnSystem() {
+ewok::server::SpawnSystem::SpawnSystem(shared::IContentDbPtr contentDb)
+  : contentDb_(std::move(contentDb)) {
   msgHandle_ = shared::subscribeMessage([this](MobKilled const& msg) { this->onMobKilled(msg); });
 
-  auto spawnDefs = shared::getContentDb()->getAllInScope<design_data::SpawnDef>(shared::ContentScope::Map);
+  auto spawnDefs = contentDb_->getAllInScope<design_data::SpawnDef>(shared::ContentScope::Map);
   spawns_.reserve(spawnDefs.size());
 
   uint32_t id{};
   for (auto&& def : spawnDefs) {
     // Every spawn needs some mobs spawned.
-    auto& spawn = spawns_.emplace_back(id++, def);
+    auto& spawn = spawns_.emplace_back(id++, def.resolve(*contentDb_), *contentDb_);
+    auto spawnDef = spawn.spawnDef;
 
     // Spawn a number of mobs between min and max spawn count. This avoids spawns taking a bunch of time after startup.
-    auto spawnCount = Random::next(spawn.spawnDef->minSpawnCount, spawn.spawnDef->maxSpawnCount);
+    auto spawnCount = Random::next(spawnDef->minSpawnCount, spawnDef->maxSpawnCount);
     spawnMobs(spawn, spawnCount);
   }
 }
@@ -69,7 +71,7 @@ void ewok::server::SpawnSystem::spawnMobs(std::vector<SpawnData>::value_type& sp
 
   // and recompute the number of mobs we need to spawn
   spawnCount = nextSpawnCount - spawn.curSpawnCount;
-  LOG(INFO) << "Spawning " << spawnCount << " for spawn:" << spawn.id << " " << spawn.spawnDef.guid();
+  LOG(INFO) << "Spawning " << spawnCount << " for spawn:" << spawn.id << " " << spawn.spawnDef->id;
 
   // Get the sum of the total probabilities for the mob spawns.
   const auto probSum = std::accumulate(
@@ -97,10 +99,10 @@ void ewok::server::SpawnSystem::spawnMobs(std::vector<SpawnData>::value_type& sp
       curProb += prob;
       if (chosenProb <= curProb) {
         LOG(INFO) << "Requesting spawn of " << mob.guid() << " for spawn:" << spawn.id << " "
-            << spawn.spawnDef.guid()
+            << spawn.spawnDef->id
             << " at "
             << spawnPos;
-        shared::sendMessage(SpawnMobRequest{mob, spawn.id, spawnPos, glm::quat{}});
+        shared::sendMessage(SpawnMobRequest{mob.resolve(*contentDb_), spawn.id, spawnPos, glm::quat{}});
         break;
       }
     }

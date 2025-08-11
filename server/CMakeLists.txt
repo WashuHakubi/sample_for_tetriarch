@@ -1,19 +1,13 @@
-file(GLOB_RECURSE server_FILES CONFIGURE_DEPENDS "src/**.cpp")
+file(GLOB_RECURSE server_lib_FILES CONFIGURE_DEPENDS "src/**.cpp")
+file(GLOB_RECURSE server_FILES CONFIGURE_DEPENDS "app/**.cpp")
+file(GLOB_RECURSE server_tests_FILES CONFIGURE_DEPENDS "tests/**.cpp")
+
+add_library(server_lib STATIC ${server_lib_FILES})
+target_link_libraries(server_lib PUBLIC shared)
+target_include_directories(server_lib PUBLIC include)
 
 add_executable(server ${server_FILES})
-target_link_libraries(server
-        shared)
-target_include_directories(server PRIVATE src)
+target_link_libraries(server server_lib)
 
-if (MSVC)
-    target_compile_options(server PRIVATE /W4 /WX /wd4100 /wd4996)
-else ()
-    target_compile_options(server PRIVATE
-            -Wall
-            -Wextra
-            -Werror
-            -Wno-unused-parameter
-            -Wno-unused-function
-            -Wno-unused-private-field
-            -Wno-missing-field-initializers)
-endif ()
+add_executable(server_tests ${server_tests_FILES})
+target_link_libraries(server_tests server_lib Catch2::Catch2WithMain)

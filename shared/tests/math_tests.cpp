@@ -12,7 +12,7 @@
 TEST_CASE("Can serialize/deserialize vectors") {
   glm::vec2 v2_1 = {42.0f, 84.0f};
   glm::vec3 v3_1 = {1, 2, 3};
-  glm::vec4 v4_1 = {M_1_PIf, M_PIf, M_Ef, 42.0f};
+  glm::vec4 v4_1 = {float(M_1_PI), float(M_PI), float(M_E), 42.0f};
   glm::quat q1 = {1, 2, 3, 4};
 
   auto writer = ewok::shared::serialization::createJsonWriter();

@@ -6,6 +6,19 @@ if (CMAKE_BUILD_TYPE STREQUAL "")
     set(CMAKE_BUILD_TYPE Debug)
 endif ()
 
+if (MSVC)
+    add_compile_options(/W4 /WX /wd4100 /wd4996)
+else ()
+    add_compile_options(
+            -Wall
+            -Wextra
+            -Werror
+            -Wno-unused-parameter
+            -Wno-unused-function
+            -Wno-unused-private-field
+            -Wno-missing-field-initializers)
+endif ()
+
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/$<CONFIGURATION>")
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/$<CONFIGURATION>")
 

@@ -8,14 +8,14 @@
 
 #include <shared/message_dispatch.h>
 
-#include "systems/mob_messages.h"
-#include "systems/spawn_messages.h"
+#include "server/systems/mob_messages.h"
+#include "spawn_messages.h"
 
 namespace ewok::server {
 struct MobData {
-  MobData(uint32_t spawnId, shared::design_data::MobDefPtr mobDef, glm::vec3 position, glm::quat rotation)
+  MobData(uint32_t spawnId, shared::design_data::MobDef const* mobDef, glm::vec3 position, glm::quat rotation)
     : spawnId(spawnId),
-      mobDef(std::move(mobDef)),
+      mobDef(mobDef),
       position(position),
       rotation(rotation) {
     curHealth = maxHealth = static_cast<int32_t>(this->mobDef->health);
@@ -25,7 +25,7 @@ struct MobData {
 
   uint32_t spawnId;
 
-  shared::design_data::MobDefPtr mobDef;
+  shared::design_data::MobDef const* mobDef;
 
   glm::vec3 position{};
 
@@ -38,7 +38,7 @@ struct MobData {
 
 class MobSystem {
 public:
-  MobSystem();
+  MobSystem(shared::IContentDbPtr contentDb);
 
   auto debugGetMobs() -> std::vector<MobData> const& {
     return mobs_;
@@ -51,6 +51,7 @@ private:
 
   void onDamageMobRequest(MobDamageRequest const& req);
 
+  shared::IContentDbPtr contentDb_;
   std::vector<MobData> mobs_;
   std::vector<uint32_t> freeIds_;
   shared::MsgDispatchHandle spawnMobRequest_;
