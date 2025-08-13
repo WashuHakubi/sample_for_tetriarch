@@ -37,17 +37,19 @@ public:
     return {};
   }
 
-  auto write(std::string_view name, auto value) -> Result {
+  template <class T>
+    requires(std::is_arithmetic_v<T>)
+  auto writeInternal(std::string_view name, T value) -> Result {
     append(value);
     return {};
   }
 
-  auto write(std::string_view name, bool value) -> Result override {
+  auto writeInternal(std::string_view name, bool value) -> Result {
     append(static_cast<char>(value));
     return {};
   }
 
-  auto write(std::string_view name, std::string_view value) -> Result override {
+  auto writeInternal(std::string_view name, std::string_view value) -> Result {
     append(static_cast<uint32_t>(value.size()));
     data_->append(value.data(), value.size());
     return {};
@@ -124,7 +126,7 @@ struct TrackingBinWriter : Writer<TrackingBinWriter, IBinWriter> {
     return fieldMappings_;
   }
 
-  auto write(std::string_view name, auto value) -> Result {
+  auto writeInternal(std::string_view name, auto value) -> Result {
     expect(name, BinFieldType::Value);
     return writer_.write(name, value);
   }
@@ -175,7 +177,9 @@ struct BinReader : Reader<BinReader, IBinReader> {
     return {};
   }
 
-  auto read(std::string_view name, auto& value) -> Result {
+  template <class T>
+    requires(std::is_arithmetic_v<T>)
+  auto readInternal(std::string_view name, T& value) -> Result {
     return extract<std::remove_cvref_t<decltype(value)>>()
         .and_then(
             [&value](auto v) -> Result {
@@ -184,7 +188,7 @@ struct BinReader : Reader<BinReader, IBinReader> {
             });
   }
 
-  auto read(std::string_view name, bool& value) -> Result override {
+  auto readInternal(std::string_view name, bool& value) -> Result {
     return extract<char>()
         .and_then(
             [&value](auto v) -> Result {
@@ -193,7 +197,7 @@ struct BinReader : Reader<BinReader, IBinReader> {
             });
   }
 
-  auto read(std::string_view name, std::string& value) -> Result override {
+  auto readInternal(std::string_view name, std::string& value) -> Result {
     return extract<uint32_t>()
         .and_then(
             [&value, this](auto len) -> Result {
@@ -265,9 +269,9 @@ struct TrackingBinReader : Reader<TrackingBinReader, IBinReader> {
     return {};
   }
 
-  auto read(std::string_view name, auto& value) -> Result {
+  auto readInternal(std::string_view name, auto& value) -> Result {
     expect(name, BinFieldType::Value);
-    return reader_.read(name, value);
+    return reader_.readInternal(name, value);
   }
 
   void reset(std::span<char const> buffer) override {

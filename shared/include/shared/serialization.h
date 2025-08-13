@@ -91,51 +91,51 @@ struct IBinWriter : IWriter {
 template <class TDerived, class Interface = IWriter>
 struct Writer : Interface {
   auto write(std::string_view name, bool value) -> Result override {
-    return static_cast<TDerived*>(this)->write(name, value);
+    return static_cast<TDerived*>(this)->writeInternal(name, value);
   }
 
   auto write(std::string_view name, uint8_t value) -> Result override {
-    return static_cast<TDerived*>(this)->write(name, value);
+    return static_cast<TDerived*>(this)->writeInternal(name, value);
   }
 
   auto write(std::string_view name, uint16_t value) -> Result override {
-    return static_cast<TDerived*>(this)->write(name, value);
+    return static_cast<TDerived*>(this)->writeInternal(name, value);
   }
 
   auto write(std::string_view name, uint32_t value) -> Result override {
-    return static_cast<TDerived*>(this)->write(name, value);
+    return static_cast<TDerived*>(this)->writeInternal(name, value);
   }
 
   auto write(std::string_view name, uint64_t value) -> Result override {
-    return static_cast<TDerived*>(this)->write(name, value);
+    return static_cast<TDerived*>(this)->writeInternal(name, value);
   }
 
   auto write(std::string_view name, int8_t value) -> Result override {
-    return static_cast<TDerived*>(this)->write(name, value);
+    return static_cast<TDerived*>(this)->writeInternal(name, value);
   }
 
   auto write(std::string_view name, int16_t value) -> Result override {
-    return static_cast<TDerived*>(this)->write(name, value);
+    return static_cast<TDerived*>(this)->writeInternal(name, value);
   }
 
   auto write(std::string_view name, int32_t value) -> Result override {
-    return static_cast<TDerived*>(this)->write(name, value);
+    return static_cast<TDerived*>(this)->writeInternal(name, value);
   }
 
   auto write(std::string_view name, int64_t value) -> Result override {
-    return static_cast<TDerived*>(this)->write(name, value);
+    return static_cast<TDerived*>(this)->writeInternal(name, value);
   }
 
   auto write(std::string_view name, float value) -> Result override {
-    return static_cast<TDerived*>(this)->write(name, value);
+    return static_cast<TDerived*>(this)->writeInternal(name, value);
   }
 
   auto write(std::string_view name, double value) -> Result override {
-    return static_cast<TDerived*>(this)->write(name, value);
+    return static_cast<TDerived*>(this)->writeInternal(name, value);
   }
 
   auto write(std::string_view name, std::string_view value) -> Result override {
-    return static_cast<TDerived*>(this)->write(name, value);
+    return static_cast<TDerived*>(this)->writeInternal(name, value);
   }
 };
 
@@ -177,51 +177,51 @@ struct IBinReader : IReader {
 template <class TDerived, class Interface = IReader>
 struct Reader : Interface {
   auto read(std::string_view name, bool& value) -> Result override {
-    return static_cast<TDerived*>(this)->read(name, value);
+    return static_cast<TDerived*>(this)->readInternal(name, value);
   }
 
   auto read(std::string_view name, uint8_t& value) -> Result override {
-    return static_cast<TDerived*>(this)->read(name, value);
+    return static_cast<TDerived*>(this)->readInternal(name, value);
   }
 
   auto read(std::string_view name, uint16_t& value) -> Result override {
-    return static_cast<TDerived*>(this)->read(name, value);
+    return static_cast<TDerived*>(this)->readInternal(name, value);
   }
 
   auto read(std::string_view name, uint32_t& value) -> Result override {
-    return static_cast<TDerived*>(this)->read(name, value);
+    return static_cast<TDerived*>(this)->readInternal(name, value);
   }
 
   auto read(std::string_view name, uint64_t& value) -> Result override {
-    return static_cast<TDerived*>(this)->read(name, value);
+    return static_cast<TDerived*>(this)->readInternal(name, value);
   }
 
   auto read(std::string_view name, int8_t& value) -> Result override {
-    return static_cast<TDerived*>(this)->read(name, value);
+    return static_cast<TDerived*>(this)->readInternal(name, value);
   }
 
   auto read(std::string_view name, int16_t& value) -> Result override {
-    return static_cast<TDerived*>(this)->read(name, value);
+    return static_cast<TDerived*>(this)->readInternal(name, value);
   }
 
   auto read(std::string_view name, int32_t& value) -> Result override {
-    return static_cast<TDerived*>(this)->read(name, value);
+    return static_cast<TDerived*>(this)->readInternal(name, value);
   }
 
   auto read(std::string_view name, int64_t& value) -> Result override {
-    return static_cast<TDerived*>(this)->read(name, value);
+    return static_cast<TDerived*>(this)->readInternal(name, value);
   }
 
   auto read(std::string_view name, float& value) -> Result override {
-    return static_cast<TDerived*>(this)->read(name, value);
+    return static_cast<TDerived*>(this)->readInternal(name, value);
   }
 
   auto read(std::string_view name, double& value) -> Result override {
-    return static_cast<TDerived*>(this)->read(name, value);
+    return static_cast<TDerived*>(this)->readInternal(name, value);
   }
 
   auto read(std::string_view name, std::string& value) -> Result override {
-    return static_cast<TDerived*>(this)->read(name, value);
+    return static_cast<TDerived*>(this)->readInternal(name, value);
   }
 };
 

@@ -144,7 +144,7 @@ struct TestAdditionalFieldTypesWriter final : serialization::Writer<TestAddition
   using Writer<TestAdditionalFieldTypesWriter>::write;
 
   template <class T>
-  auto write(std::string_view name, T value) -> serialization::Result {
+  auto writeInternal(std::string_view name, T value) -> serialization::Result {
     return writer_->write(name, value);
   }
 
@@ -192,7 +192,7 @@ struct TestAdditionalFieldTypesReader : serialization::Reader<TestAdditionalFiel
   using Reader<TestAdditionalFieldTypesReader>::read;
 
   template <class T>
-  auto read(std::string_view name, T& value) -> serialization::Result {
+  auto readInternal(std::string_view name, T& value) -> serialization::Result {
     return reader_->read(name, value);
   }
 

@@ -56,7 +56,7 @@ struct JsonWriter final : Writer<JsonWriter> {
   }
 
   /// Template method, this is called by the various write methods in Writer<T>
-  auto write(std::string_view name, auto value) -> Result {
+  auto writeInternal(std::string_view name, auto value) -> Result {
     if (auto& top = *json_.top(); top.is_array()) {
       top.push_back(value);
     } else {
@@ -132,7 +132,7 @@ struct JsonReader final : Reader<JsonReader> {
   }
 
   /// Template method, this is called by the various read methods in Reader<T>
-  auto read(std::string_view name, auto& value) -> Result {
+  auto readInternal(std::string_view name, auto& value) -> Result {
     if (auto& top = *json_.top().first; top.is_array()) {
       value = top.at(json_.top().second++);
     } else {
