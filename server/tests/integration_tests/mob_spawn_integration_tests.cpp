@@ -10,12 +10,12 @@
 #include <server/systems/mob_system.h>
 #include <server/systems/spawn_system.h>
 
-#include "fake_content_db.h"
+#include "test_data.h"
 
 using namespace ewok;
 
 TEST_CASE("Mob/Spawn Integration") {
-  auto db = std::make_shared<ewok::FakeContentDb>();
+  auto db = std::make_shared<shared::design_data::FakeContentDb>();
   populateDb(*db);
 
   server::MobSystem mobSystem(db);

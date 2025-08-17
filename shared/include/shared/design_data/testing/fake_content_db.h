@@ -9,11 +9,11 @@
 
 #include <shared/content_db.h>
 
-namespace ewok {
+namespace ewok::shared::design_data {
 struct FakeContentDb : shared::IContentDb {
   template <class T>
     requires(std::is_base_of_v<shared::ContentDef, T>)
-  void registerItem(std::shared_ptr<T> p, shared::ContentScope scope) {
+  auto registerItem(std::shared_ptr<T> p, shared::ContentScope scope) {
     auto id = p->id;
     db_.emplace(std::make_pair(id, std::type_index{typeid(T)}), p.get());
 
@@ -23,6 +23,7 @@ struct FakeContentDb : shared::IContentDb {
     items->second.push_back(p.get());
 
     content_.push_back(p);
+    return ContentPtr<T>(p.get());
   }
 
   using IContentDb::get;
@@ -51,6 +52,4 @@ private:
   std::unordered_map<std::pair<xg::Guid, std::type_index>, void const*> db_;
   std::unordered_map<std::pair<std::type_index, shared::ContentScope>, std::vector<void const*>> scopedContent_;
 };
-
-void populateDb(FakeContentDb& contentDb);
 }

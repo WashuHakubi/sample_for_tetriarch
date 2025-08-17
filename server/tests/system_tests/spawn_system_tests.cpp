@@ -8,12 +8,12 @@
 #include <server/systems/spawn_system.h>
 
 #include <catch2/catch_all.hpp>
-#include "fake_content_db.h"
+#include "test_data.h"
 
 using namespace ewok;
 
 TEST_CASE("Spawner will attempt to spawn on construction") {
-  std::shared_ptr<FakeContentDb> db = std::make_shared<FakeContentDb>();
+  auto db = std::make_shared<shared::design_data::FakeContentDb>();
   populateDb(*db);
 
   int spawnsRequestedCount{};
@@ -29,7 +29,7 @@ TEST_CASE("Spawner will attempt to spawn on construction") {
 }
 
 TEST_CASE("Killing mobs below min spawn will trigger mob spawning") {
-  std::shared_ptr<FakeContentDb> db = std::make_shared<FakeContentDb>();
+  auto db = std::make_shared<shared::design_data::FakeContentDb>();
   populateDb(*db);
 
   uint32_t mobId{};

@@ -10,13 +10,12 @@
 #include <server/systems/spawn_messages.h>
 #include <server/systems/mob_system.h>
 
-#include "fake_content_db.h"
-
+#include "test_data.h"
 
 using namespace ewok;
 
 TEST_CASE("Can spawn mob on request") {
-  std::shared_ptr<FakeContentDb> db = std::make_shared<FakeContentDb>();
+  auto db = std::make_shared<shared::design_data::FakeContentDb>();
   populateDb(*db);
 
   server::MobSystem mobSystem(db);
@@ -48,7 +47,7 @@ TEST_CASE("Can spawn mob on request") {
 }
 
 TEST_CASE("Can damage and kill mobs") {
-  std::shared_ptr<FakeContentDb> db = std::make_shared<FakeContentDb>();
+  auto db = std::make_shared<shared::design_data::FakeContentDb>();
   populateDb(*db);
 
   int deathCount{};

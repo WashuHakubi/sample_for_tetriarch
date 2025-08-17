@@ -6,8 +6,9 @@
  */
 
 #include <server/design_data/design_data.h>
+#include <test_data.h>
+
 #include <catch2/catch_all.hpp>
-#include "fake_content_db.h"
 
 namespace ewok {
 static std::string_view mobDefStr = R"({
@@ -76,7 +77,7 @@ static std::string_view spawnDefStr = R"({
   "timeBetweenSpawns": 2.0
 })";
 
-void populateDb(FakeContentDb& contentDb) {
+void populateDb(shared::design_data::FakeContentDb& contentDb) {
   auto reader = shared::serialization::createJsonReader(mobDefStr);
   auto mobDef = std::make_shared<shared::design_data::MobDef>();
   [[maybe_unused]] auto r = shared::serialization::deserialize(*reader, *mobDef);

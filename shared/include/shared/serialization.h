@@ -24,221 +24,12 @@
 
 #include <ng-log/logging.h>
 
-#include "shared/hash.h"
+#include <shared/hash.h>
+#include <shared/serialization/misc.h>
+#include <shared/serialization/reader.h>
+#include <shared/serialization/writer.h>
 
 namespace ewok::shared::serialization {
-enum class Error {
-  None,
-  FieldNotFound,
-  InvalidFormat,
-};
-
-using Result = std::expected<void, Error>;
-
-/// Base class for serializing fields.
-struct IWriter {
-  virtual ~IWriter() = default;
-
-  /**
-   * Begins an array. Count is expected to be the number of elements in the array. All calls to @c write, up to @c
-   * count, should write an entry into the array.
-   */
-  virtual auto array(std::string_view name, size_t count) -> Result = 0;
-
-  /**
-   * Begins an object, each call to write should write a named value into the object
-   */
-  virtual auto enter(std::string_view name) -> Result = 0;
-
-  /**
-   * Ends the current array or object.
-   */
-  virtual auto leave(std::string_view name) -> Result = 0;
-
-  virtual auto write(std::string_view name, bool value) -> Result = 0;
-  virtual auto write(std::string_view name, uint8_t value) -> Result = 0;
-  virtual auto write(std::string_view name, uint16_t value) -> Result = 0;
-  virtual auto write(std::string_view name, uint32_t value) -> Result = 0;
-  virtual auto write(std::string_view name, uint64_t value) -> Result = 0;
-  virtual auto write(std::string_view name, int8_t value) -> Result = 0;
-  virtual auto write(std::string_view name, int16_t value) -> Result = 0;
-  virtual auto write(std::string_view name, int32_t value) -> Result = 0;
-  virtual auto write(std::string_view name, int64_t value) -> Result = 0;
-  virtual auto write(std::string_view name, float value) -> Result = 0;
-  virtual auto write(std::string_view name, double value) -> Result = 0;
-  virtual auto write(std::string_view name, std::string_view value) -> Result = 0;
-
-  virtual void reset() = 0;
-
-  virtual auto data() -> std::string = 0;
-};
-
-enum class BinFieldType {
-  Value,
-  Object,
-  Array,
-};
-
-struct IBinWriter : IWriter {
-  [[nodiscard]] virtual auto fieldMapping() const ->
-    std::unordered_map<
-      std::tuple<std::string, int>,
-      std::tuple<size_t, BinFieldType>> const& = 0;
-};
-
-/// Utility class that forwards calls to a derived type without requiring the derived type to implement all the methods
-/// of IWriter.
-template <class TDerived, class Interface = IWriter>
-struct Writer : Interface {
-  auto write(std::string_view name, bool value) -> Result override {
-    return static_cast<TDerived*>(this)->writeInternal(name, value);
-  }
-
-  auto write(std::string_view name, uint8_t value) -> Result override {
-    return static_cast<TDerived*>(this)->writeInternal(name, value);
-  }
-
-  auto write(std::string_view name, uint16_t value) -> Result override {
-    return static_cast<TDerived*>(this)->writeInternal(name, value);
-  }
-
-  auto write(std::string_view name, uint32_t value) -> Result override {
-    return static_cast<TDerived*>(this)->writeInternal(name, value);
-  }
-
-  auto write(std::string_view name, uint64_t value) -> Result override {
-    return static_cast<TDerived*>(this)->writeInternal(name, value);
-  }
-
-  auto write(std::string_view name, int8_t value) -> Result override {
-    return static_cast<TDerived*>(this)->writeInternal(name, value);
-  }
-
-  auto write(std::string_view name, int16_t value) -> Result override {
-    return static_cast<TDerived*>(this)->writeInternal(name, value);
-  }
-
-  auto write(std::string_view name, int32_t value) -> Result override {
-    return static_cast<TDerived*>(this)->writeInternal(name, value);
-  }
-
-  auto write(std::string_view name, int64_t value) -> Result override {
-    return static_cast<TDerived*>(this)->writeInternal(name, value);
-  }
-
-  auto write(std::string_view name, float value) -> Result override {
-    return static_cast<TDerived*>(this)->writeInternal(name, value);
-  }
-
-  auto write(std::string_view name, double value) -> Result override {
-    return static_cast<TDerived*>(this)->writeInternal(name, value);
-  }
-
-  auto write(std::string_view name, std::string_view value) -> Result override {
-    return static_cast<TDerived*>(this)->writeInternal(name, value);
-  }
-};
-
-/// Base class for deserializing fields
-struct IReader {
-  virtual ~IReader() = default;
-
-  virtual auto array(std::string_view name, size_t& count) -> Result = 0;
-
-  virtual auto enter(std::string_view name) -> Result = 0;
-
-  virtual auto leave(std::string_view name) -> Result = 0;
-
-  virtual auto read(std::string_view name, bool& value) -> Result = 0;
-  virtual auto read(std::string_view name, uint8_t& value) -> Result = 0;
-  virtual auto read(std::string_view name, uint16_t& value) -> Result = 0;
-  virtual auto read(std::string_view name, uint32_t& value) -> Result = 0;
-  virtual auto read(std::string_view name, uint64_t& value) -> Result = 0;
-  virtual auto read(std::string_view name, int8_t& value) -> Result = 0;
-  virtual auto read(std::string_view name, int16_t& value) -> Result = 0;
-  virtual auto read(std::string_view name, int32_t& value) -> Result = 0;
-  virtual auto read(std::string_view name, int64_t& value) -> Result = 0;
-  virtual auto read(std::string_view name, float& value) -> Result = 0;
-  virtual auto read(std::string_view name, double& value) -> Result = 0;
-  virtual auto read(std::string_view name, std::string& value) -> Result = 0;
-
-  virtual void reset(std::span<char const> buffer) = 0;
-};
-
-struct IBinReader : IReader {
-  [[nodiscard]] virtual auto fieldMapping() const ->
-    std::unordered_map<
-      std::tuple<std::string, int>,
-      std::tuple<size_t, BinFieldType>> const& = 0;
-};
-
-/// Utility class that forwards calls to a derived type without requiring the derived type to implement all the methods
-/// of IReader.
-template <class TDerived, class Interface = IReader>
-struct Reader : Interface {
-  auto read(std::string_view name, bool& value) -> Result override {
-    return static_cast<TDerived*>(this)->readInternal(name, value);
-  }
-
-  auto read(std::string_view name, uint8_t& value) -> Result override {
-    return static_cast<TDerived*>(this)->readInternal(name, value);
-  }
-
-  auto read(std::string_view name, uint16_t& value) -> Result override {
-    return static_cast<TDerived*>(this)->readInternal(name, value);
-  }
-
-  auto read(std::string_view name, uint32_t& value) -> Result override {
-    return static_cast<TDerived*>(this)->readInternal(name, value);
-  }
-
-  auto read(std::string_view name, uint64_t& value) -> Result override {
-    return static_cast<TDerived*>(this)->readInternal(name, value);
-  }
-
-  auto read(std::string_view name, int8_t& value) -> Result override {
-    return static_cast<TDerived*>(this)->readInternal(name, value);
-  }
-
-  auto read(std::string_view name, int16_t& value) -> Result override {
-    return static_cast<TDerived*>(this)->readInternal(name, value);
-  }
-
-  auto read(std::string_view name, int32_t& value) -> Result override {
-    return static_cast<TDerived*>(this)->readInternal(name, value);
-  }
-
-  auto read(std::string_view name, int64_t& value) -> Result override {
-    return static_cast<TDerived*>(this)->readInternal(name, value);
-  }
-
-  auto read(std::string_view name, float& value) -> Result override {
-    return static_cast<TDerived*>(this)->readInternal(name, value);
-  }
-
-  auto read(std::string_view name, double& value) -> Result override {
-    return static_cast<TDerived*>(this)->readInternal(name, value);
-  }
-
-  auto read(std::string_view name, std::string& value) -> Result override {
-    return static_cast<TDerived*>(this)->readInternal(name, value);
-  }
-};
-
-std::shared_ptr<IWriter> createJsonWriter(bool prettyPrint = false);
-std::shared_ptr<IReader> createJsonReader(std::span<char const> json);
-
-inline std::shared_ptr<IReader> createJsonReader(std::string_view json) {
-  return createJsonReader(std::span{json.data(), json.size()});
-}
-
-inline std::shared_ptr<IReader> createJsonReader(std::string const& json) {
-  return createJsonReader(std::span{json.data(), json.size()});
-}
-
-std::shared_ptr<IBinWriter> createBinWriter(std::string& buffer, bool trackFields = false);
-std::shared_ptr<IBinReader> createBinReader(std::span<char> buffer, bool trackFields = false);
-
 /// Used in place of IWriter. This allows the code to know the concrete writer and elide the virtual function
 /// calls entirely.
 template <class T>
@@ -336,7 +127,7 @@ struct ArrayHandler<std::array<T, N>> : std::true_type {
 
   static constexpr auto at(std::array<T, N> const& v, size_t idx) { return v[idx]; }
 
-  static constexpr auto reserve(std::array<T, N>& v, size_t size) { return; }
+  static constexpr auto reserve(std::array<T, N>& v, size_t size) { assert(N == size); }
 
   static constexpr auto push(std::array<T, N>& v, size_t idx, T&& i) { v[idx] = std::forward<T>(i); }
 };
@@ -353,7 +144,10 @@ constexpr auto deserialize(
     detail::TSerializable auto& value) -> Result;
 
 namespace detail {
-constexpr auto deserializeItem(TSerializeReader auto& reader, std::string_view name, auto& value) -> Result {
+constexpr auto deserializeItem(
+    TSerializeReader auto& reader,
+    std::string_view name,
+    auto& value) -> Result {
   using MemberType = std::remove_cvref_t<decltype(value)>;
 
   if constexpr (CustomSerializable<MemberType>::value || SerializeMembers<MemberType>::value) {

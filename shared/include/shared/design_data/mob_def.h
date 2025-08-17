@@ -7,9 +7,6 @@
 #pragma once
 
 namespace ewok::shared::design_data {
-struct MobDef;
-using MobDefPtr = ContentPtr<MobDef>;
-
 enum class MobRarity {
   Normal,
   Magic,
