@@ -58,6 +58,9 @@ struct LootTableDef : ContentDef {
   }
 
   /// Picks a random item from the loot table and any child tables.
+  /// This is actually subtly wrong, as it rolls multiple times as it traverses down the tree of tables.
+  /// A more correct form would roll once based on the cumulative total weight and then pick appropriately from within
+  /// the set of all loot tables.
   auto pickItem(auto& rng, IContentDb& db) const noexcept -> ItemDefPtr const& {
     auto const& entry = pick(rng);
 
