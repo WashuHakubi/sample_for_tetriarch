@@ -125,6 +125,15 @@ fetch_dependency(
         ROOT ${PROJECT_SOURCE_DIR}/ext
 )
 
+fetch_dependency(
+        yojimbo
+        GIT_SOURCE https://github.com/mas-bandwidth/yojimbo.git
+        VERSION v1.2.5
+        ROOT ${PROJECT_SOURCE_DIR}/ext/yojimbo
+        FETCH_ONLY
+        OUT_SOURCE_DIR YOJIMBO_SOURCE
+)
+
 # Add the RmlUi SDL backend. This can be tweaked to support any of the SDL backends.
 add_library(RmlSdlBackend STATIC
         ${RML_OUT_DIR}/Backends/RmlUi_Platform_SDL.h

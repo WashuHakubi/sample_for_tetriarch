@@ -19,6 +19,8 @@
 
 #include <ng-log/logging.h>
 
+#include "yojimbo.h"
+
 using namespace ewok;
 
 struct FakeContentDb : shared::IContentDb {
