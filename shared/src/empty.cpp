@@ -79,8 +79,87 @@ struct sample_writer final : writer {
   std::stack<std::pair<nlohmann::json*, bool>> current_;
 };
 
+struct sample_reader final : reader {
+  sample_reader(std::string json) : root_(nlohmann::json::parse(json)) { current_.push({&root_, false, SIZE_MAX}); }
+
+  void read(std::string_view name, bool& value) override { read_impl(name, value); }
+
+  void read(std::string_view name, uint8_t& value) override { read_impl(name, value); }
+  void read(std::string_view name, uint16_t& value) override { read_impl(name, value); }
+  void read(std::string_view name, uint32_t& value) override { read_impl(name, value); }
+  void read(std::string_view name, uint64_t& value) override { read_impl(name, value); }
+
+  void read(std::string_view name, int8_t& value) override { read_impl(name, value); }
+  void read(std::string_view name, int16_t& value) override { read_impl(name, value); }
+  void read(std::string_view name, int32_t& value) override { read_impl(name, value); }
+  void read(std::string_view name, int64_t& value) override { read_impl(name, value); }
+
+  void read_compressed(std::string_view name, uint16_t& value) override { read_impl(name, value); }
+  void read_compressed(std::string_view name, uint32_t& value) override { read_impl(name, value); }
+  void read_compressed(std::string_view name, uint64_t& value) override { read_impl(name, value); }
+
+  void read(std::string_view name, float& value) override { read_impl(name, value); }
+  void read(std::string_view name, double& value) override { read_impl(name, value); }
+
+  void read(std::string_view name, std::string& value) override { read_impl(name, value); }
+
+  void begin_object(std::string_view name) override {
+    auto& [curr, is_array, index] = current_.top();
+    if (is_array) {
+      assert(index < curr->size());
+      auto& next_curr = curr->at(index);
+      assert(next_curr.is_object());
+      current_.push({&next_curr, false, SIZE_MAX});
+      ++index;
+    } else {
+      auto& next_curr = (*curr)[name];
+      assert(next_curr.is_object());
+      current_.push({&next_curr, false, SIZE_MAX});
+    }
+  }
+
+  void end_object() override { current_.pop(); }
+
+  void begin_array(std::string_view name, size_t& count) override {
+    auto& [curr, is_array, index] = current_.top();
+    if (is_array) {
+      assert(index < curr->size());
+      auto& next_curr = curr->at(index);
+      assert(next_curr.is_array());
+      count = next_curr.size();
+      current_.push({&next_curr, true, 0});
+      ++index;
+    } else {
+      auto& next_curr = (*curr)[name];
+      assert(next_curr.is_array());
+      count = next_curr.size();
+      current_.push({&next_curr, true, 0});
+    }
+  }
+
+  void end_array() override { current_.pop(); }
+
+ private:
+  template <class T>
+  void read_impl(std::string_view name, T& value) {
+    auto& [curr, is_array, index] = current_.top();
+    if (is_array) {
+      value = curr->at(index).get<T>();
+      ++index;
+    } else {
+      value = (*curr)[name];
+    }
+  }
+
+  nlohmann::json root_;
+  std::stack<std::tuple<nlohmann::json*, bool, size_t>> current_;
+};
+
 struct vec3 {
   float x, y, z;
+
+  bool operator==(const vec3&) const = default;
+  bool operator!=(const vec3&) const = default;
 };
 
 //
@@ -100,11 +179,24 @@ void serialize(writer& writer, std::string_view name, vec3 const& v) {
   writer.end_array();
 }
 
+void deserialize(reader& reader, std::string_view name, vec3& value) {
+  size_t count;
+  reader.begin_array(name, count);
+  assert(count == 3);
+  reader.read(name, value.x);
+  reader.read(name, value.y);
+  reader.read(name, value.z);
+  reader.end_array();
+}
+
 struct sample {
   unsigned a;
   vec3 v;
   std::array<vec3, 4> va;
   std::vector<bool> bs;
+
+  bool operator==(const sample&) const = default;
+  bool operator!=(const sample&) const = default;
 };
 } // namespace ew
 
@@ -118,7 +210,7 @@ EW_REFLECT(ew::sample) {
 
 namespace ew {
 template <class T>
-void validate(attrs::errors& err, std::string path, T const& value) {
+void validate(attrs::errors& err, std::string const& path, T const& value) {
   if constexpr (ew::reflect<T>::value) {
     ew::apply(
         [&value, &err, &path](auto const& member) {
@@ -137,27 +229,27 @@ void validate(attrs::errors& err, std::string path, T const& value) {
 
           // Recurse into reflected member types, this allows for custom validation to be an overload of the validate
           // function provided the top level type being validated is reflectable.
-          validate(err, std::move(p), value.*member_ptr);
+          validate(err, p, value.*member_ptr);
         },
         reflect<T>::members());
   }
 }
 
 template <class T, size_t N>
-void validate(attrs::errors& err, std::string path, std::array<T, N> const& value) {
+void validate(attrs::errors& err, std::string const& path, std::array<T, N> const& value) {
   for (size_t i = 0; i < value.size(); ++i) {
     validate(err, std::format("{}[{}]", path, i), value[i]);
   }
 }
 
 template <class T, class Alloc>
-void validate(attrs::errors& err, std::string path, std::vector<T, Alloc> const& value) {
+void validate(attrs::errors& err, std::string const& path, std::vector<T, Alloc> const& value) {
   for (size_t i = 0; i < value.size(); ++i) {
     validate(err, std::format("{}[{}]", path, i), value[i]);
   }
 }
 
-void validate(attrs::errors& err, std::string path, vec3 const& value) {
+void validate(attrs::errors& err, std::string const& path, vec3 const& value) {
   if (value.x >= 5) {
     err.append(path + ".x", "was greater than 5");
   }
@@ -188,5 +280,11 @@ void f() {
   serialize(w, "", s);
 
   std::cout << w.to_string() << std::endl;
+
+  sample s2;
+  sample_reader r(w.to_string());
+  deserialize(r, "", s2);
+
+  assert(s == s2);
 }
 } // namespace ew

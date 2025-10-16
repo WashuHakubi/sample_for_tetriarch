@@ -48,11 +48,11 @@ struct writer {
 struct reader {
   virtual ~reader() = default;
 
-  virtual void begin_object(std::string_view name);
-  virtual void end_object();
+  virtual void begin_object(std::string_view name) = 0;
+  virtual void end_object() = 0;
 
-  virtual void begin_array(std::string_view name, size_t& count);
-  virtual void end_array();
+  virtual void begin_array(std::string_view name, size_t& count) = 0;
+  virtual void end_array() = 0;
 
   virtual void read(std::string_view name, bool& value) = 0;
 
@@ -124,4 +124,62 @@ void serialize(writer& writer, std::string_view name, std::vector<T, Alloc> cons
   }
   writer.end_array();
 }
+
+template <class T>
+void deserialize(reader& reader, std::string_view name, T& value) {
+  if constexpr (reflect<T>::value) {
+    reader.begin_object(name);
+    ew::apply(
+        [&value, &reader]<typename Tuple>(Tuple const& member_tuple) {
+          std::string_view name = std::get<0>(member_tuple);
+          auto member_ptr = std::get<1>(member_tuple);
+
+          // Get the bare type of the member
+          using member_type = std::decay_t<decltype(value.*member_ptr)>;
+
+          if constexpr (reflect<T>::value) {
+            deserialize(reader, name, value.*member_ptr);
+          } else if constexpr (contains_v<attrs::compress_tag, Tuple>) {
+            static_assert(
+                std::is_same_v<member_type, uint16_t> || std::is_same_v<member_type, uint32_t> ||
+                    std::is_same_v<member_type, uint64_t>,
+                "compress flag is only valid on 16, 32 or 64 bit unsigned integers.");
+            reader.read_compressed(name, value.*member_ptr);
+          } else {
+            reader.read(name, value.*member_ptr);
+          }
+        },
+        reflect<T>::members());
+    reader.end_object();
+  } else {
+    reader.read(name, value);
+  }
+}
+
+template <class T, size_t N>
+void deserialize(reader& reader, std::string_view name, std::array<T, N>& value) {
+  size_t n;
+  reader.begin_array(name, n);
+  assert(n == N);
+
+  for (size_t i = 0; i < N; ++i) {
+    deserialize(reader, "", value[i]);
+  }
+  reader.end_array();
+}
+
+template <class T, class Alloc>
+void deserialize(reader& reader, std::string_view name, std::vector<T, Alloc>& value) {
+  size_t n;
+  reader.begin_array(name, n);
+  value.reserve(n);
+
+  for (size_t i = 0; i < n; ++i) {
+    T v;
+    deserialize(reader, "", v);
+    value.push_back(std::move(v));
+  }
+  reader.end_array();
+}
+
 } // namespace ew
