@@ -4,397 +4,124 @@
  *  Distributed under the Boost Software License, Version 1.0. (See accompanying
  *  file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
  */
+
 #pragma once
 
 #include <array>
-#include <cassert>
-#include <concepts>
-#include <cstdint>
-#include <expected>
-#include <filesystem>
-#include <functional>
-#include <memory>
-#include <span>
-#include <string>
 #include <string_view>
-#include <tuple>
-#include <type_traits>
-#include <unordered_map>
 #include <vector>
 
-#include <ng-log/logging.h>
+#include <shared/reflection.h>
 
-#include <shared/hash.h>
-#include <shared/serialization/misc.h>
-#include <shared/serialization/reader.h>
-#include <shared/serialization/writer.h>
+namespace ew {
+struct writer {
+  virtual ~writer() = default;
 
-namespace ewok::shared::serialization {
-/// Used in place of IWriter. This allows the code to know the concrete writer and elide the virtual function
-/// calls entirely.
-template <class T>
-concept TSerializeWriter = std::is_base_of_v<IWriter, T>;
+  virtual void begin_object(std::string_view name) = 0;
+  virtual void end_object() = 0;
 
-/// Used in place of IReader. This allows the code to know the concrete reader and elide the virtual function
-/// calls entirely.
-template <class T>
-concept TSerializeReader = std::is_base_of_v<IReader, T>;
+  virtual void begin_array(std::string_view name, size_t count) = 0;
+  virtual void end_array() = 0;
 
-/// Specialize this for types that require custom serialization. Types are expected to have two methods:
-/// <tt>static auto serialize(TSerializeWriter auto& writer, T const& value)</tt> for serialization and
-/// <tt>static auto deserialize(TSerializeReader auto& reader, T& value)</tt> for deserialization.
-template <class T>
-struct CustomSerializable : std::false_type {
+  virtual void write(std::string_view name, bool value) = 0;
+
+  virtual void write(std::string_view name, uint8_t value) = 0;
+  virtual void write(std::string_view name, uint16_t value) = 0;
+  virtual void write(std::string_view name, uint32_t value) = 0;
+  virtual void write(std::string_view name, uint64_t value) = 0;
+
+  virtual void write(std::string_view name, int8_t value) = 0;
+  virtual void write(std::string_view name, int16_t value) = 0;
+  virtual void write(std::string_view name, int32_t value) = 0;
+  virtual void write(std::string_view name, int64_t value) = 0;
+
+  virtual void write_compressed(std::string_view name, uint16_t value) = 0;
+  virtual void write_compressed(std::string_view name, uint32_t value) = 0;
+  virtual void write_compressed(std::string_view name, uint64_t value) = 0;
+
+  virtual void write(std::string_view name, float value) = 0;
+  virtual void write(std::string_view name, double value) = 0;
+
+  virtual void write(std::string_view name, std::string_view value) = 0;
 };
 
-namespace detail {
-/// Checks if we have a valid member tuple
-template <class T>
-struct IsMemberTuple : std::false_type {
+struct reader {
+  virtual ~reader() = default;
+
+  virtual void begin_object(std::string_view name);
+  virtual void end_object();
+
+  virtual void begin_array(std::string_view name, size_t& count);
+  virtual void end_array();
+
+  virtual void read(std::string_view name, bool& value) = 0;
+
+  virtual void read(std::string_view name, uint8_t& value) = 0;
+  virtual void read(std::string_view name, uint16_t& value) = 0;
+  virtual void read(std::string_view name, uint32_t& value) = 0;
+  virtual void read(std::string_view name, uint64_t& value) = 0;
+
+  virtual void read(std::string_view name, int8_t& value) = 0;
+  virtual void read(std::string_view name, int16_t& value) = 0;
+  virtual void read(std::string_view name, int32_t& value) = 0;
+  virtual void read(std::string_view name, int64_t& value) = 0;
+
+  virtual void read_compressed(std::string_view name, uint16_t& value) = 0;
+  virtual void read_compressed(std::string_view name, uint32_t& value) = 0;
+  virtual void read_compressed(std::string_view name, uint64_t& value) = 0;
+
+  virtual void read(std::string_view name, float& value) = 0;
+  virtual void read(std::string_view name, double& value) = 0;
+
+  virtual void read(std::string_view name, std::string& value) = 0;
 };
 
-template <class... Ts>
-  requires(std::is_member_object_pointer_v<Ts> && ...)
-struct IsMemberTuple<std::tuple<std::pair<char const*, Ts>...>> : std::true_type {
-};
-
 template <class T>
-concept TMemberTuple = IsMemberTuple<T>::value;
+void serialize(writer& writer, std::string_view name, T const& value) {
+  if constexpr (reflect<T>::value) {
+    writer.begin_object(name);
+    ew::apply(
+        [&value, &writer]<typename Tuple>(Tuple const& member_tuple) {
+          std::string_view name = std::get<0>(member_tuple);
+          auto member_ptr = std::get<1>(member_tuple);
 
-/// Checks if we have a static serializeMembers method that returns a valid tuple.
-/// We expect this to return something like:
-/// @code
-/// static auto serializationMembers() {
-///   return std::make_tuple(
-///     std::make_pair("a", &A::a),
-///   );
-/// }
-/// @endcode
-template <class T>
-concept HasSerializeMembers = requires { { T::serializationMembers() } -> TMemberTuple; };
-}
+          // Get the bare type of the member
+          using member_type = std::decay_t<decltype(value.*member_ptr)>;
 
-template <class T>
-struct SerializeMembers : std::false_type {
-};
-
-template <detail::HasSerializeMembers T>
-struct SerializeMembers<T> : std::true_type {
-  static auto getSerializeMembers() {
-    return T::serializationMembers();
+          if constexpr (reflect<T>::value) {
+            serialize(writer, name, value.*member_ptr);
+          } else if constexpr (contains_v<attrs::compress_tag, Tuple>) {
+            static_assert(
+                std::is_same_v<member_type, uint16_t> || std::is_same_v<member_type, uint32_t> ||
+                    std::is_same_v<member_type, uint64_t>,
+                "compress flag is only valid on 16, 32 or 64 bit unsigned integers.");
+            writer.write_compressed(name, value.*member_ptr);
+          } else {
+            writer.write(name, value.*member_ptr);
+          }
+        },
+        reflect<T>::members());
+    writer.end_object();
+  } else {
+    writer.write(name, value);
   }
-};
-
-namespace detail {
-/// Checks if a type is either a custom serializable type or has a valid serializeMembers method.
-template <class T>
-concept TSerializable = CustomSerializable<T>::value || SerializeMembers<T>::value;
-
-/// Utility template to get the type from a member pointer
-template <class T>
-struct MemberType;
-
-template <class C, class T>
-struct MemberType<T C::*> {
-  using type = std::remove_cvref_t<T>;
-};
-
-/// Checks if we handle the type T by deriving from std::true_type, and is expected to provide
-/// size(), at(), reserve() and push() methods for the type to enable serialization and deserialization.
-template <class T>
-struct ArrayHandler : std::false_type {
-};
-
-/// Trait for handling array's of type std::vector<T>
-template <class T>
-struct ArrayHandler<std::vector<T>> : std::true_type {
-  using item_type = T;
-
-  static constexpr auto size(std::vector<T> const& v) { return v.size(); }
-
-  static constexpr auto at(std::vector<T> const& v, size_t idx) { return v[idx]; }
-
-  static constexpr auto reserve(std::vector<T>& v, size_t size) { return v.reserve(size); }
-
-  static constexpr auto push(std::vector<T>& v, size_t idx, T&& i) { v.push_back(std::forward<T>(i)); }
-};
+}
 
 template <class T, size_t N>
-struct ArrayHandler<std::array<T, N>> : std::true_type {
-  using item_type = T;
-
-  static constexpr auto size(std::array<T, N> const& v) { return N; }
-
-  static constexpr auto at(std::array<T, N> const& v, size_t idx) { return v[idx]; }
-
-  static constexpr auto reserve(std::array<T, N>& v, size_t size) { assert(N == size); }
-
-  static constexpr auto push(std::array<T, N>& v, size_t idx, T&& i) { v[idx] = std::forward<T>(i); }
-};
+void serialize(writer& writer, std::string_view name, std::array<T, N> const& value) {
+  writer.begin_array(name, N);
+  for (auto&& v : value) {
+    serialize(writer, "", v);
+  }
+  writer.end_array();
 }
 
-/// Serializes @c value to @c writer
-constexpr auto serialize(
-    TSerializeWriter auto& writer,
-    detail::TSerializable auto const& value) -> Result;
-
-/// Deserializes from @c reader into @c value
-constexpr auto deserialize(
-    TSerializeReader auto& reader,
-    detail::TSerializable auto& value) -> Result;
-
-namespace detail {
-constexpr auto deserializeItem(
-    TSerializeReader auto& reader,
-    std::string_view name,
-    auto& value) -> Result {
-  using MemberType = std::remove_cvref_t<decltype(value)>;
-
-  if constexpr (CustomSerializable<MemberType>::value || SerializeMembers<MemberType>::value) {
-    // If the member is a custom serializable type or supports serializeMembers() then deserialize it recursively
-    if (auto r = reader.enter(name); !r) {
-      return r;
-    }
-
-    if (auto r = deserialize(reader, value); !r) {
-      return r;
-    }
-
-    return reader.leave(name);
-  } else if constexpr (ArrayHandler<MemberType>::value) {
-    // If we're an array type then get the count of items to deserialize
-    size_t count{};
-
-    if (auto r = reader.array(name, count); !r) {
-      return r;
-    }
-
-    // Attempt to reserve that much space and then deserialize each item into the array.
-    ArrayHandler<MemberType>::reserve(value, count);
-    for (size_t i = 0; i < count; ++i) {
-      typename ArrayHandler<MemberType>::item_type item;
-
-      if (auto r = deserializeItem(reader, name, item); !r) {
-        return r;
-      }
-
-      ArrayHandler<MemberType>::push(value, i, std::move(item));
-    }
-
-    return reader.leave(name);
-  } else if constexpr (std::is_enum_v<MemberType>) {
-    // For enumerations, we serialize them as their underlying type
-    std::underlying_type_t<MemberType> v;
-    if (auto r = reader.read(name, v); !r) {
-      return r;
-    }
-    value = static_cast<MemberType>(v);
-  } else {
-    // Otherwise we expect the serialize writer to handle it (as it should be a primitive)
-    return reader.read(name, value);
+template <class T, class Alloc>
+void serialize(writer& writer, std::string_view name, std::vector<T, Alloc> const& value) {
+  writer.begin_array(name, value.size());
+  for (auto&& v : value) {
+    serialize(writer, "", v);
   }
-
-  return {};
+  writer.end_array();
 }
-
-constexpr auto serializeItem(TSerializeWriter auto& writer, std::string_view name, auto const& value) -> Result {
-  using MemberType = std::remove_cvref_t<decltype(value)>;
-
-  if constexpr (CustomSerializable<MemberType>::value || SerializeMembers<MemberType>::value) {
-    // If the member is a custom serializable type or supports serializeMembers() then serialize it recursively
-    if (auto r = writer.enter(name); !r) {
-      return r;
-    }
-
-    if (auto r = serialize(writer, value); !r) {
-      return r;
-    }
-
-    return writer.leave(name);
-  } else if constexpr (ArrayHandler<MemberType>::value) {
-    // If we have an array member then get the count of items to serialize
-    size_t count = ArrayHandler<MemberType>::size(value);
-    if (auto r = writer.array(name, count); !r) {
-      return r;
-    }
-
-    // Write out each item from the array.
-    for (size_t i = 0; i < count; ++i) {
-      if (auto r = serializeItem(writer, name, ArrayHandler<MemberType>::at(value, i)); !r) {
-        return r;
-      }
-    }
-
-    return writer.leave(name);
-  } else if constexpr (std::is_enum_v<MemberType>) {
-    // For enumerations, we serialize them as their underlying type
-    auto v = static_cast<std::underlying_type_t<MemberType>>(value);
-    return writer.write(name, v);
-  } else {
-    // Otherwise we expect the serialize writer to handle it (as it should be a primitive)
-    return writer.write(name, value);
-  }
-}
-
-/// Deserialize the Ith member of the tuple of member pointers.
-template <size_t N, size_t I>
-constexpr auto deserializeMember(
-    TSerializeReader auto& reader,
-    TSerializable auto& value,
-    auto const& memberPtrTuple) -> Result {
-  if constexpr (I < N) {
-    auto [name, ptr] = std::get<I>(memberPtrTuple);
-
-    auto r = deserializeItem(reader, name, value.*ptr);
-    if (!r) {
-      return r;
-    }
-
-    return deserializeMember<N, I + 1>(reader, value, memberPtrTuple);
-  }
-  return {};
-}
-
-constexpr auto deserializeMembers(
-    TSerializeReader auto& reader,
-    TSerializable auto& value,
-    auto const& memberPtrTuple) {
-  // Get the number of name/member function pointer pairs in the tuple
-  constexpr auto MemberCount = std::tuple_size_v<std::remove_cvref_t<decltype(memberPtrTuple)>>;
-  return deserializeMember<MemberCount, 0>(
-      reader,
-      value,
-      memberPtrTuple);
-}
-
-/// Serialize the Ith member of the tuple of member pointers.
-template <size_t N, size_t I>
-constexpr auto serializeMember(
-    TSerializeWriter auto& writer,
-    TSerializable auto const& value,
-    auto const& memberPtrTuple) -> Result {
-  if constexpr (I < N) {
-    auto [name, ptr] = std::get<I>(memberPtrTuple);
-
-    auto r = serializeItem(writer, name, value.*ptr);
-    if (!r) {
-      return r;
-    }
-
-    return serializeMember<N, I + 1>(writer, value, memberPtrTuple);
-  }
-  return {};
-}
-
-constexpr auto serializeMembers(
-    TSerializeWriter auto& writer,
-    TSerializable auto const& value,
-    auto const& memberPtrTuple) {
-  // Get the number of name/member function pointer pairs in the tuple
-  constexpr auto MemberCount = std::tuple_size_v<std::remove_cvref_t<decltype(memberPtrTuple)>>;
-  // Start serializing the members from the first one
-  return serializeMember<MemberCount, 0>(
-      writer,
-      value,
-      memberPtrTuple);
-}
-} // namespace detail
-
-[[nodiscard]] constexpr auto serialize(
-    TSerializeWriter auto& writer,
-    detail::TSerializable auto const& value) -> Result {
-  using ValueType = std::remove_cvref_t<decltype(value)>;
-  using CustomSerializable = CustomSerializable<ValueType>;
-  if constexpr (CustomSerializable::value) {
-    // Custom serializable types should serialize themselves.
-    return CustomSerializable::serialize(writer, value);
-  } else {
-    // Otherwise serialize each member
-    auto members = SerializeMembers<ValueType>::getSerializeMembers();
-    return detail::serializeMembers(writer, value, members);
-  }
-}
-
-[[nodiscard]] constexpr auto deserialize(
-    TSerializeReader auto& reader,
-    detail::TSerializable auto& value) -> Result {
-  using ValueType = std::remove_cvref_t<decltype(value)>;
-  using CustomSerializable = CustomSerializable<ValueType>;
-  if constexpr (CustomSerializable::value) {
-    // Custom serializable types should deserialize themselves.
-    return CustomSerializable::deserialize(reader, value);
-  } else {
-    auto members = SerializeMembers<ValueType>::getSerializeMembers();
-    return detail::deserializeMembers(reader, value, members);
-  }
-}
-
-template <class F, class S>
-struct CustomSerializable<std::pair<F, S>> : std::true_type {
-  static constexpr auto serialize(TSerializeWriter auto& writer, std::pair<F, S> const& value) {
-    return detail::serializeItem(writer, "f", value.first)
-        .and_then(
-            [&value, &writer] {
-              return detail::serializeItem(writer, "s", value.second);
-            });
-  }
-
-  static constexpr auto deserialize(TSerializeReader auto& reader, std::pair<F, S>& value) {
-    return detail::deserializeItem(reader, "f", value.first)
-        .and_then(
-            [&value, &reader] {
-              return detail::deserializeItem(reader, "s", value.second);
-            });
-  }
-};
-
-template <class... Args>
-struct CustomSerializable<std::tuple<Args...>> : std::true_type {
-  using value_type = std::tuple<Args...>;
-
-  static constexpr auto serialize(TSerializeWriter auto& writer, value_type const& value) -> Result {
-    if (auto r = writer.array("t", std::tuple_size_v<value_type>); !r) {
-      return r;
-    }
-
-    return serialize<std::tuple_size_v<value_type>, 0>(writer, value);
-  }
-
-  static constexpr auto deserialize(TSerializeReader auto& reader, value_type& value) -> Result {
-    size_t n;
-    if (auto r = reader.array("t", n); !r) {
-      return r;
-    }
-
-    if (n != std::tuple_size_v<value_type>) {
-      LOG(ERROR) << "Expected " << std::tuple_size_v<value_type> << " but got " << n;
-      return std::unexpected{Error::InvalidFormat};
-    }
-    return deserialize<std::tuple_size_v<value_type>, 0>(reader, value);
-  }
-
-private:
-  template <size_t N, size_t I>
-  static constexpr auto serialize(TSerializeWriter auto& writer, value_type const& value) -> Result {
-    if constexpr (I < N) {
-      if (auto r = detail::serializeItem(writer, "t", std::get<I>(value)); !r) {
-        return r;
-      }
-      return serialize<N, I + 1>(writer, value);
-    }
-    return {};
-  }
-
-  template <size_t N, size_t I>
-  static constexpr auto deserialize(TSerializeReader auto& reader, value_type& value) -> Result {
-    if constexpr (I < N) {
-      auto& v = std::get<I>(value);
-      if (auto r = detail::deserializeItem(reader, "t", v); !r) {
-        return r;
-      }
-      return deserialize<N, I + 1>(reader, value);
-    }
-    return {};
-  }
-};
-}
+} // namespace ew
