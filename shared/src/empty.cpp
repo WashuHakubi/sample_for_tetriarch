@@ -64,7 +64,7 @@ struct sample_writer final : writer {
 
   std::string to_string() const { return root_.dump(2); }
 
- private:
+private:
   template <class T>
   void write_impl(std::string_view name, T const& v) {
     auto& [curr, is_array] = current_.top();
@@ -139,7 +139,7 @@ struct sample_reader final : reader {
 
   void end_array() override { current_.pop(); }
 
- private:
+private:
   template <class T>
   void read_impl(std::string_view name, T& value) {
     auto& [curr, is_array, index] = current_.top();
@@ -162,32 +162,24 @@ struct vec3 {
   bool operator!=(const vec3&) const = default;
 };
 
-//
-// EW_REFLECT(ew::vec3) {
-//   return std::make_tuple(
-//       std::make_tuple("x", &vec3::x),
-//       std::make_tuple("y", &vec3::y),
-//       std::make_tuple("z", &vec3::z));
-// }
-
 // Example of a custom serializer for a type, writes vec3's as arrays of floats
-void serialize(writer& writer, std::string_view name, vec3 const& v) {
-  writer.begin_array(name, 3);
-  writer.write(name, v.x);
-  writer.write(name, v.y);
-  writer.write(name, v.z);
-  writer.end_array();
-}
-
-void deserialize(reader& reader, std::string_view name, vec3& value) {
-  size_t count;
-  reader.begin_array(name, count);
-  assert(count == 3);
-  reader.read(name, value.x);
-  reader.read(name, value.y);
-  reader.read(name, value.z);
-  reader.end_array();
-}
+// void serialize(writer& writer, std::string_view name, vec3 const& v) {
+//   writer.begin_array(name, 3);
+//   writer.write(name, v.x);
+//   writer.write(name, v.y);
+//   writer.write(name, v.z);
+//   writer.end_array();
+// }
+//
+// void deserialize(reader& reader, std::string_view name, vec3& value) {
+//   size_t count;
+//   reader.begin_array(name, count);
+//   assert(count == 3);
+//   reader.read(name, value.x);
+//   reader.read(name, value.y);
+//   reader.read(name, value.z);
+//   reader.end_array();
+// }
 
 struct sample {
   unsigned a;
@@ -199,6 +191,13 @@ struct sample {
   bool operator!=(const sample&) const = default;
 };
 } // namespace ew
+
+EW_REFLECT(ew::vec3) {
+  return std::make_tuple(
+      std::make_tuple("x", &vec3::x),
+      std::make_tuple("y", &vec3::y),
+      std::make_tuple("z", &vec3::z));
+}
 
 EW_REFLECT(ew::sample) {
   return std::make_tuple(

@@ -7,6 +7,8 @@
 
 #pragma once
 
+#include <unistd.h>
+
 #include <array>
 #include <string_view>
 #include <vector>
@@ -77,9 +79,13 @@ struct reader {
 };
 
 template <class T>
+void serialize(writer& writer, T const& value) {
+  serialize(writer, "", value);
+}
+
+template <class T>
 void serialize(writer& writer, std::string_view name, T const& value) {
   if constexpr (reflect<T>::value) {
-    writer.begin_object(name);
     ew::apply(
         [&value, &writer]<typename Tuple>(Tuple const& member_tuple) {
           std::string_view name = std::get<0>(member_tuple);
@@ -88,22 +94,30 @@ void serialize(writer& writer, std::string_view name, T const& value) {
           // Get the bare type of the member
           using member_type = std::decay_t<decltype(value.*member_ptr)>;
 
-          if constexpr (reflect<T>::value) {
+          if constexpr (reflect<member_type>::value) {
+            writer.begin_object(name);
             serialize(writer, name, value.*member_ptr);
+            writer.end_object();
           } else if constexpr (contains_v<attrs::compress_tag, Tuple>) {
             static_assert(
-                std::is_same_v<member_type, uint16_t> || std::is_same_v<member_type, uint32_t> ||
-                    std::is_same_v<member_type, uint64_t>,
+                std::is_same_v<member_type, uint16_t>
+                || std::is_same_v<member_type, uint32_t>
+                || std::is_same_v<member_type, uint64_t>,
                 "compress flag is only valid on 16, 32 or 64 bit unsigned integers.");
             writer.write_compressed(name, value.*member_ptr);
-          } else {
+          } else if constexpr (std::is_arithmetic_v<member_type>
+            || std::is_convertible_v<std::string_view, member_type>) {
             writer.write(name, value.*member_ptr);
+          } else {
+            serialize(writer, name, value.*member_ptr);
           }
         },
         reflect<T>::members());
-    writer.end_object();
-  } else {
+  } else if constexpr (std::is_arithmetic_v<T>
+    || std::is_convertible_v<std::string_view, T>) {
     writer.write(name, value);
+  } else {
+    static_assert(false, "Expected primitive type, reflect<T> specialization, or serialize overload");
   }
 }
 
@@ -111,7 +125,13 @@ template <class T, size_t N>
 void serialize(writer& writer, std::string_view name, std::array<T, N> const& value) {
   writer.begin_array(name, N);
   for (auto&& v : value) {
+    if constexpr (reflect<T>::value) {
+      writer.begin_object("");
+    }
     serialize(writer, "", v);
+    if constexpr (reflect<T>::value) {
+      writer.end_object();
+    }
   }
   writer.end_array();
 }
@@ -120,7 +140,13 @@ template <class T, class Alloc>
 void serialize(writer& writer, std::string_view name, std::vector<T, Alloc> const& value) {
   writer.begin_array(name, value.size());
   for (auto&& v : value) {
-    serialize(writer, "", v);
+    if constexpr (reflect<T>::value) {
+      writer.begin_object("");
+    }
+    serialize(writer, "", static_cast<T const&>(v));
+    if constexpr (reflect<T>::value) {
+      writer.end_object();
+    }
   }
   writer.end_array();
 }
@@ -128,7 +154,6 @@ void serialize(writer& writer, std::string_view name, std::vector<T, Alloc> cons
 template <class T>
 void deserialize(reader& reader, std::string_view name, T& value) {
   if constexpr (reflect<T>::value) {
-    reader.begin_object(name);
     ew::apply(
         [&value, &reader]<typename Tuple>(Tuple const& member_tuple) {
           std::string_view name = std::get<0>(member_tuple);
@@ -137,22 +162,29 @@ void deserialize(reader& reader, std::string_view name, T& value) {
           // Get the bare type of the member
           using member_type = std::decay_t<decltype(value.*member_ptr)>;
 
-          if constexpr (reflect<T>::value) {
+          if constexpr (reflect<member_type>::value) {
+            reader.begin_object(name);
             deserialize(reader, name, value.*member_ptr);
+            reader.end_object();
           } else if constexpr (contains_v<attrs::compress_tag, Tuple>) {
             static_assert(
                 std::is_same_v<member_type, uint16_t> || std::is_same_v<member_type, uint32_t> ||
-                    std::is_same_v<member_type, uint64_t>,
+                std::is_same_v<member_type, uint64_t>,
                 "compress flag is only valid on 16, 32 or 64 bit unsigned integers.");
             reader.read_compressed(name, value.*member_ptr);
-          } else {
+          } else if constexpr (std::is_arithmetic_v<member_type>
+            || std::is_convertible_v<std::string_view, member_type>) {
             reader.read(name, value.*member_ptr);
+          } else {
+            deserialize(reader, name, value.*member_ptr);
           }
         },
         reflect<T>::members());
-    reader.end_object();
-  } else {
+  } else if constexpr (std::is_arithmetic_v<T>
+    || std::is_convertible_v<std::string_view, T>) {
     reader.read(name, value);
+  } else {
+    static_assert(false, "Expected primitive type, reflect<T> specialization, or deserialize overload");
   }
 }
 
@@ -163,7 +195,13 @@ void deserialize(reader& reader, std::string_view name, std::array<T, N>& value)
   assert(n == N);
 
   for (size_t i = 0; i < N; ++i) {
+    if constexpr (reflect<T>::value) {
+      reader.begin_object("");
+    }
     deserialize(reader, "", value[i]);
+    if constexpr (reflect<T>::value) {
+      reader.end_object();
+    }
   }
   reader.end_array();
 }
@@ -175,11 +213,18 @@ void deserialize(reader& reader, std::string_view name, std::vector<T, Alloc>& v
   value.reserve(n);
 
   for (size_t i = 0; i < n; ++i) {
+    if constexpr (reflect<T>::value) {
+      reader.begin_object("");
+    }
+
     T v;
     deserialize(reader, "", v);
     value.push_back(std::move(v));
+
+    if constexpr (reflect<T>::value) {
+      reader.end_object();
+    }
   }
   reader.end_array();
 }
-
 } // namespace ew
