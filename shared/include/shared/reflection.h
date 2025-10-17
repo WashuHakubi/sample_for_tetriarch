@@ -30,7 +30,8 @@ namespace ew {
  * </code>
  */
 template <class T>
-struct reflect : std::false_type {};
+struct reflect : std::false_type {
+};
 } // namespace ew
 
 #define EW_DECLARE_REFLECT \
@@ -38,7 +39,8 @@ struct reflect : std::false_type {};
   friend struct ::ew::reflect;
 
 /**
- * Used to return the reflected members of a type. This should only be used at global scope.
+ * Used to return the reflected members of a type. This should only be used at global scope. See reflect<T> for example
+ * usage.
  */
 #define EW_REFLECT(T)                        \
   template <>                                \

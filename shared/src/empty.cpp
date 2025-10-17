@@ -27,9 +27,20 @@ struct sample_writer final : writer {
   void write(std::string_view name, int32_t value) override { write_impl(name, value); }
   void write(std::string_view name, int64_t value) override { write_impl(name, value); }
 
-  void write_compressed(std::string_view name, uint16_t value) override { write_impl(name, value); }
-  void write_compressed(std::string_view name, uint32_t value) override { write_impl(name, value); }
-  void write_compressed(std::string_view name, uint64_t value) override { write_impl(name, value); }
+  void write_compressed(std::string_view name, uint16_t value) override {
+    std::cout << "compress " << name << std::endl;
+    write_impl(name, value);
+  }
+
+  void write_compressed(std::string_view name, uint32_t value) override {
+    std::cout << "compress " << name << std::endl;
+    write_impl(name, value);
+  }
+
+  void write_compressed(std::string_view name, uint64_t value) override {
+    std::cout << "comp" << std::endl;
+    write_impl(name, value);
+  }
 
   void write(std::string_view name, float value) override { write_impl(name, value); }
   void write(std::string_view name, double value) override { write_impl(name, value); }
@@ -163,23 +174,39 @@ struct vec3 {
 };
 
 // Example of a custom serializer for a type, writes vec3's as arrays of floats
-// void serialize(writer& writer, std::string_view name, vec3 const& v) {
-//   writer.begin_array(name, 3);
-//   writer.write(name, v.x);
-//   writer.write(name, v.y);
-//   writer.write(name, v.z);
-//   writer.end_array();
-// }
-//
-// void deserialize(reader& reader, std::string_view name, vec3& value) {
-//   size_t count;
-//   reader.begin_array(name, count);
-//   assert(count == 3);
-//   reader.read(name, value.x);
-//   reader.read(name, value.y);
-//   reader.read(name, value.z);
-//   reader.end_array();
-// }
+void serialize(writer& writer, std::string_view name, vec3 const& v) {
+  writer.begin_object(name);
+  writer.write("x", v.x);
+  writer.write("y", v.y);
+  writer.write("z", v.z);
+  writer.end_object();
+}
+
+void serialize(writer& writer, std::string_view name, vec3 const& v, attrs::compress_tag) {
+  writer.begin_array(name, 3);
+  writer.write(name, v.x);
+  writer.write(name, v.y);
+  writer.write(name, v.z);
+  writer.end_array();
+}
+
+void deserialize(reader& reader, std::string_view name, vec3& v) {
+  reader.begin_object(name);
+  reader.read("x", v.x);
+  reader.read("y", v.y);
+  reader.read("z", v.z);
+  reader.end_object();
+}
+
+void deserialize(reader& reader, std::string_view name, vec3& v, attrs::compress_tag) {
+  size_t count;
+  reader.begin_array(name, count);
+  assert(count == 3);
+  reader.read(name, v.x);
+  reader.read(name, v.y);
+  reader.read(name, v.z);
+  reader.end_array();
+}
 
 struct sample {
   unsigned a;
@@ -192,18 +219,18 @@ struct sample {
 };
 } // namespace ew
 
-EW_REFLECT(ew::vec3) {
-  return std::make_tuple(
-      std::make_tuple("x", &vec3::x),
-      std::make_tuple("y", &vec3::y),
-      std::make_tuple("z", &vec3::z));
-}
+// EW_REFLECT(ew::vec3) {
+//   return std::make_tuple(
+//       std::make_tuple("x", &vec3::x),
+//       std::make_tuple("y", &vec3::y),
+//       std::make_tuple("z", &vec3::z));
+// }
 
 EW_REFLECT(ew::sample) {
   return std::make_tuple(
       std::make_tuple("a", &sample::a, attrs::compress, attrs::allowed_range<unsigned>{0, 42}),
       std::make_tuple("v", &sample::v),
-      std::make_tuple("va", &sample::va),
+      std::make_tuple("va", &sample::va, attrs::compress),
       std::make_tuple("bs", &sample::bs));
 }
 
@@ -276,13 +303,13 @@ void f() {
   }
 
   sample_writer w;
-  serialize(w, "", s);
+  serialize(w, s);
 
   std::cout << w.to_string() << std::endl;
 
   sample s2;
   sample_reader r(w.to_string());
-  deserialize(r, "", s2);
+  deserialize(r, s2);
 
   assert(s == s2);
 }

@@ -78,49 +78,110 @@ struct reader {
   virtual void read(std::string_view name, std::string& value) = 0;
 };
 
+/// Checks if there exists a serialize overload that can handle T
 template <class T>
-void serialize(writer& writer, T const& value) {
-  serialize(writer, "", value);
+concept has_serialize = requires(writer& writer, std::string_view name, T const& value)
+{
+  serialize(writer, name, value);
+};
+
+/// Checks if there exists a serialize overload that can handle a compressed T
+template <class T>
+concept has_compressed_serialize = requires(writer& writer, std::string_view name, T const& value)
+{
+  serialize(writer, name, value, attrs::compress);
+};
+
+/// Checks if there exists a deserialize overload that can handle T
+template <class T>
+concept has_deserialize = requires(reader& reader, std::string_view name, T& value)
+{
+  deserialize(reader, name, value);
+};
+
+/// Checks if there exists a deserialize overload that can handle a compressed T
+template <class T>
+concept has_compressed_deserialize = requires(reader& reader, std::string_view name, T& value)
+{
+  deserialize(reader, name, value, attrs::compress);
+};
+
+/// Checks if the type T has a reflect<T> specialization
+template <class T>
+concept reflectable = reflect<T>::value;
+
+template <class T>
+constexpr bool is_compressed_serializable() {
+  if constexpr (has_compressed_serialize<T> && has_compressed_deserialize<T>) {
+    return true;
+  } else if constexpr ((has_compressed_serialize<T> && !has_compressed_deserialize<T>)
+    // Must have both or neither.
+    || (!has_compressed_serialize<T> && has_compressed_deserialize<T>)) {
+    static_assert(
+        false,
+        "Compressed serialization requires both a deserialize and serialize overload.");
+  }
+
+  return false;
 }
 
+/// Serializes all integral primitives (bool, int, unsigned, etc.)
+void serialize(writer& writer, std::string_view name, std::integral auto const& value) {
+  writer.write(name, value);
+}
+
+/// Serialize compressed 16, 32, or 64-bit unsigned integers
+template <class T>
+  requires(contains_v<T, std::tuple<uint16_t, uint32_t, uint64_t>>)
+void serialize(writer& writer, std::string_view name, T const& value, attrs::compress_tag) {
+  writer.write_compressed(name, value);
+}
+
+/// Serialize floating point primitives (float, double, long double).
+void serialize(writer& writer, std::string_view name, std::floating_point auto const& value) {
+  writer.write(name, value);
+}
+
+/// Serialize string views
+void serialize(writer& writer, std::string_view name, std::string_view const& value) {
+  writer.write(name, value);
+}
+
+/// Serialize reflect<T> specializations
+void serialize(writer& writer, std::string_view, reflectable auto const& value) {
+  using reflected_type = std::decay_t<decltype(value)>;
+  auto members = reflect<reflected_type>::members();
+
+  ew::apply(
+      [&value, &writer]<typename Tuple>(Tuple const& member_tuple) {
+        std::string_view member_name = std::get<0>(member_tuple);
+        auto member_ptr = std::get<1>(member_tuple);
+
+        using member_type = std::decay_t<decltype(value.*member_ptr)>;
+        if (reflectable<member_type>) {
+          writer.begin_object(member_name);
+          serialize(writer, member_name, value.*member_ptr);
+          writer.end_object();
+        } else if constexpr (contains_v<attrs::compress_tag, Tuple> && is_compressed_serializable<member_type>()) {
+          serialize(writer, member_name, value.*member_ptr, attrs::compress);
+        } else {
+          serialize(writer, member_name, value.*member_ptr);
+        }
+      },
+      members);
+}
+
+/// Delegating overload. This is here for the static assertion.
 template <class T>
 void serialize(writer& writer, std::string_view name, T const& value) {
-  if constexpr (reflect<T>::value) {
-    ew::apply(
-        [&value, &writer]<typename Tuple>(Tuple const& member_tuple) {
-          std::string_view name = std::get<0>(member_tuple);
-          auto member_ptr = std::get<1>(member_tuple);
-
-          // Get the bare type of the member
-          using member_type = std::decay_t<decltype(value.*member_ptr)>;
-
-          if constexpr (reflect<member_type>::value) {
-            writer.begin_object(name);
-            serialize(writer, name, value.*member_ptr);
-            writer.end_object();
-          } else if constexpr (contains_v<attrs::compress_tag, Tuple>) {
-            static_assert(
-                std::is_same_v<member_type, uint16_t>
-                || std::is_same_v<member_type, uint32_t>
-                || std::is_same_v<member_type, uint64_t>,
-                "compress flag is only valid on 16, 32 or 64 bit unsigned integers.");
-            writer.write_compressed(name, value.*member_ptr);
-          } else if constexpr (std::is_arithmetic_v<member_type>
-            || std::is_convertible_v<std::string_view, member_type>) {
-            writer.write(name, value.*member_ptr);
-          } else {
-            serialize(writer, name, value.*member_ptr);
-          }
-        },
-        reflect<T>::members());
-  } else if constexpr (std::is_arithmetic_v<T>
-    || std::is_convertible_v<std::string_view, T>) {
-    writer.write(name, value);
+  if constexpr (has_serialize<T>) {
+    serialize(writer, name, value);
   } else {
     static_assert(false, "Expected primitive type, reflect<T> specialization, or serialize overload");
   }
 }
 
+/// Serialize arrays of T
 template <class T, size_t N>
 void serialize(writer& writer, std::string_view name, std::array<T, N> const& value) {
   writer.begin_array(name, N);
@@ -136,6 +197,29 @@ void serialize(writer& writer, std::string_view name, std::array<T, N> const& va
   writer.end_array();
 }
 
+/// Serialize arrays of T forwarding the compression flag.
+template <class T, size_t N>
+void serialize(writer& writer, std::string_view name, std::array<T, N> const& value, attrs::compress_tag) {
+  writer.begin_array(name, N);
+  for (auto&& v : value) {
+    if constexpr (reflect<T>::value) {
+      writer.begin_object("");
+    }
+
+    if constexpr (is_compressed_serializable<T>()) {
+      serialize(writer, "", static_cast<T const&>(v), attrs::compress);
+    } else {
+      serialize(writer, "", static_cast<T const&>(v));
+    }
+
+    if constexpr (reflect<T>::value) {
+      writer.end_object();
+    }
+  }
+  writer.end_array();
+}
+
+/// Serialize vectors of T.
 template <class T, class Alloc>
 void serialize(writer& writer, std::string_view name, std::vector<T, Alloc> const& value) {
   writer.begin_array(name, value.size());
@@ -143,7 +227,31 @@ void serialize(writer& writer, std::string_view name, std::vector<T, Alloc> cons
     if constexpr (reflect<T>::value) {
       writer.begin_object("");
     }
+
     serialize(writer, "", static_cast<T const&>(v));
+
+    if constexpr (reflect<T>::value) {
+      writer.end_object();
+    }
+  }
+  writer.end_array();
+}
+
+/// Serialize vectors of T forwarding the compression flag.
+template <class T, class Alloc>
+void serialize(writer& writer, std::string_view name, std::vector<T, Alloc> const& value, attrs::compress_tag) {
+  writer.begin_array(name, value.size());
+  for (auto&& v : value) {
+    if constexpr (reflect<T>::value) {
+      writer.begin_object("");
+    }
+
+    if constexpr (is_compressed_serializable<T>()) {
+      serialize(writer, "", static_cast<T const&>(v), attrs::compress);
+    } else {
+      serialize(writer, "", static_cast<T const&>(v));
+    }
+
     if constexpr (reflect<T>::value) {
       writer.end_object();
     }
@@ -152,42 +260,67 @@ void serialize(writer& writer, std::string_view name, std::vector<T, Alloc> cons
 }
 
 template <class T>
+void serialize(writer& writer, T const& value) {
+  serialize(writer, "", value);
+}
+
+/// Deserializes all integral primitives (bool, int, unsigned, etc.)
+void deserialize(reader& reader, std::string_view name, std::integral auto& value) {
+  reader.read(name, value);
+}
+
+/// Deserialize compressed 16, 32, or 64-bit unsigned integers
+template <class T>
+  requires(contains_v<T, std::tuple<uint16_t, uint32_t, uint64_t>>)
+void deserialize(reader& reader, std::string_view name, T& value, attrs::compress_tag) {
+  reader.read_compressed(name, value);
+}
+
+/// Deserializes all floating point primitives (float, double, long double).
+void deserialize(reader& reader, std::string_view name, std::floating_point auto& value) {
+  reader.read(name, value);
+}
+
+/// Deserializes strings
+void deserialize(reader& reader, std::string_view name, std::string& value) {
+  reader.read(name, value);
+}
+
+/// Deserializes reflect<T> specializations
+void deserialize(reader& reader, std::string_view name, reflectable auto& value) {
+  using reflected_type = std::decay_t<decltype(value)>;
+  auto members = reflect<reflected_type>::members();
+
+  ew::apply(
+      [&value, &reader]<typename Tuple>(Tuple const& member_tuple) {
+        std::string_view member_name = std::get<0>(member_tuple);
+        auto member_ptr = std::get<1>(member_tuple);
+
+        using member_type = std::decay_t<decltype(value.*member_ptr)>;
+        if (reflectable<member_type>) {
+          reader.begin_object(member_name);
+          deserialize(reader, member_name, value.*member_ptr);
+          reader.end_object();
+        } else if constexpr (contains_v<attrs::compress_tag, Tuple> && is_compressed_serializable<member_type>()) {
+          deserialize(reader, member_name, value.*member_ptr, attrs::compress);
+        } else {
+          deserialize(reader, member_name, value.*member_ptr);
+        }
+      },
+      members);
+}
+
+/// Delegating overload. This is here for the static assertion.
+template <class T>
 void deserialize(reader& reader, std::string_view name, T& value) {
-  if constexpr (reflect<T>::value) {
-    ew::apply(
-        [&value, &reader]<typename Tuple>(Tuple const& member_tuple) {
-          std::string_view name = std::get<0>(member_tuple);
-          auto member_ptr = std::get<1>(member_tuple);
-
-          // Get the bare type of the member
-          using member_type = std::decay_t<decltype(value.*member_ptr)>;
-
-          if constexpr (reflect<member_type>::value) {
-            reader.begin_object(name);
-            deserialize(reader, name, value.*member_ptr);
-            reader.end_object();
-          } else if constexpr (contains_v<attrs::compress_tag, Tuple>) {
-            static_assert(
-                std::is_same_v<member_type, uint16_t> || std::is_same_v<member_type, uint32_t> ||
-                std::is_same_v<member_type, uint64_t>,
-                "compress flag is only valid on 16, 32 or 64 bit unsigned integers.");
-            reader.read_compressed(name, value.*member_ptr);
-          } else if constexpr (std::is_arithmetic_v<member_type>
-            || std::is_convertible_v<std::string_view, member_type>) {
-            reader.read(name, value.*member_ptr);
-          } else {
-            deserialize(reader, name, value.*member_ptr);
-          }
-        },
-        reflect<T>::members());
-  } else if constexpr (std::is_arithmetic_v<T>
-    || std::is_convertible_v<std::string_view, T>) {
-    reader.read(name, value);
+  if constexpr (has_deserialize<T>) {
+    deserialize(reader, name, value);
   } else {
     static_assert(false, "Expected primitive type, reflect<T> specialization, or deserialize overload");
   }
 }
 
+/// Deserialize arrays of T.
 template <class T, size_t N>
 void deserialize(reader& reader, std::string_view name, std::array<T, N>& value) {
   size_t n;
@@ -198,7 +331,9 @@ void deserialize(reader& reader, std::string_view name, std::array<T, N>& value)
     if constexpr (reflect<T>::value) {
       reader.begin_object("");
     }
+
     deserialize(reader, "", value[i]);
+
     if constexpr (reflect<T>::value) {
       reader.end_object();
     }
@@ -206,6 +341,32 @@ void deserialize(reader& reader, std::string_view name, std::array<T, N>& value)
   reader.end_array();
 }
 
+/// Deserialize arrays of T forwarding the compression flag.
+template <class T, size_t N>
+void deserialize(reader& reader, std::string_view name, std::array<T, N>& value, attrs::compress_tag) {
+  size_t n;
+  reader.begin_array(name, n);
+  assert(n == N);
+
+  for (size_t i = 0; i < N; ++i) {
+    if constexpr (reflect<T>::value) {
+      reader.begin_object("");
+    }
+
+    if constexpr (is_compressed_serializable<T>()) {
+      deserialize(reader, "", value[i], attrs::compress);
+    } else {
+      deserialize(reader, "", value[i]);
+    }
+
+    if constexpr (reflect<T>::value) {
+      reader.end_object();
+    }
+  }
+  reader.end_array();
+}
+
+/// Deserialize vectors of T.
 template <class T, class Alloc>
 void deserialize(reader& reader, std::string_view name, std::vector<T, Alloc>& value) {
   size_t n;
@@ -218,7 +379,10 @@ void deserialize(reader& reader, std::string_view name, std::vector<T, Alloc>& v
     }
 
     T v;
+
     deserialize(reader, "", v);
+
+    // It would be nice if we could re-use the std::array code here, but std::vector<bool> ruins everything.
     value.push_back(std::move(v));
 
     if constexpr (reflect<T>::value) {
@@ -226,5 +390,40 @@ void deserialize(reader& reader, std::string_view name, std::vector<T, Alloc>& v
     }
   }
   reader.end_array();
+}
+
+/// Deserialize vectors of T forwarding the compression flag.
+template <class T, class Alloc>
+void deserialize(reader& reader, std::string_view name, std::vector<T, Alloc>& value, attrs::compress_tag) {
+  size_t n;
+  reader.begin_array(name, n);
+  value.reserve(n);
+
+  for (size_t i = 0; i < n; ++i) {
+    if constexpr (reflect<T>::value) {
+      reader.begin_object("");
+    }
+
+    T v;
+
+    if constexpr (is_compressed_serializable<T>()) {
+      deserialize(reader, "", v, attrs::compress);
+    } else {
+      deserialize(reader, "", v);
+    }
+
+    // It would be nice if we could re-use the std::array code here, but std::vector<bool> ruins everything.
+    value.push_back(std::move(v));
+
+    if constexpr (reflect<T>::value) {
+      reader.end_object();
+    }
+  }
+  reader.end_array();
+}
+
+template <class T>
+void deserialize(reader& reader, T& value) {
+  deserialize(reader, "", value);
 }
 } // namespace ew
