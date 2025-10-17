@@ -10,7 +10,9 @@
 #include <unistd.h>
 
 #include <array>
+#include <cassert>
 #include <string_view>
+#include <memory>
 #include <vector>
 
 #include <shared/reflection.h>
@@ -45,6 +47,8 @@ struct writer {
   virtual void write(std::string_view name, double value) = 0;
 
   virtual void write(std::string_view name, std::string_view value) = 0;
+
+  virtual void to_buffer(std::vector<char>& buffer) const = 0;
 };
 
 struct reader {
@@ -143,7 +147,7 @@ void serialize(writer& writer, std::string_view name, std::floating_point auto c
 }
 
 /// Serialize string views
-void serialize(writer& writer, std::string_view name, std::string_view const& value) {
+inline void serialize(writer& writer, std::string_view name, std::string_view const& value) {
   writer.write(name, value);
 }
 
@@ -282,7 +286,7 @@ void deserialize(reader& reader, std::string_view name, std::floating_point auto
 }
 
 /// Deserializes strings
-void deserialize(reader& reader, std::string_view name, std::string& value) {
+inline void deserialize(reader& reader, std::string_view name, std::string& value) {
   reader.read(name, value);
 }
 
@@ -426,4 +430,24 @@ template <class T>
 void deserialize(reader& reader, T& value) {
   deserialize(reader, "", value);
 }
+
+/// Creates a json writer, suitable for writing structured data.
+std::shared_ptr<writer> create_json_writer();
+
+/// Creates a json reader, suitable for reading structured data.
+std::shared_ptr<reader> create_json_reader(std::string_view json);
+
+/// Creates a binary writer with an internal buffer, suitable for flat serialization. This should be used for writing
+/// out data where the structure of the data does not need to be preserved and should always match the compiled
+/// definition.
+std::shared_ptr<writer> create_binary_writer();
+
+/// Creates a binary writer, suitable for flat serialization. This should be used for writing out data where the
+/// structure of the data does not need to be preserved and should always match the compiled definition. This emits the
+/// serialized data to the passed buffer
+std::shared_ptr<writer> create_binary_writer(std::vector<char>& buffer);
+
+/// Creates a binary reader, suitable for flat deserialization. This should be used for reading data where the structure
+/// of the data does not need to be preserved and where the data should match the compiled layout.
+std::shared_ptr<reader> create_binary_reader(std::span<char const> buffer);
 } // namespace ew

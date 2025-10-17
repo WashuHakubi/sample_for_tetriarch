@@ -8,164 +8,9 @@
 #include <iostream>
 #include <stack>
 
-#include <nlohmann/json.hpp>
 #include <shared/serialization.h>
 
 namespace ew {
-struct sample_writer final : writer {
-  sample_writer() { current_.push({&root_, false}); }
-
-  void write(std::string_view name, bool value) override { write_impl(name, value); }
-
-  void write(std::string_view name, uint8_t value) override { write_impl(name, value); }
-  void write(std::string_view name, uint16_t value) override { write_impl(name, value); }
-  void write(std::string_view name, uint32_t value) override { write_impl(name, value); }
-  void write(std::string_view name, uint64_t value) override { write_impl(name, value); }
-
-  void write(std::string_view name, int8_t value) override { write_impl(name, value); }
-  void write(std::string_view name, int16_t value) override { write_impl(name, value); }
-  void write(std::string_view name, int32_t value) override { write_impl(name, value); }
-  void write(std::string_view name, int64_t value) override { write_impl(name, value); }
-
-  void write_compressed(std::string_view name, uint16_t value) override {
-    std::cout << "compress " << name << std::endl;
-    write_impl(name, value);
-  }
-
-  void write_compressed(std::string_view name, uint32_t value) override {
-    std::cout << "compress " << name << std::endl;
-    write_impl(name, value);
-  }
-
-  void write_compressed(std::string_view name, uint64_t value) override {
-    std::cout << "comp" << std::endl;
-    write_impl(name, value);
-  }
-
-  void write(std::string_view name, float value) override { write_impl(name, value); }
-  void write(std::string_view name, double value) override { write_impl(name, value); }
-
-  void write(std::string_view name, std::string_view value) override { write_impl(name, value); }
-
-  void begin_object(std::string_view name) override {
-    auto& [curr, is_array] = current_.top();
-    if (is_array) {
-      curr->push_back(nlohmann::json::object());
-      current_.push({&curr->back(), false});
-    } else {
-      auto& next_curr = (*curr)[name] = nlohmann::json::object();
-      current_.push({&next_curr, false});
-    }
-  }
-
-  void end_object() override { current_.pop(); }
-
-  void begin_array(std::string_view name, size_t count) override {
-    auto& [curr, is_array] = current_.top();
-    if (is_array) {
-      curr->push_back(nlohmann::json::array());
-      current_.push({&curr->back(), true});
-    } else {
-      auto& next_curr = (*curr)[name] = nlohmann::json::array();
-      current_.push({&next_curr, true});
-    }
-  }
-
-  void end_array() override { current_.pop(); }
-
-  std::string to_string() const { return root_.dump(2); }
-
-private:
-  template <class T>
-  void write_impl(std::string_view name, T const& v) {
-    auto& [curr, is_array] = current_.top();
-    if (is_array) {
-      curr->push_back(v);
-    } else {
-      (*curr)[name] = v;
-    }
-  }
-
-  nlohmann::json root_;
-  std::stack<std::pair<nlohmann::json*, bool>> current_;
-};
-
-struct sample_reader final : reader {
-  sample_reader(std::string json) : root_(nlohmann::json::parse(json)) { current_.push({&root_, false, SIZE_MAX}); }
-
-  void read(std::string_view name, bool& value) override { read_impl(name, value); }
-
-  void read(std::string_view name, uint8_t& value) override { read_impl(name, value); }
-  void read(std::string_view name, uint16_t& value) override { read_impl(name, value); }
-  void read(std::string_view name, uint32_t& value) override { read_impl(name, value); }
-  void read(std::string_view name, uint64_t& value) override { read_impl(name, value); }
-
-  void read(std::string_view name, int8_t& value) override { read_impl(name, value); }
-  void read(std::string_view name, int16_t& value) override { read_impl(name, value); }
-  void read(std::string_view name, int32_t& value) override { read_impl(name, value); }
-  void read(std::string_view name, int64_t& value) override { read_impl(name, value); }
-
-  void read_compressed(std::string_view name, uint16_t& value) override { read_impl(name, value); }
-  void read_compressed(std::string_view name, uint32_t& value) override { read_impl(name, value); }
-  void read_compressed(std::string_view name, uint64_t& value) override { read_impl(name, value); }
-
-  void read(std::string_view name, float& value) override { read_impl(name, value); }
-  void read(std::string_view name, double& value) override { read_impl(name, value); }
-
-  void read(std::string_view name, std::string& value) override { read_impl(name, value); }
-
-  void begin_object(std::string_view name) override {
-    auto& [curr, is_array, index] = current_.top();
-    if (is_array) {
-      assert(index < curr->size());
-      auto& next_curr = curr->at(index);
-      assert(next_curr.is_object());
-      current_.push({&next_curr, false, SIZE_MAX});
-      ++index;
-    } else {
-      auto& next_curr = (*curr)[name];
-      assert(next_curr.is_object());
-      current_.push({&next_curr, false, SIZE_MAX});
-    }
-  }
-
-  void end_object() override { current_.pop(); }
-
-  void begin_array(std::string_view name, size_t& count) override {
-    auto& [curr, is_array, index] = current_.top();
-    if (is_array) {
-      assert(index < curr->size());
-      auto& next_curr = curr->at(index);
-      assert(next_curr.is_array());
-      count = next_curr.size();
-      current_.push({&next_curr, true, 0});
-      ++index;
-    } else {
-      auto& next_curr = (*curr)[name];
-      assert(next_curr.is_array());
-      count = next_curr.size();
-      current_.push({&next_curr, true, 0});
-    }
-  }
-
-  void end_array() override { current_.pop(); }
-
-private:
-  template <class T>
-  void read_impl(std::string_view name, T& value) {
-    auto& [curr, is_array, index] = current_.top();
-    if (is_array) {
-      value = curr->at(index).get<T>();
-      ++index;
-    } else {
-      value = (*curr)[name];
-    }
-  }
-
-  nlohmann::json root_;
-  std::stack<std::tuple<nlohmann::json*, bool, size_t>> current_;
-};
-
 struct vec3 {
   float x, y, z;
 
@@ -302,15 +147,31 @@ void f() {
     }
   }
 
-  sample_writer w;
-  serialize(w, s);
+  auto w = create_json_writer();
+  serialize(*w, s);
 
-  std::cout << w.to_string() << std::endl;
+  std::vector<char> buffer;
+  w->to_buffer(buffer);
+  std::cout << std::string_view{buffer} << std::endl;
 
   sample s2;
-  sample_reader r(w.to_string());
-  deserialize(r, s2);
+  auto r = create_json_reader(std::string_view{buffer});
+  deserialize(*r, s2);
 
   assert(s == s2);
+
+  buffer.clear();
+  auto wb = create_binary_writer(buffer);
+  uint64_t test = 0x7fff;
+  wb->write_compressed("", test);
+  wb->write_compressed("", UINT64_MAX);
+
+  auto rb = create_binary_reader(buffer);
+  uint64_t test2{};
+  rb->read_compressed("", test2);
+  assert(test == test2);
+
+  rb->read_compressed("", test2);
+  assert(test2 == UINT64_MAX);
 }
 } // namespace ew
