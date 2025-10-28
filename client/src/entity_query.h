@@ -13,6 +13,16 @@
 #include "entity.h"
 
 namespace ew {
+struct IArchetypeTraversable {
+  virtual ~IArchetypeTraversable() = default;
+
+  virtual std::vector<ArchetypePtr> const& archetypes() const = 0;
+
+  virtual void beginTraversal() const = 0;
+
+  virtual void endTraversal() const = 0;
+};
+
 class EntityQuery {
   template <class ArgTuple, int I = std::tuple_size_v<ArgTuple> - 1>
   struct ComponentFnDetails {
@@ -25,7 +35,7 @@ class EntityQuery {
   };
 
  public:
-  explicit EntityQuery(std::vector<ArchetypePtr> const* archetypes) : archetypes_(archetypes) {}
+  explicit EntityQuery(IArchetypeTraversable const* archetypes) : archetypes_(archetypes) {}
 
   EntityQuery& with(ComponentSet const& ids);
 
@@ -41,7 +51,7 @@ class EntityQuery {
   void forEach(Fn const& fn);
 
  private:
-  std::vector<ArchetypePtr> const* archetypes_;
+  IArchetypeTraversable const* archetypes_;
 
   ComponentSet allComponents_;
   ComponentSet writeComponents_;
@@ -114,10 +124,15 @@ void EntityQuery::forEach(Fn const& fn) {
   auto allComponents = allComponents_;
   ComponentFnDetails<typename Sig::ArgTuple>::build(requiredComponents, writeComponents, allComponents);
 
-  for (auto&& arch : *archetypes_) {
+  // Mark the beginning of traversing archetypes. This should prevent us from mutating any archetypes.
+  archetypes_->beginTraversal();
+
+  for (auto&& arch : archetypes_->archetypes()) {
     if (arch->match(requiredComponents, withoutComponents_)) {
       arch->forEach(fn);
     }
   }
+
+  archetypes_->endTraversal();
 }
 } // namespace ew

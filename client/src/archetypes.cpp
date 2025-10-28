@@ -8,6 +8,7 @@
 #include "archetypes.h"
 
 ew::Entity ew::Archetypes::createFromSet(ComponentSet const& componentTypes) {
+  assert(!traversing_ && "Cannot mutate archetypes while executing an entity query.");
   auto archetype = getOrCreateArchetype(componentTypes);
   size_t index = archetype->allocate();
   const auto entities = archetype->getComponents<Entity>();
@@ -22,6 +23,7 @@ ew::Entity ew::Archetypes::createFromSet(ComponentSet const& componentTypes) {
 }
 
 void ew::Archetypes::destroy(Entity entity) {
+  assert(!traversing_ && "Cannot mutate archetypes while executing an entity query.");
   const auto archetype = entity.descriptor->archetype->shared_from_this();
   assert(std::ranges::find(archetypes_, archetype) != archetypes_.end());
 
@@ -29,6 +31,16 @@ void ew::Archetypes::destroy(Entity entity) {
   const auto end =
       std::ranges::remove_if(entities_, [entity](auto const& item) { return item.get() == entity.descriptor; }).begin();
   entities_.erase(end, entities_.end());
+}
+
+void ew::Archetypes::beginTraversal() const {
+  assert(!traversing_);
+  traversing_ = true;
+}
+
+void ew::Archetypes::endTraversal() const {
+  assert(traversing_);
+  traversing_ = false;
 }
 
 void ew::Archetypes::copy(ArchetypePtr const& from, ArchetypePtr const& to, const size_t fromId, const size_t toId) {
