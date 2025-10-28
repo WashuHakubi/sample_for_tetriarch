@@ -6,21 +6,13 @@
  */
 
 #include "entity_query.h"
-ew::EntityQuery& ew::EntityQuery::with(std::initializer_list<ComponentId> ids) {
-  return addComponents(requiredComponents_, ids);
+
+ew::EntityQuery& ew::EntityQuery::with(ComponentSet const& ids) {
+  set(requiredComponents_, ids);
+  return *this;
 }
 
-ew::EntityQuery& ew::EntityQuery::without(std::initializer_list<ComponentId> ids) {
-  return addComponents(withoutComponents_, ids);
-}
-
-ew::EntityQuery& ew::EntityQuery::atLeastOneOf(std::initializer_list<ComponentId> ids) {
-  return addComponents(atLeastOneComponents_, ids);
-}
-
-ew::EntityQuery& ew::EntityQuery::addComponents(ComponentSet& set, std::initializer_list<ComponentId> ids) {
-  for (auto&& id : ids) {
-    set.emplace(id);
-  }
+ew::EntityQuery& ew::EntityQuery::without(ComponentSet const& ids) {
+  set(withoutComponents_, ids);
   return *this;
 }

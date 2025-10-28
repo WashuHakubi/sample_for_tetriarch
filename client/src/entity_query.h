@@ -16,82 +16,57 @@ namespace ew {
 class EntityQuery {
   template <class ArgTuple, int I = std::tuple_size_v<ArgTuple> - 1>
   struct ComponentFnDetails {
-    static void build(
-        std::unordered_set<ComponentId>& requiredComponents,
-        std::unordered_set<ComponentId>& writeComponents,
-        std::unordered_set<ComponentId>& allComponents);
+    static void build(ComponentSet& requiredComponents, ComponentSet& writeComponents, ComponentSet& allComponents);
   };
 
   template <class ArgTuple>
   struct ComponentFnDetails<ArgTuple, 0> {
-    static void build(
-        std::unordered_set<ComponentId>& requiredComponents,
-        std::unordered_set<ComponentId>& writeComponents,
-        std::unordered_set<ComponentId>& allComponents);
+    static void build(ComponentSet& requiredComponents, ComponentSet& writeComponents, ComponentSet& allComponents);
   };
 
  public:
   explicit EntityQuery(std::vector<ArchetypePtr> const* archetypes) : archetypes_(archetypes) {}
 
-  EntityQuery& with(std::initializer_list<ComponentId> ids);
+  EntityQuery& with(ComponentSet const& ids);
 
-  template <class T>
-  EntityQuery& with() {
-    return with({getComponentId<T>()});
-  }
-
-  template <class T, class T2, class... Ts>
+  template <class T, class... Ts>
   EntityQuery& with();
 
-  EntityQuery& without(std::initializer_list<ComponentId> ids);
+  EntityQuery& without(ComponentSet const& ids);
 
-  template <class T>
+  template <class T, class... Ts>
   EntityQuery& without();
-
-  template <class T, class T2, class... Ts>
-  EntityQuery& without();
-
-  EntityQuery& atLeastOneOf(std::initializer_list<ComponentId> ids);
-
-  template <class T>
-  EntityQuery& atLeastOneOf();
-
-  template <class T, class T2, class... Ts>
-  EntityQuery& atLeastOneOf();
 
   template <class Fn>
   void forEach(Fn const& fn);
 
  private:
-  EntityQuery& addComponents(ComponentSet& set, std::initializer_list<ComponentId> ids);
-
   std::vector<ArchetypePtr> const* archetypes_;
 
-  std::unordered_set<ComponentId> allComponents_;
-  std::unordered_set<ComponentId> writeComponents_;
+  ComponentSet allComponents_;
+  ComponentSet writeComponents_;
 
-  std::unordered_set<ComponentId> requiredComponents_;
-  std::unordered_set<ComponentId> withoutComponents_;
-  std::unordered_set<ComponentId> atLeastOneComponents_;
+  ComponentSet requiredComponents_;
+  ComponentSet withoutComponents_;
 };
 
 template <class ArgTuple, int I>
 void EntityQuery::ComponentFnDetails<ArgTuple, I>::build(
-    std::unordered_set<ComponentId>& requiredComponents,
-    std::unordered_set<ComponentId>& writeComponents,
-    std::unordered_set<ComponentId>& allComponents) {
+    ComponentSet& requiredComponents,
+    ComponentSet& writeComponents,
+    ComponentSet& allComponents) {
   static_assert(I > 0, "Function must take at least one component.");
 
   using SigTraits = detail::FnArgTraits<ArgTuple, I>;
   using ElementType = SigTraits::ElementType;
 
-  allComponents.emplace(getComponentId<ElementType>());
+  set(allComponents, getComponentId<ElementType>());
   if constexpr (!SigTraits::isOptional) {
-    requiredComponents.emplace(getComponentId<ElementType>());
+    set(requiredComponents, getComponentId<ElementType>());
   }
 
   if constexpr (!SigTraits::isReadOnly) {
-    writeComponents.emplace(getComponentId<ElementType>());
+    set(writeComponents, getComponentId<ElementType>());
   }
 
   ComponentFnDetails<ArgTuple, I - 1>::build(requiredComponents, writeComponents, allComponents);
@@ -99,55 +74,48 @@ void EntityQuery::ComponentFnDetails<ArgTuple, I>::build(
 
 template <class ArgTuple>
 void EntityQuery::ComponentFnDetails<ArgTuple, 0>::build(
-    std::unordered_set<ComponentId>& requiredComponents,
-    std::unordered_set<ComponentId>& writeComponents,
-    std::unordered_set<ComponentId>& allComponents) {
+    ComponentSet& requiredComponents,
+    ComponentSet& writeComponents,
+    ComponentSet& allComponents) {
   using SigTraits = detail::FnArgTraits<ArgTuple, 0>;
   using ElementType = SigTraits::ElementType;
 
-  allComponents.emplace(getComponentId<ElementType>());
+  set(allComponents, getComponentId<ElementType>());
   if constexpr (!SigTraits::isOptional) {
-    requiredComponents.emplace(getComponentId<ElementType>());
+    set(requiredComponents, getComponentId<ElementType>());
   }
 
   if constexpr (!SigTraits::isReadOnly) {
-    writeComponents.emplace(getComponentId<ElementType>());
+    set(writeComponents, getComponentId<ElementType>());
   }
 }
 
-template <class T, class T2, class... Ts>
+template <class T, class... Ts>
 EntityQuery& EntityQuery::with() {
-  return with({getComponentId<T>(), getComponentId<T2>(), getComponentId<Ts>()...});
+  set(requiredComponents_, getComponentId<T>());
+  (set(requiredComponents_, getComponentId<Ts>()), ...);
+  return *this;
 }
 
-template <class T>
+template <class T, class... Ts>
 EntityQuery& EntityQuery::without() {
-  return without({getComponentId<T>()});
-}
-
-template <class T, class T2, class... Ts>
-EntityQuery& EntityQuery::without() {
-  return without({getComponentId<T>(), getComponentId<T2>(), getComponentId<Ts>()...});
-}
-
-template <class T>
-EntityQuery& EntityQuery::atLeastOneOf() {
-  return atLeastOneOf({getComponentId<T>()});
-}
-
-template <class T, class T2, class... Ts>
-EntityQuery& EntityQuery::atLeastOneOf() {
-  return atLeastOneOf({getComponentId<T>(), getComponentId<T2>(), getComponentId<Ts>()...});
+  set(withoutComponents_, getComponentId<T>());
+  (set(withoutComponents_, getComponentId<Ts>()), ...);
+  return *this;
 }
 
 template <class Fn>
 void EntityQuery::forEach(Fn const& fn) {
   using Sig = detail::FnSig<Fn>;
 
-  ComponentFnDetails<typename Sig::ArgTuple>::build(requiredComponents_, writeComponents_, allComponents_);
+  // The lambda fn may impose additional requirements, these requirements are ephemeral to this function call
+  auto requiredComponents = requiredComponents_;
+  auto writeComponents = writeComponents_;
+  auto allComponents = allComponents_;
+  ComponentFnDetails<typename Sig::ArgTuple>::build(requiredComponents, writeComponents, allComponents);
 
   for (auto&& arch : *archetypes_) {
-    if (arch->match(requiredComponents_, withoutComponents_, atLeastOneComponents_)) {
+    if (arch->match(requiredComponents, withoutComponents_)) {
       arch->forEach(fn);
     }
   }

@@ -7,7 +7,7 @@
 
 #include "archetypes.h"
 
-ew::Entity ew::Archetypes::create(ComponentSet const& componentTypes) {
+ew::Entity ew::Archetypes::createFromSet(ComponentSet const& componentTypes) {
   auto archetype = getOrCreateArchetype(componentTypes);
   size_t index = archetype->allocate();
   const auto entities = archetype->getComponents<Entity>();
@@ -31,7 +31,7 @@ void ew::Archetypes::destroy(Entity entity) {
   entities_.erase(end, entities_.end());
 }
 
-void ew::Archetypes::copy(ArchetypePtr const& from, ArchetypePtr const& to, size_t fromId, size_t toId) {
+void ew::Archetypes::copy(ArchetypePtr const& from, ArchetypePtr const& to, const size_t fromId, const size_t toId) {
   for (auto&& component : from->componentData_) {
     auto it = to->componentData_.find(component.first);
     if (it == to->componentData_.end())
@@ -51,13 +51,13 @@ ew::ArchetypePtr ew::Archetypes::getOrCreateArchetype(ComponentSet const& compon
   std::unordered_map<ComponentId, ArchetypeStoragePtr> componentData;
   componentData.emplace(getComponentId<Entity>(), componentIdToStorage_[getComponentId<Entity>()]());
 
-  for (auto&& id : componentTypes) {
+  forEach(componentTypes, [this, &componentData](auto id) {
     if (auto it = componentIdToStorage_.find(id); it == componentIdToStorage_.end()) {
       assert(false && "Need to register all component types before allocating _archetypes.");
     } else {
       componentData.emplace(id, it->second());
     }
-  }
+  });
 
   auto result = std::make_shared<Archetype>(std::move(componentData), componentTypes);
   archetypes_.emplace_back(result);

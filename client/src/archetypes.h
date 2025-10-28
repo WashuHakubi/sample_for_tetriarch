@@ -18,20 +18,20 @@ class Archetypes {
   template <class T>
   ComponentId registerComponent();
 
-  template <class T, class... Ts>
+  template <class... Ts>
   [[nodiscard]] Entity create();
 
-  template <class T, class... Ts>
-  [[nodiscard]] Entity create(T&& t, Ts&&... ts);
+  template <class... Ts>
+  [[nodiscard]] Entity create(Ts&&... ts);
 
-  [[nodiscard]] Entity create(ComponentSet const& componentTypes);
+  [[nodiscard]] Entity createFromSet(ComponentSet const& componentTypes);
 
   void destroy(Entity entity);
 
-  template <class T, class... Ts>
-  void addComponents(Entity entity, T t, Ts&&... ts);
+  template <class... Ts>
+  void addComponents(Entity entity, Ts&&... ts);
 
-  template <class T, class... Ts>
+  template <class... Ts>
   void removeComponents(Entity entity);
 
   [[nodiscard]] EntityQuery query() const { return EntityQuery{&archetypes_}; }
@@ -42,7 +42,7 @@ class Archetypes {
   template <class T>
   static void assign(ArchetypePtr const& ptr, size_t index, T&& v);
 
-  template <class T, class... Ts>
+  template <class... Ts>
   ArchetypePtr getOrCreateArchetype();
 
   ArchetypePtr getOrCreateArchetype(ComponentSet const& componentTypes);
@@ -58,33 +58,31 @@ ComponentId Archetypes::registerComponent() {
       .first->first;
 }
 
-template <class T, class... Ts>
+template <class... Ts>
 Entity Archetypes::create() {
-  return create({registerComponent<T>(), registerComponent<Ts>()...});
+  return createFromSet(fromIds({registerComponent<Ts>()...}));
 }
 
-template <class T, class... Ts>
-Entity Archetypes::create(T&& t, Ts&&... ts) {
-  auto eid = create({registerComponent<T>(), registerComponent<Ts>()...});
-  addComponents(eid, std::forward<T>(t), std::forward<Ts>(ts)...);
+template <class... Ts>
+Entity Archetypes::create(Ts&&... ts) {
+  auto eid = createFromSet(fromIds({registerComponent<Ts>()...}));
+  addComponents(eid, std::forward<Ts>(ts)...);
   return eid;
 }
 
-template <class T, class... Ts>
-void Archetypes::addComponents(Entity entity, T t, Ts&&... ts) {
+template <class... Ts>
+void Archetypes::addComponents(const Entity entity, Ts&&... ts) {
   auto archetype = entity.descriptor->archetype->shared_from_this();
   assert(std::ranges::find(archetypes_, archetype) != archetypes_.end());
 
   auto next = archetype->components_;
-  next.emplace(getComponentId<T>());
-  (next.emplace(getComponentId<Ts>()), ...);
+  (set(next, getComponentId<Ts>()), ...);
 
   auto curId = entity.descriptor->id;
 
   auto nextArchetype = getOrCreateArchetype(next);
   if (nextArchetype == archetype) {
     // Update the component values
-    archetype->getComponents<T>()[curId] = t;
     (assign(archetype, curId, std::forward<Ts>(ts)), ...);
     return;
   }
@@ -92,7 +90,6 @@ void Archetypes::addComponents(Entity entity, T t, Ts&&... ts) {
   size_t nextId = nextArchetype->allocate();
   copy(archetype, nextArchetype, curId, nextId);
 
-  nextArchetype->getComponents<T>()[nextId] = t;
   (assign(nextArchetype, nextId, ts), ...);
 
   archetype->release(curId);
@@ -100,14 +97,13 @@ void Archetypes::addComponents(Entity entity, T t, Ts&&... ts) {
   entity.descriptor->id = nextId;
 }
 
-template <class T, class... Ts>
-void Archetypes::removeComponents(Entity entity) {
+template <class... Ts>
+void Archetypes::removeComponents(const Entity entity) {
   const auto archetype = entity.descriptor->archetype->shared_from_this();
   assert(std::ranges::find(archetypes_, archetype) != archetypes_.end());
 
   auto next = archetype->components_;
-  next.erase(getComponentId<T>());
-  (next.erase(getComponentId<Ts>()), ...);
+  (clear(next, getComponentId<Ts>()), ...);
 
   const auto curId = entity.descriptor->id;
 
@@ -128,11 +124,10 @@ void Archetypes::assign(ArchetypePtr const& ptr, size_t index, T&& v) {
   ptr->getComponents<std::decay_t<T>>()[index] = std::forward<T>(v);
 }
 
-template <class T, class... Ts>
+template <class... Ts>
 ArchetypePtr Archetypes::getOrCreateArchetype() {
   ComponentSet componentIds;
-  componentIds.emplace(getComponentId<T>());
-  (componentIds.emplace(getComponentId<Ts>()), ...);
+  (set(componentIds, getComponentId<Ts>()), ...);
 
   return getOrCreateArchetype(componentIds);
 }
