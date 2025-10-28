@@ -3,13 +3,9 @@ file(GLOB_RECURSE client_FILES CONFIGURE_DEPENDS "src/**.cpp")
 add_executable(client ${client_FILES})
 
 target_link_libraries(client
-        ryml::ryml
         SDL3::SDL3
         imgui
         freetype
-        RmlUi::RmlUi
-        RmlSdlBackend
-
         shared)
 
 target_compile_definitions(client PUBLIC SDL_MAIN_USE_CALLBACKS)

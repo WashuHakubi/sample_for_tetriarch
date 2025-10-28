@@ -30,8 +30,7 @@ namespace ew {
  * </code>
  */
 template <class T>
-struct reflect : std::false_type {
-};
+struct reflect : std::false_type {};
 } // namespace ew
 
 #define EW_DECLARE_REFLECT \
@@ -47,4 +46,4 @@ struct reflect : std::false_type {
   struct ::ew::reflect<T> : std::true_type { \
     static auto members();                   \
   };                                         \
-  auto ::ew::reflect<T>::members()
+  inline auto ::ew::reflect<T>::members()

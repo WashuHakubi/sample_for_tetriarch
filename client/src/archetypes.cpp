@@ -1,0 +1,65 @@
+/*
+ *  Copyright (c) 2025 Sean Kent. All rights reserved.
+ *
+ *  Distributed under the Boost Software License, Version 1.0. (See accompanying
+ *  file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
+ */
+
+#include "archetypes.h"
+
+ew::Entity ew::Archetypes::create(ComponentSet const& componentTypes) {
+  auto archetype = getOrCreateArchetype(componentTypes);
+  size_t index = archetype->allocate();
+  const auto entities = archetype->getComponents<Entity>();
+  auto desc = std::make_unique<EntityDescriptor>(archetype, index);
+  const auto entity = Entity{desc.get()};
+
+  entities[index] = entity;
+  entities_.emplace_back(std::move(desc));
+
+  // ReSharper disable once CppDFALocalValueEscapesFunction
+  return entity;
+}
+
+void ew::Archetypes::destroy(Entity entity) {
+  const auto archetype = entity.descriptor->archetype->shared_from_this();
+  assert(std::ranges::find(archetypes_, archetype) != archetypes_.end());
+
+  archetype->release(entity.descriptor->id);
+  const auto end =
+      std::ranges::remove_if(entities_, [entity](auto const& item) { return item.get() == entity.descriptor; }).begin();
+  entities_.erase(end, entities_.end());
+}
+
+void ew::Archetypes::copy(ArchetypePtr const& from, ArchetypePtr const& to, size_t fromId, size_t toId) {
+  for (auto&& component : from->componentData_) {
+    auto it = to->componentData_.find(component.first);
+    if (it == to->componentData_.end())
+      continue;
+
+    it->second->setFrom(component.second, fromId, toId);
+  }
+}
+
+ew::ArchetypePtr ew::Archetypes::getOrCreateArchetype(ComponentSet const& componentTypes) {
+  for (auto&& archetype : archetypes_) {
+    if (archetype->components_ == componentTypes) {
+      return archetype;
+    }
+  }
+
+  std::unordered_map<ComponentId, ArchetypeStoragePtr> componentData;
+  componentData.emplace(getComponentId<Entity>(), componentIdToStorage_[getComponentId<Entity>()]());
+
+  for (auto&& id : componentTypes) {
+    if (auto it = componentIdToStorage_.find(id); it == componentIdToStorage_.end()) {
+      assert(false && "Need to register all component types before allocating _archetypes.");
+    } else {
+      componentData.emplace(id, it->second());
+    }
+  }
+
+  auto result = std::make_shared<Archetype>(std::move(componentData), componentTypes);
+  archetypes_.emplace_back(result);
+  return result;
+}

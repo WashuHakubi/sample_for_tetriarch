@@ -11,8 +11,8 @@
 
 #include <array>
 #include <cassert>
-#include <string_view>
 #include <memory>
+#include <string_view>
 #include <vector>
 
 #include <shared/reflection.h>
@@ -84,29 +84,25 @@ struct reader {
 
 /// Checks if there exists a serialize overload that can handle T
 template <class T>
-concept has_serialize = requires(writer& writer, std::string_view name, T const& value)
-{
+concept has_serialize = requires(writer& writer, std::string_view name, T const& value) {
   serialize(writer, name, value);
 };
 
 /// Checks if there exists a serialize overload that can handle a compressed T
 template <class T>
-concept has_compressed_serialize = requires(writer& writer, std::string_view name, T const& value)
-{
+concept has_compressed_serialize = requires(writer& writer, std::string_view name, T const& value) {
   serialize(writer, name, value, attrs::compress);
 };
 
 /// Checks if there exists a deserialize overload that can handle T
 template <class T>
-concept has_deserialize = requires(reader& reader, std::string_view name, T& value)
-{
+concept has_deserialize = requires(reader& reader, std::string_view name, T& value) {
   deserialize(reader, name, value);
 };
 
 /// Checks if there exists a deserialize overload that can handle a compressed T
 template <class T>
-concept has_compressed_deserialize = requires(reader& reader, std::string_view name, T& value)
-{
+concept has_compressed_deserialize = requires(reader& reader, std::string_view name, T& value) {
   deserialize(reader, name, value, attrs::compress);
 };
 
@@ -118,12 +114,11 @@ template <class T>
 constexpr bool is_compressed_serializable() {
   if constexpr (has_compressed_serialize<T> && has_compressed_deserialize<T>) {
     return true;
-  } else if constexpr ((has_compressed_serialize<T> && !has_compressed_deserialize<T>)
-    // Must have both or neither.
-    || (!has_compressed_serialize<T> && has_compressed_deserialize<T>)) {
-    static_assert(
-        false,
-        "Compressed serialization requires both a deserialize and serialize overload.");
+  } else if constexpr (
+      (has_compressed_serialize<T> && !has_compressed_deserialize<T>)
+      // Must have both or neither.
+      || (!has_compressed_serialize<T> && has_compressed_deserialize<T>)) {
+    static_assert(false, "Compressed serialization requires both a deserialize and serialize overload.");
   }
 
   return false;
@@ -173,16 +168,6 @@ void serialize(writer& writer, std::string_view, reflectable auto const& value) 
         }
       },
       members);
-}
-
-/// Delegating overload. This is here for the static assertion.
-template <class T>
-void serialize(writer& writer, std::string_view name, T const& value) {
-  if constexpr (has_serialize<T>) {
-    serialize(writer, name, value);
-  } else {
-    static_assert(false, "Expected primitive type, reflect<T> specialization, or serialize overload");
-  }
 }
 
 /// Serialize arrays of T
@@ -265,7 +250,11 @@ void serialize(writer& writer, std::string_view name, std::vector<T, Alloc> cons
 
 template <class T>
 void serialize(writer& writer, T const& value) {
-  serialize(writer, "", value);
+  if constexpr (has_serialize<T>) {
+    serialize(writer, "", value);
+  } else {
+    static_assert(false, "Expected primitive type, reflect<T> specialization, or serialize overload");
+  }
 }
 
 /// Deserializes all integral primitives (bool, int, unsigned, etc.)
