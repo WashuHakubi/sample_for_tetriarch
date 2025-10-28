@@ -11,9 +11,7 @@
 
 ew::Archetype::Archetype(std::unordered_map<ComponentId, ArchetypeStoragePtr> components, ComponentSet componentTypes)
     : componentData_(std::move(components))
-    , components_(std::move(componentTypes)) {
-  set(components_, getComponentId<Entity>());
-}
+    , components_(std::move(componentTypes)) {}
 
 size_t ew::Archetype::allocate() {
   if (free_.empty()) {
@@ -37,7 +35,7 @@ void ew::Archetype::release(size_t id) {
   free_.emplace(id);
 }
 
-bool ew::Archetype::match(ComponentSet const& with, ComponentSet const& without) {
+bool ew::Archetype::match(ComponentSet const& with, ComponentSet const& without) const {
   if (!allOf(components_, with)) {
     return false;
   }

@@ -32,7 +32,7 @@ struct IArchetypeStorage {
 };
 
 template <class T>
-struct ArchetypeStorage : IArchetypeStorage {
+struct ArchetypeStorage final : IArchetypeStorage {
   [[nodiscard]] ComponentId getId() const override { return getComponentId<T>(); }
 
   [[nodiscard]] void* data() override { return data_.data(); }

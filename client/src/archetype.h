@@ -69,7 +69,7 @@ class Archetype : public std::enable_shared_from_this<Archetype> {
 
   bool hasComponent(const ComponentId id) const { return componentData_.contains(id); }
 
-  bool match(ComponentSet const& with, ComponentSet const& without);
+  bool match(ComponentSet const& with, ComponentSet const& without) const;
 
   template <class T>
   T* getComponents();

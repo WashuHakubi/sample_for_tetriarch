@@ -48,10 +48,13 @@ ew::ArchetypePtr ew::Archetypes::getOrCreateArchetype(ComponentSet const& compon
     }
   }
 
+  // Create a copy of the component types and ensure Entity is in it
+  auto newComponentTypes = componentTypes;
+  set(newComponentTypes, getComponentId<Entity>());
   std::unordered_map<ComponentId, ArchetypeStoragePtr> componentData;
-  componentData.emplace(getComponentId<Entity>(), componentIdToStorage_[getComponentId<Entity>()]());
 
-  forEach(componentTypes, [this, &componentData](auto id) {
+  // Create the storage containers for the components
+  forEach(newComponentTypes, [this, &componentData](auto id) {
     if (auto it = componentIdToStorage_.find(id); it == componentIdToStorage_.end()) {
       assert(false && "Need to register all component types before allocating _archetypes.");
     } else {
@@ -59,7 +62,7 @@ ew::ArchetypePtr ew::Archetypes::getOrCreateArchetype(ComponentSet const& compon
     }
   });
 
-  auto result = std::make_shared<Archetype>(std::move(componentData), componentTypes);
+  auto result = std::make_shared<Archetype>(std::move(componentData), newComponentTypes);
   archetypes_.emplace_back(result);
   return result;
 }
