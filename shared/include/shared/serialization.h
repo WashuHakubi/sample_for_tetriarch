@@ -106,10 +106,6 @@ concept has_compressed_deserialize = requires(reader& reader, std::string_view n
   deserialize(reader, name, value, attrs::compress);
 };
 
-/// Checks if the type T has a reflect<T> specialization
-template <class T>
-concept reflectable = reflect<T>::value;
-
 template <class T>
 constexpr bool is_compressed_serializable() {
   if constexpr (has_compressed_serialize<T> && has_compressed_deserialize<T>) {
