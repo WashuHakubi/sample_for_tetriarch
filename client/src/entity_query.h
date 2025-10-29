@@ -13,6 +13,9 @@
 #include "entity.h"
 
 namespace ew {
+class Archetypes;
+using ArchetypesPtr = std::shared_ptr<Archetypes>;
+
 struct IArchetypeTraversable {
   virtual ~IArchetypeTraversable() = default;
 
@@ -35,7 +38,7 @@ class EntityQuery {
   };
 
  public:
-  explicit EntityQuery(IArchetypeTraversable const* archetypes) : archetypes_(archetypes) {}
+  EntityQuery(Archetypes const& archetypes);
 
   EntityQuery& with(ComponentSet const& ids);
 

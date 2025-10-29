@@ -34,13 +34,12 @@ void ew::Archetypes::destroy(Entity entity) {
 }
 
 void ew::Archetypes::beginTraversal() const {
-  assert(!traversing_);
-  traversing_ = true;
+  ++traversing_;
 }
 
 void ew::Archetypes::endTraversal() const {
-  assert(traversing_);
-  traversing_ = false;
+  assert(traversing_ > 0);
+  --traversing_;
 }
 
 void ew::Archetypes::copy(ArchetypePtr const& from, ArchetypePtr const& to, const size_t fromId, const size_t toId) {

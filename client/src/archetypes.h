@@ -11,6 +11,9 @@
 #include "entity_query.h"
 
 namespace ew {
+class Archetypes;
+using ArchetypesPtr = std::shared_ptr<Archetypes>;
+
 class Archetypes : IArchetypeTraversable {
  public:
   Archetypes() { registerComponent<Entity>(); }
@@ -34,7 +37,7 @@ class Archetypes : IArchetypeTraversable {
   template <class... Ts>
   void removeComponents(Entity entity);
 
-  [[nodiscard]] EntityQuery query() const { return EntityQuery{this}; }
+  [[nodiscard]] EntityQuery query() const { return EntityQuery{*this}; }
 
  private:
   friend class EntityQuery;
@@ -58,7 +61,7 @@ class Archetypes : IArchetypeTraversable {
   std::unordered_map<ComponentId, std::function<ArchetypeStoragePtr()>> componentIdToStorage_;
   std::vector<ArchetypePtr> archetypes_;
   std::vector<std::unique_ptr<EntityDescriptor>> entities_;
-  mutable bool traversing_{false};
+  mutable int traversing_{0};
 };
 
 template <class T>

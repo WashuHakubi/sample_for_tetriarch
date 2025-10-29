@@ -81,20 +81,12 @@ fetch_dependency(
 fetch_dependency(
         SDL3
         GIT_SOURCE https://github.com/libsdl-org/SDL.git
-        VERSION release-3.2.10
+        # VERSION release-3.2.24
+        VERSION origin/main
         CONFIGURATION ${CMAKE_BUILD_TYPE}
         CONFIGURE_OPTIONS -DSDL_SHARED=OFF -DSDL_STATIC=ON -DBUILD_SHARED_LIBS=OFF
         ROOT ${PROJECT_SOURCE_DIR}/ext
 )
-
-#fetch_dependency(
-#        crossguid
-#        GIT_SOURCE https://github.com/WashuHakubi/crossguid.git
-#        VERSION origin/master
-#        CONFIGURATION ${CMAKE_BUILD_TYPE}
-#        ROOT ${PROJECT_SOURCE_DIR}/ext
-#        CONFIGURE_OPTIONS -DCROSSGUID_TESTS=OFF
-#)
 
 fetch_dependency(
         freetype
@@ -113,15 +105,14 @@ fetch_dependency(
         ROOT ${PROJECT_SOURCE_DIR}/ext
 )
 
-#fetch_dependency(
-#        RmlUi
-#        GIT_SOURCE https://github.com/mikke89/RmlUi.git
-#        VERSION cdff6ad9dcf04989275ef5c88f792c488f80a508 # Using 6.2 instead of 6.1 to fix Mac mouse positions
-#        CONFIGURATION ${CMAKE_BUILD_TYPE}
-#        CONFIGURE_OPTIONS -DRMLUI_SAMPLES=OFF -DRMLUI_BACKEND=native -DRMLUI_FONT_ENGINE=freetype -DRMLUI_THIRDPARTY_CONTAINERS=OFF -DBUILD_SHARED_LIBS=OFF
-#        ROOT ${PROJECT_SOURCE_DIR}/ext
-#        OUT_SOURCE_DIR RML_OUT_DIR
-#)
+# fetch_dependency(
+#         gflags
+#         GIT_SOURCE https://github.com/gflags/gflags.git
+#         VERSION v2.2.2
+#         CONFIGURATION ${CMAKE_BUILD_TYPE}
+#         CONFIGURE_OPTIONS -DBUILD_SHARED_LIBS=OFF
+#         ROOT ${PROJECT_SOURCE_DIR}/ext
+# )
 
 fetch_dependency(
         ng-log
@@ -132,33 +123,33 @@ fetch_dependency(
         ROOT ${PROJECT_SOURCE_DIR}/ext
 )
 
-#fetch_dependency(
-#        yojimbo
-#        GIT_SOURCE https://github.com/mas-bandwidth/yojimbo.git
-#        VERSION v1.2.5
-#        ROOT ${PROJECT_SOURCE_DIR}/ext/yojimbo
-#        FETCH_ONLY
-#        OUT_SOURCE_DIR YOJIMBO_SOURCE
-#)
-#
-## Add the RmlUi SDL backend. This can be tweaked to support any of the SDL backends.
-#add_library(RmlSdlBackend STATIC
+# fetch_dependency(
+#        RmlUi
+#        GIT_SOURCE https://github.com/mikke89/RmlUi.git
+#        VERSION cdff6ad9dcf04989275ef5c88f792c488f80a508 # Using 6.2 instead of 6.1 to fix Mac mouse positions
+#        CONFIGURATION ${CMAKE_BUILD_TYPE}
+#        CONFIGURE_OPTIONS -DRMLUI_SAMPLES=OFF -DRMLUI_BACKEND=native -DRMLUI_FONT_ENGINE=freetype -DRMLUI_THIRDPARTY_CONTAINERS=OFF -DBUILD_SHARED_LIBS=OFF
+#        ROOT ${PROJECT_SOURCE_DIR}/ext
+#        OUT_SOURCE_DIR RML_OUT_DIR
+# )
+# # Add the RmlUi SDL backend. This can be tweaked to support any of the SDL backends.
+# add_library(RmlSdlBackend STATIC
 #        ${RML_OUT_DIR}/Backends/RmlUi_Platform_SDL.h
 #        ${RML_OUT_DIR}/Backends/RmlUi_Platform_SDL.cpp
 #        ${RML_OUT_DIR}/Backends/RmlUi_Renderer_SDL.h
 #        ${RML_OUT_DIR}/Backends/RmlUi_Renderer_SDL.cpp)
-#
-#target_include_directories(RmlSdlBackend PUBLIC
+
+# target_include_directories(RmlSdlBackend PUBLIC
 #        ${RML_OUT_DIR}/Backends)
-#
-#target_compile_definitions(RmlSdlBackend PUBLIC
+
+# target_compile_definitions(RmlSdlBackend PUBLIC
 #        RMLUI_SDL_VERSION_MAJOR=3)
-#
-#target_link_libraries(RmlSdlBackend PRIVATE
+
+# target_link_libraries(RmlSdlBackend PRIVATE
 #        RmlUi::RmlUi
 #        SDL3::SDL3
 #        SDL3_image::SDL3_image
-#)
+# )
 
 add_subdirectory(ext)
 

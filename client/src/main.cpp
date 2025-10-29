@@ -5,41 +5,66 @@
  *  file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
  */
 
-#include <iostream>
+#include <SDL3/SDL.h>
+#include <SDL3/SDL_main.h>
+#include <SDL3/SDL_render.h>
 
-#include "archetypes.h"
+#include <ng-log/logging.h>
 
-struct Transform {};
-
-struct NpcCharacter {
-  std::string name;
+struct AppState {
+  SDL_Window* window{nullptr};
+  SDL_Renderer* renderer{nullptr};
+  SDL_GPUDevice* device{nullptr};
 };
 
-struct Hostile {};
+SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv) {
+  FLAGS_logtostderr = 1;
+  nglog::InitializeLogging(argv[0]);
 
-int main() {
-  ew::Archetypes arches;
-  // arches.registerComponent<Transform>();
-  // arches.registerComponent<NpcCharacter>();
-  // arches.registerComponent<Hostile>();
+  if (!SDL_InitSubSystem(SDL_INIT_VIDEO)) {
+    LOG(FATAL) << "Failed to initialize SDL: " << SDL_GetError();
+  }
 
-  [[maybe_unused]] auto friendly = arches.create<Transform, NpcCharacter>({}, {"Johnny Bravo"});
+  auto state = std::make_unique<AppState>();
 
-  [[maybe_unused]] auto unfriendly = arches.create<Transform, NpcCharacter, Hostile>();
-  [[maybe_unused]] auto unfriendly2 = arches.create<Transform, NpcCharacter, Hostile>();
+  state->window = SDL_CreateWindow("Test", 800, 600, 0);
+  if (!state->window) {
+    LOG(FATAL) << "Failed to create window: " << SDL_GetError();
+  }
 
-  std::cout << "All entities" << std::endl;
-  arches.query().forEach([](ew::Entity const e) {
-    std::cout << e.descriptor->id << " " << e.descriptor->archetype << std::endl;
-  });
+  state->device = SDL_CreateGPUDevice(SDL_GPU_SHADERFORMAT_SPIRV, false, nullptr);
+  if (!state->device) {
+    LOG(FATAL) << "Failed to create GPU device: " << SDL_GetError();
+  }
 
-  std::cout << "Friendlies in cherno:" << std::endl;
-  arches.query().without<Hostile>().forEach([](ew::Entity const e, NpcCharacter const& npc) {
-    std::cout << e.descriptor->id << " " << e.descriptor->archetype << ": " << npc.name << std::endl;
-  });
+  state->renderer = SDL_CreateGPURenderer(state->device, state->window);
 
-  std::cout << "Hostile entities" << std::endl;
-  arches.query().forEach([](ew::Entity const e, Hostile const&) {
-    std::cout << e.descriptor->id << " " << e.descriptor->archetype << std::endl;
-  });
+  *appstate = state.release();
+  return SDL_APP_CONTINUE;
+}
+
+SDL_AppResult SDL_AppIterate(void* appstate) {
+  auto state = static_cast<AppState*>(appstate);
+
+  SDL_RenderClear(state->renderer);
+
+  SDL_RenderPresent(state->renderer);
+  return SDL_APP_CONTINUE;
+}
+
+SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* event) {
+  // auto state = static_cast<AppState*>(appstate);
+  if (event->type == SDL_EVENT_QUIT) {
+    return SDL_APP_SUCCESS;
+  }
+
+  return SDL_APP_CONTINUE;
+}
+
+void SDL_AppQuit(void* appstate, SDL_AppResult result) {
+  auto state = static_cast<AppState*>(appstate);
+  SDL_DestroyRenderer(state->renderer);
+  SDL_DestroyGPUDevice(state->device);
+  SDL_DestroyWindow(state->window);
+  delete state;
 }

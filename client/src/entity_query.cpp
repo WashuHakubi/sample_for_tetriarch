@@ -6,6 +6,9 @@
  */
 
 #include "entity_query.h"
+#include "archetypes.h"
+
+ew::EntityQuery::EntityQuery(Archetypes const& archetypes) : archetypes_(&archetypes) {}
 
 ew::EntityQuery& ew::EntityQuery::with(ComponentSet const& ids) {
   set(requiredComponents_, ids);
