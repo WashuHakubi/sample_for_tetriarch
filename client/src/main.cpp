@@ -9,6 +9,8 @@
 #include <SDL3/SDL_main.h>
 #include <SDL3/SDL_render.h>
 
+#include <SDL3_shadercross/SDL_shadercross.h>
+
 #include <ng-log/logging.h>
 
 struct AppState {
@@ -27,12 +29,16 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv) {
 
   auto state = std::make_unique<AppState>();
 
-  state->window = SDL_CreateWindow("Test", 800, 600, 0);
+  state->window = SDL_CreateWindow("Test", 800, 600, SDL_WINDOW_HIGH_PIXEL_DENSITY);
   if (!state->window) {
     LOG(FATAL) << "Failed to create window: " << SDL_GetError();
   }
 
-  state->device = SDL_CreateGPUDevice(SDL_GPU_SHADERFORMAT_SPIRV, false, nullptr);
+  state->device = SDL_CreateGPUDevice(
+      SDL_GPU_SHADERFORMAT_SPIRV | SDL_GPU_SHADERFORMAT_METALLIB | SDL_GPU_SHADERFORMAT_DXBC |
+          SDL_GPU_SHADERFORMAT_DXIL,
+      false,
+      nullptr);
   if (!state->device) {
     LOG(FATAL) << "Failed to create GPU device: " << SDL_GetError();
   }

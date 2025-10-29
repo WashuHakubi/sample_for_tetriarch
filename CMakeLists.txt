@@ -105,6 +105,15 @@ fetch_dependency(
         ROOT ${PROJECT_SOURCE_DIR}/ext
 )
 
+fetch_dependency(
+        SDL3_shadercross
+        GIT_SOURCE https://github.com/libsdl-org/SDL_shadercross.git
+        VERSION origin/main
+        CONFIGURATION ${CMAKE_BUILD_TYPE}
+        CONFIGURE_OPTIONS -DBUILD_SHARED_LIBS=OFF -DSDLSHADERCROSS_VENDORED=ON -DSDLSHADERCROSS_INSTALL=ON
+        ROOT ${PROJECT_SOURCE_DIR}/ext
+)
+
 # fetch_dependency(
 #         gflags
 #         GIT_SOURCE https://github.com/gflags/gflags.git
