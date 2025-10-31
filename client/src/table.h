@@ -18,22 +18,22 @@ class basic_table {
   using iterator = std::vector<value_type>::iterator;
   using const_iterator = std::vector<value_type>::const_iterator;
 
-  iterator begin() { return components_.begin(); }
+  [[nodiscard]] iterator begin() { return components_.begin(); }
 
-  const_iterator begin() const { return components_.begin(); }
+  [[nodiscard]] const_iterator begin() const { return components_.begin(); }
 
   void clear() {
     entities_.clear();
     components_.clear();
   }
 
-  bool contains(entity_type entity) const { return entities_.contains(entity); }
+  [[nodiscard]] bool contains(entity_type entity) const { return entities_.contains(entity); }
 
-  iterator end() { return components_.end(); }
+  [[nodiscard]] iterator end() { return components_.end(); }
 
-  const_iterator end() const { return components_.end(); }
+  [[nodiscard]] const_iterator end() const { return components_.end(); }
 
-  auto& entities() const { return entities_; }
+  [[nodiscard]] auto& entities() const { return entities_; }
 
   void erase(entity_type entity) {
     auto it = entities_.find(entity);
@@ -90,18 +90,28 @@ class basic_table {
     components_.reserve(count);
   }
 
-  size_t size() { return components_.size(); }
+  [[nodiscard]] size_t size() const { return components_.size(); }
 
-  value_type const& value(entity_type entity) const {
+  [[nodiscard]] value_type const& value(entity_type entity) const {
     auto idx = entities_.index(entity);
     assert(idx < components_.size());
     return components_[idx];
   }
 
-  value_type& value(entity_type entity) {
+  [[nodiscard]] value_type& value(entity_type entity) {
     auto idx = entities_.index(entity);
     assert(idx < components_.size());
     return components_[idx];
+  }
+
+  [[nodiscard]] value_type const& operator[](size_t index) const {
+    asset(index < components_.size());
+    return components_[index];
+  }
+
+  [[nodiscard]] value_type& operator[](size_t index) {
+    asset(index < components_.size());
+    return components_[index];
   }
 
  private:

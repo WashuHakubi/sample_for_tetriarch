@@ -18,7 +18,7 @@
 
 #include <ng-log/logging.h>
 
-#include "basic_entity_db.h"
+#include "entity_db.h"
 
 struct AppState {
   SDL_Window* window{nullptr};

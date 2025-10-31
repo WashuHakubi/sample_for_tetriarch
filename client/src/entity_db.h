@@ -46,7 +46,7 @@ class basic_entity_db {
     (assign_impl(entity, entity_it->second, std::forward<TComps>(comps)), ...);
   }
 
-  entity_type create() {
+  [[nodiscard]] entity_type create() {
     if (!free_entities_.empty()) {
       auto ent = free_entities_.back();
       free_entities_.pop_back();
@@ -74,7 +74,7 @@ class basic_entity_db {
   }
 
   template <class... TComps>
-  basic_query<entity_type, TComps...> query() {
+  [[nodiscard]] basic_query<entity_type, TComps...> query() const {
     return basic_query<entity_type, TComps...>{build_tuple<TComps...>()};
   }
 
@@ -115,12 +115,12 @@ class basic_entity_db {
   }
 
   template <class... TComps>
-  std::tuple<basic_table<entity_type, TComps>*...> build_tuple() const {
+  [[nodiscard]] std::tuple<basic_table<entity_type, TComps>*...> build_tuple() const {
     return std::make_tuple(get_table<TComps>()...);
   }
 
   template <class TComp>
-  basic_table<entity_type, TComp>* get_table() const {
+  [[nodiscard]] basic_table<entity_type, TComp>* get_table() const {
     using component_type = std::decay_t<TComp>;
     std::cout << "G:" << typeid(component_type).name() << std::endl;
     auto table_it = tables_.find(typeid(component_type));

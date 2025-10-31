@@ -23,7 +23,7 @@ class basic_sparse_set {
   /**
    * Gets the index of the page and index in the page of an entity for the sparse array.
    */
-  static auto entity_to_page_index(TEntity entity) {
+  [[nodiscard]] static auto entity_to_page_index(TEntity entity) {
     auto const v = traits::to_index(entity);
     return std::make_pair(v / traits::entities_per_page, v % traits::entities_per_page);
   }
@@ -31,7 +31,7 @@ class basic_sparse_set {
   /**
    * Gets a pointer to the sparse entry for an entity or nullptr if the page does not exist.
    */
-  auto* sparse_ptr(TEntity entity) const {
+  [[nodiscard]] auto* sparse_ptr(TEntity entity) const {
     auto [page, index] = entity_to_page_index(entity);
 
     return sparse_.size() > page && sparse_[page] ? sparse_[page] + index : nullptr;
@@ -40,7 +40,7 @@ class basic_sparse_set {
   /**
    * Gets a reference to a sparse entry for an entity. The sparse entry _must_ exist.
    */
-  auto& sparse_ref(TEntity entity) const {
+  [[nodiscard]] auto& sparse_ref(TEntity entity) const {
     auto ptr = sparse_ptr(entity);
     assert(ptr != nullptr);
     return *ptr;
@@ -49,7 +49,7 @@ class basic_sparse_set {
   /**
    * Ensures the sparse container has a page available for the entity and returns a reference to the entity's entry.
    */
-  auto& grow_to_contain(TEntity entity) {
+  [[nodiscard]] auto& grow_to_contain(TEntity entity) {
     auto [page, index] = entity_to_page_index(entity);
 
     if (sparse_.size() <= page) {
@@ -85,14 +85,14 @@ class basic_sparse_set {
   basic_sparse_set& operator=(basic_sparse_set const&) = delete;
   basic_sparse_set& operator=(basic_sparse_set&&) noexcept = default;
 
-  iterator begin() const { return dense_.begin(); }
+  [[nodiscard]] iterator begin() const { return dense_.begin(); }
 
   void clear() {
     release_all_sparse_pages();
     dense_.clear();
   }
 
-  bool contains(value_type entity) const {
+  [[nodiscard]] bool contains(value_type entity) const {
     auto entity_index_ptr = sparse_ptr(entity);
     if (entity_index_ptr == nullptr || *entity_index_ptr == traits::tombstone) {
       return false;
@@ -100,7 +100,7 @@ class basic_sparse_set {
     return true;
   }
 
-  iterator end() const { return dense_.end(); }
+  [[nodiscard]] iterator end() const { return dense_.end(); }
 
   void erase(value_type entity) {
     auto entity_index_ptr = sparse_ptr(entity);
@@ -128,7 +128,7 @@ class basic_sparse_set {
     }
   }
 
-  iterator find(value_type entity) const {
+  [[nodiscard]] iterator find(value_type entity) const {
     auto entity_index_ptr = sparse_ptr(entity);
     if (entity_index_ptr == nullptr || *entity_index_ptr == traits::tombstone) {
       return end();
@@ -137,7 +137,7 @@ class basic_sparse_set {
     return begin() + *entity_index_ptr;
   }
 
-  uint32_t index(value_type entity) const { return sparse_ref(entity); }
+  [[nodiscard]] uint32_t index(value_type entity) const { return sparse_ref(entity); }
 
   std::pair<iterator, bool> insert(value_type entity) {
     // Ensure we have a page allocated to store the entity index
@@ -165,9 +165,9 @@ class basic_sparse_set {
 
   void reserve(size_t count) { dense_.reserve(count); }
 
-  size_t size() const { return dense_.size(); }
+  [[nodiscard]] size_t size() const { return dense_.size(); }
 
-  value_type operator[](uint32_t index) const {
+  [[nodiscard]] value_type operator[](uint32_t index) const {
     assert(index < dense_.size());
     return dense_[index];
   }
