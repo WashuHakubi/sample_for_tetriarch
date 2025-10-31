@@ -5,6 +5,11 @@
  *  file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
  */
 
+#include <iostream>
+#include <ranges>
+#include <typeindex>
+#include <unordered_set>
+
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
 #include <SDL3/SDL_render.h>
@@ -13,6 +18,8 @@
 
 #include <ng-log/logging.h>
 
+#include "basic_entity_db.h"
+
 struct AppState {
   SDL_Window* window{nullptr};
   SDL_Renderer* renderer{nullptr};
@@ -20,7 +27,7 @@ struct AppState {
 };
 
 SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv) {
-  FLAGS_logtostderr = 1;
+  FLAGS_logtostderr = true;
   nglog::InitializeLogging(argv[0]);
 
   if (!SDL_InitSubSystem(SDL_INIT_VIDEO)) {
@@ -46,6 +53,22 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv) {
   state->renderer = SDL_CreateGPURenderer(state->device, state->window);
 
   *appstate = state.release();
+
+  ew::entity_db db;
+  for (uint32_t i = 0; i < 10; ++i) {
+    auto ent = db.create();
+    db.assign(ent, i);
+    if (i % 2 == 0) {
+      db.assign(ent, static_cast<float>(i));
+    }
+  }
+
+  db.query<uint32_t, float>().visit([](ew::entity e, const uint32_t& i, float& f) { f += i + 2; });
+
+  db.query<uint32_t, float>().visit([](ew::entity e, const uint32_t& i, float const& f) {
+    std::cout << static_cast<int>(e) << " = " << i << ": " << f << std::endl;
+  });
+
   return SDL_APP_CONTINUE;
 }
 

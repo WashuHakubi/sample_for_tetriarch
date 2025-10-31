@@ -114,14 +114,14 @@ fetch_dependency(
         ROOT ${PROJECT_SOURCE_DIR}/ext
 )
 
-# fetch_dependency(
-#         gflags
-#         GIT_SOURCE https://github.com/gflags/gflags.git
-#         VERSION v2.2.2
-#         CONFIGURATION ${CMAKE_BUILD_TYPE}
-#         CONFIGURE_OPTIONS -DBUILD_SHARED_LIBS=OFF
-#         ROOT ${PROJECT_SOURCE_DIR}/ext
-# )
+fetch_dependency(
+        gflags
+        GIT_SOURCE https://github.com/gflags/gflags.git
+        VERSION v2.2.2
+        CONFIGURATION ${CMAKE_BUILD_TYPE}
+        CONFIGURE_OPTIONS -DBUILD_SHARED_LIBS=OFF -DCMAKE_POLICY_VERSION_MINIMUM=3.5
+        ROOT ${PROJECT_SOURCE_DIR}/ext
+)
 
 fetch_dependency(
         ng-log
