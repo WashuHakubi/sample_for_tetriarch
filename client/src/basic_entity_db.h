@@ -5,7 +5,9 @@
  *  file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
  */
 #pragma once
+
 #include <memory>
+#include <typeindex>
 #include <unordered_map>
 #include <unordered_set>
 
@@ -13,9 +15,6 @@
 #include "query.h"
 #include "table.h"
 
-namespace std {
-struct type_index;
-}
 namespace ew {
 template <class TEntity>
 class basic_entity_db {
