@@ -92,7 +92,6 @@ class basic_entity_db {
     using component_type = std::decay_t<TComp>;
     auto table_it = tables_.find(typeid(component_type));
     if (table_it == tables_.end()) {
-      std::cout << "A:" << typeid(component_type).name() << std::endl;
       table_it = tables_.emplace(typeid(component_type), std::make_unique<table_container<component_type>>()).first;
     }
 
@@ -122,7 +121,6 @@ class basic_entity_db {
   template <class TComp>
   [[nodiscard]] basic_table<entity_type, TComp>* get_table() const {
     using component_type = std::decay_t<TComp>;
-    std::cout << "G:" << typeid(component_type).name() << std::endl;
     auto table_it = tables_.find(typeid(component_type));
     assert(table_it != tables_.end());
     return &static_cast<table_container<component_type>*>(table_it->second.get())->table;

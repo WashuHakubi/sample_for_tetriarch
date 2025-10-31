@@ -54,14 +54,22 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv) {
 
   *appstate = state.release();
 
+  std::vector<ew::entity> entities;
   ew::entity_db db;
   for (uint32_t i = 0; i < 10; ++i) {
     auto ent = db.create();
+    entities.push_back(ent);
     db.assign(ent, i);
     if (i % 2 == 0) {
       db.assign(ent, static_cast<float>(i));
     }
   }
+
+  for (uint32_t i = 0; i < 10; i += 3) {
+    db.destroy(entities[i]);
+  }
+
+  db.query<uint32_t>().visit([](ew::entity e, const uint32_t& i) { std::cout << static_cast<int>(e) << " = " << i << std::endl; });
 
   db.query<uint32_t, float>().visit([](ew::entity e, const uint32_t& i, float& f) { f += i + 2; });
 

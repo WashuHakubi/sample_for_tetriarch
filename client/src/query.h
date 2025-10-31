@@ -40,8 +40,8 @@ class basic_query {
   }
 
  private:
-  basic_sparse_set<TEntity> const& smallest_entities_set() {
-    basic_sparse_set<TEntity> const* entities;
+  basic_sparse_set<TEntity> const& smallest_entities_set() const {
+    basic_sparse_set<TEntity> const* entities {nullptr};
     visit_each(tables_, [&entities](auto const& table) {
       if (entities == nullptr || entities->size() > table->size()) {
         entities = &table->entities();
@@ -52,7 +52,7 @@ class basic_query {
     return *entities;
   }
 
-  bool all_contain(TEntity entity) {
+  bool all_contain(TEntity entity) const {
     bool missing = false;
     visit_each(tables_, [entity, &missing](auto const& table) {
       if (!table->contains(entity)) {
