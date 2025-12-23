@@ -51,11 +51,11 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv) {
   bgfx::renderFrame();
 
   bgfx::Init init;
+  auto windowProps = SDL_GetWindowProperties(state->window);
 #if BX_PLATFORM_LINUX
   std::string_view currentVideoDriver = SDL_GetCurrentVideoDriver();
   LOG(INFO) << "Video driver: " << currentVideoDriver;
 
-  auto windowProps = SDL_GetWindowProperties(state->window);
   if (currentVideoDriver == "x11") {
     auto xdisplay = SDL_GetPointerProperty(windowProps, SDL_PROP_WINDOW_X11_DISPLAY_POINTER, nullptr);
     init.platformData.ndt = xdisplay;
@@ -84,7 +84,11 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv) {
   bgfx::init(init);
 
   bgfx::setViewClear(0, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH, 0x303030ff, 1.0f, 0);
-  bgfx::setViewRect(0, 0, 0, 800, 600);
+
+  int width, height;
+  SDL_GetWindowSize(state->window, &width, &height);
+  bgfx::reset(width, height, BGFX_RESET_VSYNC);
+  bgfx::setViewRect(0, 0, 0, width, height);
 
   *appstate = state.release();
 
