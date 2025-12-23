@@ -37,14 +37,14 @@ fetch_dependency(libuv
         GIT_SOURCE https://github.com/libuv/libuv.git
         VERSION v1.51.0
         CONFIGURATION ${CMAKE_BUILD_TYPE}
-        ROOT ${PROJECT_SOURCE_DIR}/ext
+        SOURCE_ROOT ${PROJECT_SOURCE_DIR}/ext
 )
 
 fetch_dependency(nlohmann_json
         GIT_SOURCE https://github.com/nlohmann/json.git
         VERSION v3.11.3
         CONFIGURATION ${CMAKE_BUILD_TYPE}
-        ROOT ${PROJECT_SOURCE_DIR}/ext
+        SOURCE_ROOT ${PROJECT_SOURCE_DIR}/ext
 )
 
 fetch_dependency(glm
@@ -52,14 +52,14 @@ fetch_dependency(glm
         VERSION 1.0.1
         CONFIGURATION ${CMAKE_BUILD_TYPE}
         CONFIGURE_OPTIONS -DGLM_BUILD_TESTS=OFF -DBUILD_SHARED_LIBS=OFF
-        ROOT ${PROJECT_SOURCE_DIR}/ext
+        SOURCE_ROOT ${PROJECT_SOURCE_DIR}/ext
 )
 
 fetch_dependency(Catch2
         GIT_SOURCE https://github.com/catchorg/Catch2.git
         VERSION v3.8.0
         CONFIGURATION ${CMAKE_BUILD_TYPE}
-        ROOT ${PROJECT_SOURCE_DIR}/ext
+        SOURCE_ROOT ${PROJECT_SOURCE_DIR}/ext
 )
 
 fetch_dependency(
@@ -67,7 +67,7 @@ fetch_dependency(
         GIT_SOURCE https://github.com/WashuHakubi/concurrencpp.git
         VERSION origin/master
         CONFIGURATION ${CMAKE_BUILD_TYPE}
-        ROOT ${PROJECT_SOURCE_DIR}/ext
+        SOURCE_ROOT ${PROJECT_SOURCE_DIR}/ext
 )
 
 fetch_dependency(
@@ -75,7 +75,7 @@ fetch_dependency(
         GIT_SOURCE https://github.com/biojppm/rapidyaml.git
         VERSION v0.9.0
         CONFIGURATION ${CMAKE_BUILD_TYPE}
-        ROOT ${PROJECT_SOURCE_DIR}/ext
+        SOURCE_ROOT ${PROJECT_SOURCE_DIR}/ext
 )
 
 fetch_dependency(
@@ -85,7 +85,7 @@ fetch_dependency(
         VERSION origin/main
         CONFIGURATION ${CMAKE_BUILD_TYPE}
         CONFIGURE_OPTIONS -DSDL_SHARED=OFF -DSDL_STATIC=ON -DBUILD_SHARED_LIBS=OFF
-        ROOT ${PROJECT_SOURCE_DIR}/ext
+        SOURCE_ROOT ${PROJECT_SOURCE_DIR}/ext
 )
 
 fetch_dependency(
@@ -93,26 +93,35 @@ fetch_dependency(
         GIT_SOURCE https://github.com/freetype/freetype.git
         VERSION VER-2-13-3
         CONFIGURATION ${CMAKE_BUILD_TYPE}
-        ROOT ${PROJECT_SOURCE_DIR}/ext
+        SOURCE_ROOT ${PROJECT_SOURCE_DIR}/ext
 )
 
 fetch_dependency(
-        SDL3_image
-        GIT_SOURCE https://github.com/libsdl-org/SDL_image.git
-        VERSION release-3.2.4
+        bgfx
+        GIT_SOURCE https://github.com/bkaradzic/bgfx.cmake.git
+        VERSION origin/master
         CONFIGURATION ${CMAKE_BUILD_TYPE}
-        CONFIGURE_OPTIONS -DENABLE_ARC=OFF -DBUILD_SHARED_LIBS=OFF
-        ROOT ${PROJECT_SOURCE_DIR}/ext
+        CONFIGURE_OPTIONS -DBUILD_SHARED_LIBS=OFF
+        SOURCE_ROOT ${PROJECT_SOURCE_DIR}/ext
 )
 
-fetch_dependency(
-        SDL3_shadercross
-        GIT_SOURCE https://github.com/libsdl-org/SDL_shadercross.git
-        VERSION origin/main
-        CONFIGURATION ${CMAKE_BUILD_TYPE}
-        CONFIGURE_OPTIONS -DBUILD_SHARED_LIBS=OFF -DSDLSHADERCROSS_VENDORED=ON -DSDLSHADERCROSS_INSTALL=ON
-        ROOT ${PROJECT_SOURCE_DIR}/ext
-)
+# fetch_dependency(
+#         SDL3_image
+#         GIT_SOURCE https://github.com/libsdl-org/SDL_image.git
+#         VERSION release-3.2.4
+#         CONFIGURATION ${CMAKE_BUILD_TYPE}
+#         CONFIGURE_OPTIONS -DENABLE_ARC=OFF -DBUILD_SHARED_LIBS=OFF
+#         SOURCE_ROOT ${PROJECT_SOURCE_DIR}/ext
+# )
+
+# fetch_dependency(
+#         SDL3_shadercross
+#         GIT_SOURCE https://github.com/libsdl-org/SDL_shadercross.git
+#         VERSION origin/main
+#         CONFIGURATION ${CMAKE_BUILD_TYPE}
+#         CONFIGURE_OPTIONS -DBUILD_SHARED_LIBS=OFF -DSDLSHADERCROSS_VENDORED=ON -DSDLSHADERCROSS_INSTALL=ON
+#         SOURCE_ROOT ${PROJECT_SOURCE_DIR}/ext
+# )
 
 fetch_dependency(
         gflags
@@ -120,7 +129,7 @@ fetch_dependency(
         VERSION v2.2.2
         CONFIGURATION ${CMAKE_BUILD_TYPE}
         CONFIGURE_OPTIONS -DBUILD_SHARED_LIBS=OFF -DCMAKE_POLICY_VERSION_MINIMUM=3.5
-        ROOT ${PROJECT_SOURCE_DIR}/ext
+        SOURCE_ROOT ${PROJECT_SOURCE_DIR}/ext
 )
 
 fetch_dependency(
@@ -129,7 +138,7 @@ fetch_dependency(
         VERSION v0.8.0
         CONFIGURATION ${CMAKE_BUILD_TYPE}
         CONFIGURE_OPTIONS -DBUILD_SHARED_LIBS=OFF
-        ROOT ${PROJECT_SOURCE_DIR}/ext
+        SOURCE_ROOT ${PROJECT_SOURCE_DIR}/ext
 )
 
 # fetch_dependency(
@@ -138,7 +147,7 @@ fetch_dependency(
 #        VERSION cdff6ad9dcf04989275ef5c88f792c488f80a508 # Using 6.2 instead of 6.1 to fix Mac mouse positions
 #        CONFIGURATION ${CMAKE_BUILD_TYPE}
 #        CONFIGURE_OPTIONS -DRMLUI_SAMPLES=OFF -DRMLUI_BACKEND=native -DRMLUI_FONT_ENGINE=freetype -DRMLUI_THIRDPARTY_CONTAINERS=OFF -DBUILD_SHARED_LIBS=OFF
-#        ROOT ${PROJECT_SOURCE_DIR}/ext
+#        SOURCE_ROOT ${PROJECT_SOURCE_DIR}/ext
 #        OUT_SOURCE_DIR RML_OUT_DIR
 # )
 # # Add the RmlUi SDL backend. This can be tweaked to support any of the SDL backends.

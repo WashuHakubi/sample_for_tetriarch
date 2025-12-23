@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="PublishConfigData" remoteFilesAllowedToDisappearOnAutoupload="false">
+    <serverData>
+      <paths name="Distrobox (216d95f9-4df3-426d-8398-e5d549e5ae6f)">
+        <serverdata>
+          <mappings>
+            <mapping deploy="/tmp/tmp.xtJhE7Qvuw/sample_for_tetriarch" local="$PROJECT_DIR$" />
+          </mappings>
+          <excludedPaths>
+            <excludedPath local="true" path="$PROJECT_DIR$/cmake-build-debug-distrobox" />
+            <excludedPath local="true" path="$PROJECT_DIR$/cmake-build-release-distrobox" />
+          </excludedPaths>
+        </serverdata>
+      </paths>
+    </serverData>
+  </component>
+</project>

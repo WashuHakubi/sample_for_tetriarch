@@ -4,7 +4,7 @@ add_executable(client ${client_FILES})
 
 target_link_libraries(client
         SDL3::SDL3
-        SDL3_shadercross::SDL3_shadercross
+        bgfx::bgfx
         imgui
         freetype
         shared)

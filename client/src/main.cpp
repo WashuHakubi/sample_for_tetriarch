@@ -5,25 +5,31 @@
  *  file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
  */
 
+#include <functional>
 #include <iostream>
+#include <optional>
 #include <ranges>
 #include <typeindex>
 #include <unordered_set>
 
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
+#include <SDL3/SDL_platform.h>
 #include <SDL3/SDL_render.h>
 
-#include <SDL3_shadercross/SDL_shadercross.h>
-
+#include <glm/glm.hpp>
 #include <ng-log/logging.h>
 
-#include "entity_db.h"
+#include <bgfx/bgfx.h>
+#include <bgfx/platform.h>
+#include <bx/bx.h>
+
+#include <shared/event.h>
 
 struct AppState {
   SDL_Window* window{nullptr};
-  SDL_Renderer* renderer{nullptr};
-  SDL_GPUDevice* device{nullptr};
+
+  ~AppState() { SDL_DestroyWindow(window); }
 };
 
 SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv) {
@@ -41,51 +47,57 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv) {
     LOG(FATAL) << "Failed to create window: " << SDL_GetError();
   }
 
-  state->device = SDL_CreateGPUDevice(
-      SDL_GPU_SHADERFORMAT_SPIRV | SDL_GPU_SHADERFORMAT_METALLIB | SDL_GPU_SHADERFORMAT_DXBC |
-          SDL_GPU_SHADERFORMAT_DXIL,
-      false,
-      nullptr);
-  if (!state->device) {
-    LOG(FATAL) << "Failed to create GPU device: " << SDL_GetError();
-  }
+  // Don't create a rendering thread.
+  bgfx::renderFrame();
 
-  state->renderer = SDL_CreateGPURenderer(state->device, state->window);
+  bgfx::Init init;
+#if BX_PLATFORM_LINUX
+  std::string_view currentVideoDriver = SDL_GetCurrentVideoDriver();
+  LOG(INFO) << "Video driver: " << currentVideoDriver;
+
+  auto windowProps = SDL_GetWindowProperties(state->window);
+  if (currentVideoDriver == "x11") {
+    auto xdisplay = SDL_GetPointerProperty(windowProps, SDL_PROP_WINDOW_X11_DISPLAY_POINTER, nullptr);
+    init.platformData.ndt = xdisplay;
+
+    auto xwindow = SDL_GetNumberProperty(windowProps, SDL_PROP_WINDOW_X11_WINDOW_NUMBER, 0);
+    init.platformData.nwh = (void*)xwindow;
+  } else if (currentVideoDriver == "wayland") {
+    auto display = SDL_GetPointerProperty(windowProps, SDL_PROP_WINDOW_WAYLAND_DISPLAY_POINTER, nullptr);
+    auto surface = SDL_GetPointerProperty(windowProps, SDL_PROP_WINDOW_WAYLAND_SURFACE_POINTER, nullptr);
+
+    init.platformData.ndt = display;
+    init.platformData.nwh = surface;
+  } else {
+    LOG(FATAL) << "Unknown video driver: " << currentVideoDriver;
+  }
+#elif BX_PLATFORM_OSX
+  auto window = SDL_GetPointerProperty(windowProps, SDL_PROP_WINDOW_COCOA_WINDOW_POINTER, nullptr);
+  init.platformData.nwh = window;
+#elif BX_PLATFORM_WINDOWS
+  auto window = SDL_GetPointerProperty(windowProps, SDL_PROP_WINDOW_WIN32_HWND_POINTER, nullptr);
+  init.platformData.nwh = window;
+#endif
+
+  init.type = bgfx::RendererType::Count;
+
+  bgfx::init(init);
+
+  bgfx::setViewClear(0, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH, 0x303030ff, 1.0f, 0);
+  bgfx::setViewRect(0, 0, 0, 800, 600);
 
   *appstate = state.release();
-
-  std::vector<ew::entity> entities;
-  ew::entity_db db;
-  for (uint32_t i = 0; i < 10; ++i) {
-    auto ent = db.create();
-    entities.push_back(ent);
-    db.assign(ent, i);
-    if (i % 2 == 0) {
-      db.assign(ent, static_cast<float>(i));
-    }
-  }
-
-  for (uint32_t i = 0; i < 10; i += 3) {
-    db.destroy(entities[i]);
-  }
-
-  db.query<uint32_t>().visit([](ew::entity e, const uint32_t& i) { std::cout << static_cast<int>(e) << " = " << i << std::endl; });
-
-  db.query<uint32_t, float>().visit([](ew::entity e, const uint32_t& i, float& f) { f += i + 2; });
-
-  db.query<uint32_t, float>().visit([](ew::entity e, const uint32_t& i, float const& f) {
-    std::cout << static_cast<int>(e) << " = " << i << ": " << f << std::endl;
-  });
 
   return SDL_APP_CONTINUE;
 }
 
 SDL_AppResult SDL_AppIterate(void* appstate) {
-  auto state = static_cast<AppState*>(appstate);
+  // auto state = static_cast<AppState*>(appstate);
 
-  SDL_RenderClear(state->renderer);
+  bgfx::touch(0);
 
-  SDL_RenderPresent(state->renderer);
+  bgfx::frame();
+
   return SDL_APP_CONTINUE;
 }
 
@@ -99,9 +111,8 @@ SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* event) {
 }
 
 void SDL_AppQuit(void* appstate, SDL_AppResult result) {
+  bgfx::shutdown();
+
   auto state = static_cast<AppState*>(appstate);
-  SDL_DestroyRenderer(state->renderer);
-  SDL_DestroyGPUDevice(state->device);
-  SDL_DestroyWindow(state->window);
   delete state;
 }
