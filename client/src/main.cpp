@@ -5,6 +5,8 @@
  *  file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
  */
 
+#include "i_application.h"
+
 #include <functional>
 #include <iostream>
 #include <optional>
@@ -23,72 +25,28 @@
 #include <bgfx/bgfx.h>
 #include <bgfx/platform.h>
 #include <bx/bx.h>
+#include <bx/spscqueue.h>
 
 #include <shared/event.h>
 
 struct AppState {
-  SDL_Window* window{nullptr};
-
-  ~AppState() { SDL_DestroyWindow(window); }
+  ew::ApplicationPtr app;
 };
 
 SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv) {
   FLAGS_logtostderr = true;
   nglog::InitializeLogging(argv[0]);
 
-  if (!SDL_InitSubSystem(SDL_INIT_VIDEO)) {
+  if (!SDL_InitSubSystem(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_EVENTS)) {
     LOG(FATAL) << "Failed to initialize SDL: " << SDL_GetError();
   }
 
   auto state = std::make_unique<AppState>();
+  state->app = ew::createApplication();
 
-  state->window = SDL_CreateWindow("Test", 800, 600, SDL_WINDOW_HIGH_PIXEL_DENSITY);
-  if (!state->window) {
-    LOG(FATAL) << "Failed to create window: " << SDL_GetError();
+  if (!state->app->init(argc, argv)) {
+    return SDL_APP_FAILURE;
   }
-
-  // Don't create a rendering thread.
-  bgfx::renderFrame();
-
-  bgfx::Init init;
-  auto windowProps = SDL_GetWindowProperties(state->window);
-#if BX_PLATFORM_LINUX
-  std::string_view currentVideoDriver = SDL_GetCurrentVideoDriver();
-  LOG(INFO) << "Video driver: " << currentVideoDriver;
-
-  if (currentVideoDriver == "x11") {
-    auto xdisplay = SDL_GetPointerProperty(windowProps, SDL_PROP_WINDOW_X11_DISPLAY_POINTER, nullptr);
-    init.platformData.ndt = xdisplay;
-
-    auto xwindow = SDL_GetNumberProperty(windowProps, SDL_PROP_WINDOW_X11_WINDOW_NUMBER, 0);
-    init.platformData.nwh = (void*)xwindow;
-  } else if (currentVideoDriver == "wayland") {
-    auto display = SDL_GetPointerProperty(windowProps, SDL_PROP_WINDOW_WAYLAND_DISPLAY_POINTER, nullptr);
-    auto surface = SDL_GetPointerProperty(windowProps, SDL_PROP_WINDOW_WAYLAND_SURFACE_POINTER, nullptr);
-
-    init.platformData.ndt = display;
-    init.platformData.nwh = surface;
-  } else {
-    LOG(FATAL) << "Unknown video driver: " << currentVideoDriver;
-  }
-#elif BX_PLATFORM_OSX
-  auto window = SDL_GetPointerProperty(windowProps, SDL_PROP_WINDOW_COCOA_WINDOW_POINTER, nullptr);
-  init.platformData.nwh = window;
-#elif BX_PLATFORM_WINDOWS
-  auto window = SDL_GetPointerProperty(windowProps, SDL_PROP_WINDOW_WIN32_HWND_POINTER, nullptr);
-  init.platformData.nwh = window;
-#endif
-
-  init.type = bgfx::RendererType::Count;
-
-  bgfx::init(init);
-
-  bgfx::setViewClear(0, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH, 0x303030ff, 1.0f, 0);
-
-  int width, height;
-  SDL_GetWindowSize(state->window, &width, &height);
-  bgfx::reset(width, height, BGFX_RESET_VSYNC);
-  bgfx::setViewRect(0, 0, 0, width, height);
 
   *appstate = state.release();
 
@@ -96,27 +54,73 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv) {
 }
 
 SDL_AppResult SDL_AppIterate(void* appstate) {
-  // auto state = static_cast<AppState*>(appstate);
+  auto state = static_cast<AppState*>(appstate);
 
-  bgfx::touch(0);
+  state->app->update();
+  // bgfx::touch(0);
 
-  bgfx::frame();
+  // bgfx::frame();
 
   return SDL_APP_CONTINUE;
 }
 
 SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* event) {
-  // auto state = static_cast<AppState*>(appstate);
-  if (event->type == SDL_EVENT_QUIT) {
-    return SDL_APP_SUCCESS;
+  auto state = static_cast<AppState*>(appstate);
+
+  switch (event->type) {
+    case SDL_EVENT_QUIT:
+      state->app->handle(ew::ShutdownMsg{});
+      return SDL_APP_SUCCESS;
+
+    case SDL_EVENT_WINDOW_RESIZED: {
+      auto width = event->window.data1;
+      auto height = event->window.data2;
+
+      state->app->handle(ew::ResizeMsg{width, height});
+      break;
+    }
+    case SDL_EVENT_KEY_DOWN:
+    case SDL_EVENT_KEY_UP:
+      state->app->handle(
+          ew::KeyMsg{
+              // Could map this to a custom enumeration, but I'm lazy atm.
+              .scancode = static_cast<ew::Scancode>(event->key.scancode),
+              .down = event->type == SDL_EVENT_KEY_DOWN,
+          });
+      break;
+
+    case SDL_EVENT_MOUSE_BUTTON_DOWN:
+    case SDL_EVENT_MOUSE_BUTTON_UP:
+      state->app->handle(
+          ew::MouseButtonMsg{
+              .button = event->button.button,
+              .clicks = event->button.clicks,
+              .down = event->type == SDL_EVENT_MOUSE_BUTTON_DOWN,
+          });
+      break;
+
+    case SDL_EVENT_MOUSE_MOTION:
+      state->app->handle(
+          ew::MouseMotionMsg{
+              .absPosition = glm::vec2(event->motion.x, event->motion.y),
+              .relPosition = glm::vec2(event->motion.xrel, event->motion.yrel),
+          });
+      break;
+
+    case SDL_EVENT_MOUSE_WHEEL:
+      state->app->handle(
+          ew::MouseWheelMsg{
+              .delta = event->wheel.y,
+          });
+      break;
+    default:
+      break;
   }
 
   return SDL_APP_CONTINUE;
 }
 
 void SDL_AppQuit(void* appstate, SDL_AppResult result) {
-  bgfx::shutdown();
-
   auto state = static_cast<AppState*>(appstate);
   delete state;
 }
