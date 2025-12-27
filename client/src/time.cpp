@@ -14,9 +14,9 @@ void ew::Time::update() {
 
   const auto curTime = high_resolution_clock::now();
   const nanoseconds delta = curTime - prevTime_;
-  deltaTime_ = delta.count() / static_cast<double>(std::nano::den);
+  deltaTime_ = delta;
 
   simDeltaTime_ = deltaTime_ * timeScale_;
-  simTime_ += nanoseconds{static_cast<nanoseconds::rep>(delta.count() * timeScale_)};
+  simTime_ += duration_cast<nanoseconds>(simDeltaTime_);
   prevTime_ = curTime;
 }

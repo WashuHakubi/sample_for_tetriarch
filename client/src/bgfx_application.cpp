@@ -5,6 +5,8 @@
  *  file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
  */
 
+#include <iostream>
+
 #include "i_application.h"
 #include "i_window.h"
 
@@ -61,14 +63,33 @@ struct BgfxApplication : ew::IApplication {
   }
 
   void update() override {
+    constexpr auto kSimTickRate = 1.0 / 60.0;
+    constexpr auto kMaxSimTime = 5 * kSimTickRate;
+
     time_.update();
 
+    // Cap the number of times we'll update the sim per frame to ensure rendering and other events are handled.
+    timeAccumulator_ = std::max(timeAccumulator_ + time_.simDeltaTime(), kMaxSimTime);
+
+    while (timeAccumulator_ >= kSimTickRate) {
+      // update sim
+
+      // Remove sim tick time from the accumulator
+      timeAccumulator_ -= kSimTickRate;
+      continue;
+    }
+
+    // Ensure view 0 is touched with at least a dummy event
     bgfx::touch(0);
 
+    // draw
+
+    // present frame
     bgfx::frame();
   }
 
- private:
+private:
+  double timeAccumulator_{0};
   ew::Time time_;
   ew::WindowPtr window_;
 };

@@ -11,13 +11,15 @@
 #include <chrono>
 namespace ew {
 struct Time {
+  using seconds_d = std::chrono::duration<double>;
+
   Time();
 
   void update();
 
-  constexpr auto deltaTime() const { return deltaTime_; }
+  constexpr auto deltaTime() const { return deltaTime_.count(); }
 
-  constexpr auto simDeltaTime() const { return simDeltaTime_; }
+  constexpr auto simDeltaTime() const { return simDeltaTime_.count(); }
 
   constexpr auto simTime() const { return simTime_; }
 
@@ -31,9 +33,9 @@ struct Time {
  private:
   std::chrono::high_resolution_clock::time_point prevTime_;
   std::chrono::nanoseconds simTime_{};
-  
+
   double timeScale_{1};
-  double deltaTime_{};
-  double simDeltaTime_{};
+  seconds_d deltaTime_{};
+  seconds_d simDeltaTime_{};
 };
 } // namespace ew
