@@ -12,11 +12,11 @@ ew::Time::Time() : prevTime_(std::chrono::high_resolution_clock::now()) {}
 void ew::Time::update() {
   using namespace std::chrono;
 
-  auto curTime = high_resolution_clock::now();
-  nanoseconds delta = curTime - prevTime_;
+  const auto curTime = high_resolution_clock::now();
+  const nanoseconds delta = curTime - prevTime_;
   deltaTime_ = delta.count() / static_cast<double>(std::nano::den);
 
   simDeltaTime_ = deltaTime_ * timeScale_;
-  simTime_ += simDeltaTime_;
+  simTime_ += nanoseconds{static_cast<nanoseconds::rep>(delta.count() * timeScale_)};
   prevTime_ = curTime;
 }

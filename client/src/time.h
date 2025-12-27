@@ -30,9 +30,10 @@ struct Time {
 
  private:
   std::chrono::high_resolution_clock::time_point prevTime_;
+  std::chrono::nanoseconds simTime_{};
+  
   double timeScale_{1};
   double deltaTime_{};
   double simDeltaTime_{};
-  double simTime_{};
 };
 } // namespace ew

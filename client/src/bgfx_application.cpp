@@ -19,7 +19,7 @@ struct BgfxApplication : ew::IApplication {
   const unsigned kDefaultClearColor = 0x303030ff;
   const unsigned kAltClearColor = 0x334433ff;
 
-  void handle(ew::Msg const& msg) {
+  void handle(ew::Msg const& msg) override {
     if (auto resize = std::get_if<ew::ResizeMsg>(&msg)) {
       bgfx::reset(resize->width, resize->height, BGFX_RESET_VSYNC);
       bgfx::setViewRect(0, 0, 0, resize->width, resize->height);
