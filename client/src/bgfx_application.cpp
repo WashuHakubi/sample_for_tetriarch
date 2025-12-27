@@ -8,7 +8,8 @@
 #include "i_application.h"
 #include "i_window.h"
 
-#include <SDL3/SDL.h>
+#include "time.h"
+
 #include <bgfx/bgfx.h>
 #include <bgfx/platform.h>
 #include <bx/bx.h>
@@ -60,12 +61,15 @@ struct BgfxApplication : ew::IApplication {
   }
 
   void update() override {
+    time_.update();
+
     bgfx::touch(0);
 
     bgfx::frame();
   }
 
  private:
+  ew::Time time_;
   ew::WindowPtr window_;
 };
 
