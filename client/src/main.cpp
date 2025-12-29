@@ -56,12 +56,7 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv) {
 SDL_AppResult SDL_AppIterate(void* appstate) {
   auto state = static_cast<AppState*>(appstate);
 
-  state->app->update();
-  // bgfx::touch(0);
-
-  // bgfx::frame();
-
-  return SDL_APP_CONTINUE;
+  return state->app->update() ? SDL_APP_CONTINUE : SDL_APP_SUCCESS;
 }
 
 SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* event) {
@@ -70,7 +65,7 @@ SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* event) {
   switch (event->type) {
     case SDL_EVENT_QUIT:
       state->app->handle(ew::ShutdownMsg{});
-      return SDL_APP_SUCCESS;
+      return SDL_APP_CONTINUE;
 
     case SDL_EVENT_WINDOW_RESIZED: {
       auto width = event->window.data1;

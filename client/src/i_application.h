@@ -264,7 +264,7 @@ struct IApplication {
 
   virtual bool init(int argc, char** argv) = 0;
 
-  virtual void update() = 0;
+  virtual bool update() = 0;
 };
 using ApplicationPtr = std::shared_ptr<IApplication>;
 

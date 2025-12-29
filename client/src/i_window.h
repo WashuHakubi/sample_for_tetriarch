@@ -9,6 +9,8 @@
 #include <memory>
 #include <utility>
 
+#include <glm/glm.hpp>
+
 #include <shared/enum_flags.h>
 
 namespace ew {
