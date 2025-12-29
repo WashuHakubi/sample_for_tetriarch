@@ -89,6 +89,7 @@ struct BgfxApplication : ew::IApplication {
     init.resolution.width = width;
     init.resolution.reset = BGFX_RESET_VSYNC;
 
+    // This must be called on the "game" thread.
     bgfx::init(init);
 
     bgfx::reset(width, height, BGFX_RESET_VSYNC);
@@ -99,6 +100,9 @@ struct BgfxApplication : ew::IApplication {
     constexpr auto kSimTickRate = 1.0 / 60.0;
     constexpr auto kMaxSimTime = 5 * kSimTickRate;
 
+    ew::Time time;
+    double timeAccumulator{0};
+
     // Game loop
     while (true) {
       processMessages();
@@ -106,16 +110,16 @@ struct BgfxApplication : ew::IApplication {
         break;
       }
 
-      time_.update();
+      time.update();
 
       // Cap the number of times we'll update the sim per frame to ensure rendering and other events are handled.
-      timeAccumulator_ = std::max(timeAccumulator_ + time_.simDeltaTime(), kMaxSimTime);
+      timeAccumulator = std::max(timeAccumulator + time.simDeltaTime(), kMaxSimTime);
 
-      while (timeAccumulator_ >= kSimTickRate) {
+      while (timeAccumulator >= kSimTickRate) {
         // update sim
 
         // Remove sim tick time from the accumulator
-        timeAccumulator_ -= kSimTickRate;
+        timeAccumulator -= kSimTickRate;
         continue;
       }
 
@@ -124,13 +128,11 @@ struct BgfxApplication : ew::IApplication {
 
       // draw
 
-      // present frame, will wait for rendering thread.
+      // present frame, dispatches to the rendering thread.
       bgfx::frame();
     }
   }
 
-  double timeAccumulator_{0};
-  ew::Time time_;
   ew::WindowPtr window_;
   std::thread gameThread_;
   bx::DefaultAllocator alloc_;
