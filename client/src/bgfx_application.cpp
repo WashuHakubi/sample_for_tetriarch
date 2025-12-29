@@ -24,7 +24,7 @@ struct BgfxApplication : ew::IApplication {
 
   BgfxApplication() : msgs_(&alloc_) {}
 
-  ~BgfxApplication() { gameThread_.join(); }
+  ~BgfxApplication() {}
 
   void handle(ew::Msg const& msg) override { msgs_.push(new ew::Msg(msg)); }
 
@@ -38,10 +38,11 @@ struct BgfxApplication : ew::IApplication {
     bgfx::renderFrame();
 
     // These cannot be safely accessed on the game thread, so capture them here.
-    auto size = window_->getWindowSize();
     auto descriptors = window_->getWindowDescriptors();
+    auto [width, height] = window_->getWindowSize();
+    handle(ew::ResizeMsg{width, height});
 
-    gameThread_ = std::thread([this, descriptors, size]() { this->run(descriptors, size); });
+    gameThread_ = std::thread([this, descriptors]() { this->run(descriptors); });
 
     return true;
   }
@@ -49,6 +50,13 @@ struct BgfxApplication : ew::IApplication {
   bool update() override {
     // Render all the queued commands
     bgfx::renderFrame();
+
+    if (exit_) {
+      // Wait for the game thread to finish before we terminate.
+      while (bgfx::renderFrame() != bgfx::RenderFrame::NoContext) {
+      }
+      gameThread_.join();
+    }
 
     return !exit_;
   }
@@ -77,23 +85,16 @@ struct BgfxApplication : ew::IApplication {
     }
   }
 
-  void run(std::pair<void*, void*> descriptors, std::pair<int, int> size) {
+  void run(std::pair<void*, void*> descriptors) {
     bgfx::Init init;
 
     auto [ndt, nwh] = descriptors;
-    auto [width, height] = size;
 
     init.platformData.ndt = ndt;
     init.platformData.nwh = nwh;
-    init.resolution.height = height;
-    init.resolution.width = width;
-    init.resolution.reset = BGFX_RESET_VSYNC;
 
     // This must be called on the "game" thread.
     bgfx::init(init);
-
-    bgfx::reset(width, height, BGFX_RESET_VSYNC);
-    bgfx::setViewRect(0, 0, 0, width, height);
 
     bgfx::setViewClear(0, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH, kDefaultClearColor, 1.0f, 0);
 
@@ -104,11 +105,8 @@ struct BgfxApplication : ew::IApplication {
     double timeAccumulator{0};
 
     // Game loop
-    while (true) {
+    while (!exit_) {
       processMessages();
-      if (exit_) {
-        break;
-      }
 
       time.update();
 
@@ -131,13 +129,15 @@ struct BgfxApplication : ew::IApplication {
       // present frame, dispatches to the rendering thread.
       bgfx::frame();
     }
+
+    bgfx::shutdown();
   }
 
   ew::WindowPtr window_;
   std::thread gameThread_;
   bx::DefaultAllocator alloc_;
   bx::SpScBlockingUnboundedQueueT<ew::Msg> msgs_;
-  bool exit_{false};
+  std::atomic_bool exit_{false};
 };
 
 ew::ApplicationPtr ew::createApplication() {
