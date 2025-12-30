@@ -10,10 +10,10 @@
 #include <cassert>
 #include <chrono>
 namespace ew {
-struct Time {
+struct SimTime {
   using seconds_d = std::chrono::duration<double>;
 
-  Time();
+  SimTime();
 
   void update();
 

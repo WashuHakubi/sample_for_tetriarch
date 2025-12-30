@@ -5,11 +5,11 @@
  *  file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
  */
 
-#include "time.h"
+#include "sim_time.h"
 
-ew::Time::Time() : prevTime_(std::chrono::high_resolution_clock::now()) {}
+ew::SimTime::SimTime() : prevTime_(std::chrono::high_resolution_clock::now()) {}
 
-void ew::Time::update() {
+void ew::SimTime::update() {
   using namespace std::chrono;
 
   const auto curTime = high_resolution_clock::now();
