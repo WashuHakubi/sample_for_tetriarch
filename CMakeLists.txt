@@ -105,6 +105,15 @@ fetch_dependency(
         SOURCE_ROOT ${PROJECT_SOURCE_DIR}/ext
 )
 
+fetch_dependency(
+        entt
+        GIT_SOURCE https://github.com/skypjack/entt.git
+        VERSION v3.16.0
+        CONFIGURATION ${CMAKE_BUILD_TYPE}
+        CONFIGURE_OPTIONS -DBUILD_SHARED_LIBS=OFF -DENTT_INSTALL=ON
+        SOURCE_ROOT ${PROJECT_SOURCE_DIR}/ext
+)
+
 # fetch_dependency(
 #         SDL3_image
 #         GIT_SOURCE https://github.com/libsdl-org/SDL_image.git

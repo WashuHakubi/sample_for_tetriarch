@@ -5,6 +5,7 @@
  *  file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
  */
 
+#include <functional>
 #include <iostream>
 
 #include "i_application.h"
@@ -16,7 +17,85 @@
 #include <bgfx/platform.h>
 #include <bx/bx.h>
 #include <bx/spscqueue.h>
+#include <entt/entt.hpp>
 #include <ng-log/logging.h>
+
+namespace detail {
+template <class C>
+struct HasUpdate {
+ private:
+  template <typename T>
+  static constexpr auto check(int) -> std::is_same<decltype(std::declval<T>().update(0.0f)), void>::type;
+
+  template <typename>
+  static constexpr auto check(...) -> std::false_type;
+
+  using type = decltype(check<C>(0));
+
+ public:
+  static constexpr bool value = type::value;
+};
+
+template <class C>
+struct HasRender {
+ private:
+  template <typename T>
+  static constexpr auto check(int)
+      -> std::is_same<decltype(std::declval<T>().render(std::declval<float>())), void>::type;
+
+  template <typename>
+  static constexpr auto check(...) -> std::false_type;
+
+  using type = decltype(check<C>(0));
+
+ public:
+  static constexpr bool value = type::value;
+};
+} // namespace detail
+
+template <class T>
+struct EcsSystemFactory {
+  static std::shared_ptr<T> create(entt::registry& r) {
+    if constexpr (std::is_constructible_v<T, entt::registry&>) {
+      return std::make_shared<T>(r);
+    } else {
+      return std::make_shared<T>();
+    }
+  }
+};
+
+static std::vector<std::function<void(entt::registry&)>> systemFactories_;
+static std::vector<std::function<void()>> systemCleanup_;
+static std::vector<std::function<void(float)>> systemUpdateFns_;
+static std::vector<std::function<void(float)>> systemRenderFns_;
+
+template <class T>
+void registerSystem() {
+  static std::shared_ptr<T> system;
+
+  LOG(INFO) << "Registering system: " << typeid(T).name();
+  systemFactories_.push_back([=](entt::registry& r) { system = EcsSystemFactory<T>::create(r); });
+
+  systemCleanup_.push_back([=]() { system.reset(); });
+
+  if constexpr (detail::HasUpdate<T>::value) {
+    LOG(INFO) << "Registering system update: " << typeid(T).name() << " " << detail::HasUpdate<T>::value;
+    systemUpdateFns_.push_back([](float dt) { system->update(dt); });
+  }
+
+  if constexpr (detail::HasRender<T>::value) {
+    LOG(INFO) << "Registering system render: " << typeid(T).name() << " " << detail::HasRender<T>::value;
+    systemRenderFns_.push_back([](float dt) { system->render(dt); });
+  }
+}
+
+struct SimpleFrameRateSystem {
+  void render(float dt) {
+    bgfx::dbgTextClear();
+
+    bgfx::dbgTextPrintf(0, 1, 0x0f, "\x1b[12;mFrame rate: %.1f", 1.0f / dt);
+  }
+};
 
 struct BgfxApplication : ew::IApplication {
   const unsigned kDefaultClearColor = 0x303030ff;
@@ -24,24 +103,31 @@ struct BgfxApplication : ew::IApplication {
 
   BgfxApplication() : msgs_(&alloc_) {}
 
-  ~BgfxApplication() {}
-
-  void handle(ew::Msg const& msg) override { msgs_.push(new ew::Msg(msg)); }
+  void handle(ew::Msg const& msg) override {
+    // Forward message to the game thread
+    msgs_.push(new ew::Msg(msg));
+  }
 
   bool init(int argc, char** argv) override {
+    registerSystem<SimpleFrameRateSystem>();
+
+    // Window is created on the main thread, which is also where rendering will happen
     window_ = ew::createWindow("game", 800, 600, ew::WindowFlags::Resizable);
     if (!window_) {
       LOG(FATAL) << "Failed to create window";
     }
 
-    // Don't create a rendering thread.
+    // Calling this before bgfx::init() ensures we don't create a rendering thread.
     bgfx::renderFrame();
 
     // These cannot be safely accessed on the game thread, so capture them here.
     auto descriptors = window_->getWindowDescriptors();
+
+    // Send a message to the game thread containing the window dimensions.
     auto [width, height] = window_->getWindowSize();
     handle(ew::ResizeMsg{width, height});
 
+    // Create the game thread.
     gameThread_ = std::thread([this, descriptors]() { this->run(descriptors); });
 
     return true;
@@ -101,8 +187,15 @@ struct BgfxApplication : ew::IApplication {
     constexpr auto kSimTickRate = 1.0 / 60.0;
     constexpr auto kMaxSimTime = 5 * kSimTickRate;
 
+    bgfx::setDebug(BGFX_DEBUG_TEXT);
+
     ew::Time time;
     double timeAccumulator{0};
+    entt::registry registry;
+
+    for (auto&& factory : systemFactories_) {
+      factory(registry);
+    }
 
     // Game loop
     while (!exit_) {
@@ -115,19 +208,27 @@ struct BgfxApplication : ew::IApplication {
 
       while (timeAccumulator >= kSimTickRate) {
         // update sim
+        for (auto&& updateFn : systemUpdateFns_) {
+          updateFn(kSimTickRate);
+        }
 
         // Remove sim tick time from the accumulator
         timeAccumulator -= kSimTickRate;
-        continue;
       }
 
       // Ensure view 0 is touched with at least a dummy event
       bgfx::touch(0);
 
-      // draw
+      for (auto&& renderFn : systemRenderFns_) {
+        renderFn(kSimTickRate);
+      }
 
-      // present frame, dispatches to the rendering thread.
+      // present the frame, dispatches to the rendering thread.
       bgfx::frame();
+    }
+
+    for (auto&& cleanup : systemCleanup_) {
+      cleanup();
     }
 
     bgfx::shutdown();

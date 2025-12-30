@@ -5,6 +5,7 @@ add_executable(client ${client_FILES})
 target_link_libraries(client
         SDL3::SDL3
         bgfx::bgfx
+        EnTT::EnTT
         imgui
         freetype
         shared)
