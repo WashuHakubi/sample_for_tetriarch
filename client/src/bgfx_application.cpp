@@ -70,7 +70,6 @@ struct BgfxApplication : ew::IApplication {
   bx::SpScBlockingUnboundedQueueT<ew::Msg> gameMsgs_;
   bx::SpScBlockingUnboundedQueueT<MainMsg> mainMsgs_;
   std::atomic_bool exit_{false};
-  ew::EcsSystems systems_;
   bool fullscreen_{false};
   std::pair<int, int> windowSize_{800, 600};
 };
@@ -181,7 +180,8 @@ void BgfxApplication::run(std::pair<void*, void*> descriptors) {
   double timeAccumulator{0};
   entt::registry registry;
 
-  systems_.addSystem(std::make_shared<SimpleFrameRateSystem>());
+  ew::EcsSystems systems;
+  systems.addSystem(std::make_shared<SimpleFrameRateSystem>());
 
   // Game loop
   while (!exit_) {
@@ -194,7 +194,7 @@ void BgfxApplication::run(std::pair<void*, void*> descriptors) {
 
     while (timeAccumulator >= kSimTickRate) {
       // update sim
-      systems_.update(kSimTickRate);
+      systems.update(kSimTickRate);
 
       // Remove sim tick time from the accumulator
       timeAccumulator -= kSimTickRate;
@@ -205,13 +205,13 @@ void BgfxApplication::run(std::pair<void*, void*> descriptors) {
     bgfx::dbgTextClear();
     bgfx::dbgTextPrintf(0, 0, 0x0b, "Dimensions: %d x %d", windowSize_.first, windowSize_.second);
 
-    systems_.render(static_cast<float>(time.simDeltaTime()));
+    systems.render(static_cast<float>(time.simDeltaTime()));
 
     // present the frame, dispatches to the rendering thread.
     bgfx::frame();
   }
 
-  systems_.clear();
+  systems.clear();
 
   bgfx::shutdown();
 }
