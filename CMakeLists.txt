@@ -106,7 +106,7 @@ fetch_dependency(
 )
 
 fetch_dependency(
-        entt
+        EnTT
         GIT_SOURCE https://github.com/skypjack/entt.git
         VERSION v3.16.0
         CONFIGURATION ${CMAKE_BUILD_TYPE}
