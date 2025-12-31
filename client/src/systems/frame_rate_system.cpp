@@ -7,7 +7,7 @@
 
 #include "frame_rate_system.h"
 
-#include "debug_cubes_rendering_system.h"
+#include <bgfx/bgfx.h>
 
 void FrameRateSystem::render(float dt) {
   accum_ += dt;

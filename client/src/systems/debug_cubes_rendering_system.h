@@ -6,6 +6,7 @@
  */
 
 #pragma once
+
 #include "../assets/i_asset.h"
 #include "../assets/shader_program_asset.h"
 

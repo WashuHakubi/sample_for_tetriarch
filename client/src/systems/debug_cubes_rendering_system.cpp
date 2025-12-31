@@ -8,10 +8,10 @@
 #include "debug_cubes_rendering_system.h"
 
 #include <bgfx/bgfx.h>
-#include <bx/math.h>
+#include <glm/ext.hpp>
 
 struct PosColorVertex {
-  float x, y, z;
+  glm::vec3 pos;
   uint32_t color;
 
   static auto& layout() {
@@ -41,14 +41,14 @@ DebugCubesRenderingSystem::~DebugCubesRenderingSystem() {
 
 void DebugCubesRenderingSystem::render(float dt) {
   static constexpr PosColorVertex cubeVertices[] = {
-      {-1.0f, 1.0f, 1.0f, 0xff000000},
-      {1.0f, 1.0f, 1.0f, 0xff0000ff},
-      {-1.0f, -1.0f, 1.0f, 0xff00ff00},
-      {1.0f, -1.0f, 1.0f, 0xff00ffff},
-      {-1.0f, 1.0f, -1.0f, 0xffff0000},
-      {1.0f, 1.0f, -1.0f, 0xffff00ff},
-      {-1.0f, -1.0f, -1.0f, 0xffffff00},
-      {1.0f, -1.0f, -1.0f, 0xffffffff},
+      {{-1.0f, 1.0f, 1.0f}, 0xff000000},
+      {{1.0f, 1.0f, 1.0f}, 0xff0000ff},
+      {{-1.0f, -1.0f, 1.0f}, 0xff00ff00},
+      {{1.0f, -1.0f, 1.0f}, 0xff00ffff},
+      {{-1.0f, 1.0f, -1.0f}, 0xffff0000},
+      {{1.0f, 1.0f, -1.0f}, 0xffff00ff},
+      {{-1.0f, -1.0f, -1.0f}, 0xffffff00},
+      {{1.0f, -1.0f, -1.0f}, 0xffffffff},
   };
 
   static constexpr uint16_t cubeTriList[] = {
@@ -93,14 +93,14 @@ void DebugCubesRenderingSystem::render(float dt) {
   // Submit 11x11 cubes.
   for (uint32_t yy = 0; yy < 11; ++yy) {
     for (uint32_t xx = 0; xx < 11; ++xx) {
-      float mtx[16];
-      bx::mtxRotateXY(mtx, accum_ + xx * 0.21f, accum_ + yy * 0.37f);
-      mtx[12] = -15.0f + static_cast<float>(xx) * 3.0f;
-      mtx[13] = -15.0f + static_cast<float>(yy) * 3.0f;
-      mtx[14] = 0.0f;
+      glm::mat4x4 mat = glm::identity<glm::mat4x4>();
+      mat = glm::rotate(mat, accum_ + xx * 0.21f, glm::vec3(1, 0, 0));
+      mat = glm::rotate(mat, accum_ + yy * 0.37f, glm::vec3(0, 1, 0));
+      mat[3][0] = -15.0f + xx * 3.0f;
+      mat[3][1] = -15.0f + yy * 3.0f;
+      mat[3][2] = 0.0f;
 
-      // Set model matrix for rendering.
-      bgfx::setTransform(mtx);
+      bgfx::setTransform(glm::value_ptr(mat));
 
       // Set vertex and index buffer.
       bgfx::setVertexBuffer(0, vbh_);

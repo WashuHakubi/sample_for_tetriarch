@@ -8,7 +8,10 @@
 #include "camera_system.h"
 
 #include <bgfx/bgfx.h>
-#include <bx/math.h>
+#include <glm/ext/matrix_clip_space.hpp>
+#include <glm/ext/matrix_projection.hpp>
+#include <glm/ext/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.inl>
 
 namespace ew {
 CameraSystem::CameraSystem(entt::registry& registry) : aspectRatio_(0), registry_(&registry) {
@@ -20,14 +23,12 @@ void CameraSystem::render(float dt) {
   camera_.phi += angle_ * dt;
   eye_ = camera_.toCartesian();
 
-  // Update our view to look at `at`
-  float view[16];
-  bx::mtxLookAt(view, eye_, at_);
-
-  float proj[16];
-  bx::mtxProj(proj, 60.0f, aspectRatio_, 0.1f, 100.0f, homogeneousDepth_);
-  bgfx::setViewTransform(0, view, proj);
+  // Update our view to look at `at_` from `eye_`
+  auto view = glm::lookAt(eye_, at_, {0, 1, 0});
+  auto proj = glm::perspective(glm::radians(60.0f), aspectRatio_, 0.1f, 1000.0f);
+  bgfx::setViewTransform(0, glm::value_ptr(view), glm::value_ptr(proj));
 }
+
 void CameraSystem::handleMessage(ew::Msg const& msg) {
   if (auto resize = std::get_if<ew::ResizeMsg>(&msg)) {
     width_ = resize->width;
@@ -37,7 +38,7 @@ void CameraSystem::handleMessage(ew::Msg const& msg) {
 
   if (auto key = std::get_if<ew::KeyMsg>(&msg)) {
     if (key->scancode == ew::Scancode::SCANCODE_Q || key->scancode == ew::Scancode::SCANCODE_E) {
-      angle_ = key->down ? key->scancode == ew::Scancode::SCANCODE_Q ? -1.0f : 1.0f : 0.0f;
+      angle_ = key->down ? key->scancode == ew::Scancode::SCANCODE_Q ? 1.0f : -1.0f : 0.0f;
     }
   }
 

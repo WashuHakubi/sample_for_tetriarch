@@ -9,11 +9,9 @@
 
 #include <cmath>
 
-#include <bx/math.h>
-#include <entt/entity/registry.hpp>
+#include <entt/entt.hpp>
 
 #include "../i_application.h"
-#include "../sim_time.h"
 
 namespace ew {
 struct OrbitCamera {
@@ -22,7 +20,7 @@ struct OrbitCamera {
   float phi;
 
   auto toCartesian() const {
-    return bx::Vec3(r * std::sin(theta) * std::cos(phi), r * std::cos(theta), r * std::sin(theta) * std::sin(phi));
+    return glm::vec3(r * std::sin(theta) * std::cos(phi), r * std::cos(theta), r * std::sin(theta) * std::sin(phi));
   }
 };
 
@@ -38,11 +36,11 @@ struct CameraSystem {
   float aspectRatio_;
 
   float angle_{0.0f};
-  bx::Vec3 at_{0, 0, 0};
-  bx::Vec3 eye_{0, 0, -35};
+  glm::vec3 at_{0, 0, 0};
+  glm::vec3 eye_{0, 0, -35};
   bool homogeneousDepth_{false};
 
   entt::registry* registry_;
-  OrbitCamera camera_{-35.0f, bx::toRad(120), bx::toRad(-90)};
+  OrbitCamera camera_{-35.0f, glm::radians(120.0f), glm::radians(-90.0f)};
 };
 } // namespace ew
