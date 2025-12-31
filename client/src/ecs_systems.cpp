@@ -13,14 +13,22 @@ void EcsSystems::clear() {
   renderSystems_.clear();
   systems_.clear();
 }
+
 void EcsSystems::render(float dt) const {
   for (auto&& system : renderSystems_) {
     system(dt);
   }
 }
+
 void EcsSystems::update(float dt) const {
   for (auto&& system : updateSystems_) {
     system(dt);
+  }
+}
+
+void EcsSystems::handleMessage(Msg const& msg) const {
+  for (auto&& system : messageHandlers_) {
+    system(msg);
   }
 }
 } // namespace ew

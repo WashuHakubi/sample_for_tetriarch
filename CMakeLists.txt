@@ -178,6 +178,8 @@ fetch_dependency(
 #        SDL3_image::SDL3_image
 # )
 
+include(ext/bgfx/cmake/bgfxToolUtils.cmake)
+
 add_subdirectory(ext)
 
 add_subdirectory(shared)

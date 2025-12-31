@@ -1,5 +1,0 @@
-name: My fake mesh
-material: materials/fake_material.yaml
-vertexLayout: [pos_f3, normal_f3, tex1_f2]
-vertices: []
-indices: []
