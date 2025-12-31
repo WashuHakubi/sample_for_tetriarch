@@ -6,8 +6,8 @@
  */
 
 #pragma once
-#include "i_asset.h"
-#include "shader_program_asset.h"
+#include "../assets/i_asset.h"
+#include "../assets/shader_program_asset.h"
 
 struct DebugCubesRenderingSystem {
   explicit DebugCubesRenderingSystem(ew::AssetProviderPtr provider) : assetProvider_(std::move(provider)) {}

@@ -12,8 +12,8 @@
 #include "i_application.h"
 #include "i_window.h"
 
-#include "ecs_systems.h"
 #include "sim_time.h"
+#include "systems/ecs_systems.h"
 
 #include <utility>
 #include <bgfx/bgfx.h>
@@ -26,30 +26,11 @@
 #include <ng-log/logging.h>
 #include <nlohmann/json.hpp>
 
-#include "camera_system.h"
-#include "debug_cubes_rendering_system.h"
-#include "i_asset.h"
-#include "simple_file_provider.h"
-
-struct SimpleFrameRateSystem {
-  void render(float dt) {
-    accum_ += dt;
-    ++count_;
-
-    if (accum_ >= 0.5f) {
-      // recomputes the frame rate every half-second
-      rate_ = count_ / accum_;
-      count_ = 0;
-      accum_ = 0;
-    }
-
-    bgfx::dbgTextPrintf(0, 1, 0x0b, "Frame rate: %.1f", rate_);
-  }
-
-  float rate_{0};
-  float count_{0};
-  float accum_{0};
-};
+#include "assets/i_asset.h"
+#include "assets/simple_file_provider.h"
+#include "systems/camera_system.h"
+#include "systems/debug_cubes_rendering_system.h"
+#include "systems/frame_rate_system.h"
 
 struct SetFullScreenMsg {
   bool fullscreen;
@@ -197,7 +178,7 @@ void BgfxApplication::run(std::pair<void*, void*> descriptors) {
   auto assetProvider = std::make_shared<ew::AssetProvider>(std::make_shared<SimpleFileProvider>("assets"));
   assetProvider->registerAssetLoader(std::make_shared<ShaderProgramLoader>());
 
-  systems_.addSystem(std::make_shared<SimpleFrameRateSystem>());
+  systems_.addSystem(std::make_shared<FrameRateSystem>());
   systems_.addSystem(std::make_shared<ew::CameraSystem>(registry));
   systems_.addSystem(std::make_shared<DebugCubesRenderingSystem>(assetProvider));
 

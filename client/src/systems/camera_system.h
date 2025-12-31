@@ -12,8 +12,8 @@
 #include <bx/math.h>
 #include <entt/entity/registry.hpp>
 
-#include "i_application.h"
-#include "sim_time.h"
+#include "../i_application.h"
+#include "../sim_time.h"
 
 namespace ew {
 struct OrbitCamera {
