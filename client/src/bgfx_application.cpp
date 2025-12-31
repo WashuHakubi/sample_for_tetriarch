@@ -26,6 +26,8 @@
 #include <ng-log/logging.h>
 #include <nlohmann/json.hpp>
 
+#include "camera_system.h"
+
 struct IFileProvider {
   virtual ~IFileProvider() = default;
 
@@ -325,66 +327,6 @@ struct DebugCubesRenderingSystem {
   AssetProviderPtr assetProvider_;
 };
 
-struct CameraSystem {
-  CameraSystem() { homogeneousDepth_ = bgfx::getCaps()->homogeneousDepth; }
-
-  void render(float dt) {
-    angle_ += rotate_ * dt;
-    zoomed_ = std::max(std::min(zoomed_ + zoom_ * zoomScale_ * dt, 20.0f), -20.0f);
-
-    constexpr bx::Vec3 at = {0.0f, 0.0f, 0.0f};
-    bx::Vec3 eye = {0.0f, 0.0f, -35.0f + zoomed_};
-
-    // Real simple orbit camera around the origin.
-    // Rotate `eye` around `at`.
-    eye = rotateAround(eye, at, bx::Vec3{0.0f, 1.0f, 0.0f}, angle_);
-    float view[16];
-
-    // Update our view to look at `at`
-    bx::mtxLookAt(view, eye, at);
-
-    float proj[16];
-    bx::mtxProj(proj, 60.0f, aspectRatio_, 0.1f, 100.0f, homogeneousDepth_);
-    bgfx::setViewTransform(0, view, proj);
-  }
-
-  bx::Vec3 rotateAround(bx::Vec3 const& pos, bx::Vec3 const& center, bx::Vec3 const& axis, float angle) {
-    auto rot = bx::fromAxisAngle(axis, angle);
-    auto dir = bx::sub(pos, center);
-    dir = bx::mul(dir, rot);
-
-    return bx::add(center, dir);
-  }
-
-  void handleMessage(ew::Msg const& msg) {
-    if (auto resize = std::get_if<ew::ResizeMsg>(&msg)) {
-      width_ = resize->width;
-      height_ = resize->height;
-      aspectRatio_ = width_ / static_cast<float>(height_);
-    }
-
-    if (auto key = std::get_if<ew::KeyMsg>(&msg)) {
-      if (key->scancode == ew::Scancode::SCANCODE_Q || key->scancode == ew::Scancode::SCANCODE_E) {
-        rotate_ = key->down ? key->scancode == ew::Scancode::SCANCODE_Q ? 1.0f : -1.0f : 0.0f;
-      }
-    }
-
-    if (auto wheel = std::get_if<ew::MouseWheelMsg>(&msg)) {
-      zoom_ = wheel->delta;
-    }
-  }
-
-  int width_{0};
-  int height_{0};
-  float aspectRatio_;
-  float rotate_;
-  float angle_{0.0f};
-  float zoom_{0.0f};
-  float zoomScale_{1.5f};
-  float zoomed_{0.0f};
-  bool homogeneousDepth_{false};
-};
-
 struct BgfxApplication : ew::IApplication {
   const unsigned kDefaultClearColor = 0x303030ff;
   const unsigned kAltClearColor = 0x334433ff;
@@ -398,7 +340,7 @@ struct BgfxApplication : ew::IApplication {
   bool update() override;
 
  private:
-  void processMessages();
+  void processMessages(ew::SimTime const& time);
 
   void run(std::pair<void*, void*> descriptors);
 
@@ -467,7 +409,7 @@ bool BgfxApplication::update() {
   return !exit_;
 }
 
-void BgfxApplication::processMessages() {
+void BgfxApplication::processMessages(ew::SimTime const& time) {
   while (auto const ptr = gameMsgs_.pop(0)) {
     // Ensure the message always gets deleted.
     std::unique_ptr<ew::Msg> msg(ptr);
@@ -526,14 +468,14 @@ void BgfxApplication::run(std::pair<void*, void*> descriptors) {
   assetProvider->registerAssetLoader(std::make_shared<ShaderProgramLoader>());
 
   systems_.addSystem(std::make_shared<SimpleFrameRateSystem>());
-  systems_.addSystem(std::make_shared<CameraSystem>());
+  systems_.addSystem(std::make_shared<ew::CameraSystem>(registry));
   systems_.addSystem(std::make_shared<DebugCubesRenderingSystem>(assetProvider));
 
   // Game loop
   while (!exit_) {
-    processMessages();
-
     time.update();
+
+    processMessages(time);
 
     // Cap the number of times we'll update the sim per frame to ensure rendering and other events are handled.
     timeAccumulator = std::max(timeAccumulator + time.simDeltaTime(), kMaxSimTime);
