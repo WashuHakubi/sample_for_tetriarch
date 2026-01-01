@@ -19,9 +19,37 @@ CameraSystem::CameraSystem(entt::registry& registry) : aspectRatio_(0), registry
 }
 
 void CameraSystem::render(float dt) {
-  // Rotate the camera around the Y axis
+  constexpr auto speed = 10.0f;
+
   camera_.phi += angle_ * dt;
-  eye_ = camera_.toCartesian();
+
+  auto const camera = camera_.toCartesian();
+
+  // This should be in a character controller somewhere...
+  // Move us in the direction the camera is facing.
+  {
+    auto normCamera = camera;
+    normCamera.y = 0;
+    normCamera = glm::normalize(normCamera);
+
+    auto const forward = glm::vec3{
+        normCamera.x * ((forward_ ? -1.0f : 0) + (backward_ ? 1.0f : 0)),
+        0,
+        normCamera.z * ((forward_ ? -1.0f : 0) + (backward_ ? 1.0f : 0)),
+    };
+
+    auto const right = glm::cross(normCamera, {0, 1, 0});
+
+    auto const strafe = glm::vec3{
+        right.x * ((left_ ? 1.0f : 0) + (right_ ? -1.0f : 0)),
+        0,
+        right.z * ((left_ ? 1.0f : 0) + (right_ ? -1.0f : 0))};
+
+    at_ += (forward + strafe) * speed * dt;
+  }
+
+  // Rotate the camera around the Y axis
+  eye_ = at_ + camera;
 
   // Update our view to look at `at_` from `eye_`
   auto view = glm::lookAt(eye_, at_, {0, 1, 0});
@@ -39,6 +67,23 @@ void CameraSystem::handleMessage(ew::Msg const& msg) {
   if (auto key = std::get_if<ew::KeyMsg>(&msg)) {
     if (key->scancode == ew::Scancode::SCANCODE_Q || key->scancode == ew::Scancode::SCANCODE_E) {
       angle_ = key->down ? key->scancode == ew::Scancode::SCANCODE_Q ? 1.0f : -1.0f : 0.0f;
+    }
+
+    switch (key->scancode) {
+      case SCANCODE_W:
+        forward_ = key->down;
+        break;
+      case SCANCODE_S:
+        backward_ = key->down;
+        break;
+      case SCANCODE_A:
+        left_ = key->down;
+        break;
+      case SCANCODE_D:
+        right_ = key->down;
+        break;
+      default:
+        break;
     }
   }
 

@@ -36,6 +36,11 @@ struct CameraSystem {
   float aspectRatio_;
 
   float angle_{0.0f};
+  bool forward_{false};
+  bool backward_{false};
+  bool left_{false};
+  bool right_{false};
+
   glm::vec3 at_{0, 0, 0};
   glm::vec3 eye_{0, 0, -35};
   bool homogeneousDepth_{false};
