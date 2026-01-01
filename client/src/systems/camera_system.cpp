@@ -19,40 +19,42 @@ CameraSystem::CameraSystem(entt::registry& registry) : aspectRatio_(0), registry
 }
 
 void CameraSystem::render(float dt) {
+  constexpr glm::vec3 up{0, 1, 0};
   constexpr auto speed = 10.0f;
 
   camera_.phi += angle_ * dt;
 
-  auto const camera = camera_.toCartesian();
+  // A vector pointing from the origin to the camera
+  auto const cameraPos = camera_.toCartesian();
 
   // This should be in a character controller somewhere...
   // Move us in the direction the camera is facing.
-  {
-    auto normCamera = camera;
-    normCamera.y = 0;
-    normCamera = glm::normalize(normCamera);
+  if (left_ || right_ || forward_ || backward_) {
+    // get a vector pointing to the origin from the camera (facing direction of the camera)
+    // This assumes camera_.r != 0
+    auto const facing = glm::vec3{-cameraPos.x, 0, -cameraPos.z};
 
-    auto const forward = glm::vec3{
-        normCamera.x * ((forward_ ? -1.0f : 0) + (backward_ ? 1.0f : 0)),
+    // get our right vector, this will be used to compute our strafe momentum
+    auto const right = glm::cross(facing, up);
+
+    // compute a movement vector, combining our forward and strafe momentum with our facing direction
+    auto const movement = glm::vec3{
+        facing.x * ((forward_ ? 1.0f : 0) + (backward_ ? -1.0f : 0)) +
+            right.x * ((left_ ? -1.0f : 0) + (right_ ? 1.0f : 0)),
         0,
-        normCamera.z * ((forward_ ? -1.0f : 0) + (backward_ ? 1.0f : 0)),
-    };
+        facing.z * ((forward_ ? 1.0f : 0) + (backward_ ? -1.0f : 0)) +
+            right.z * ((left_ ? -1.0f : 0) + (right_ ? 1.0f : 0))};
 
-    auto const right = glm::cross(normCamera, {0, 1, 0});
-
-    auto const strafe = glm::vec3{
-        right.x * ((left_ ? 1.0f : 0) + (right_ ? -1.0f : 0)),
-        0,
-        right.z * ((left_ ? 1.0f : 0) + (right_ ? -1.0f : 0))};
-
-    at_ += (forward + strafe) * speed * dt;
+    if (movement.x != 0 || movement.z != 0) {
+      at_ += glm::normalize(movement) * speed * dt;
+    }
   }
 
   // Rotate the camera around the Y axis
-  eye_ = at_ + camera;
+  eye_ = at_ + cameraPos;
 
   // Update our view to look at `at_` from `eye_`
-  auto view = glm::lookAt(eye_, at_, {0, 1, 0});
+  auto view = glm::lookAt(eye_, at_, up);
   auto proj = glm::perspective(glm::radians(60.0f), aspectRatio_, 0.1f, 1000.0f);
   bgfx::setViewTransform(0, glm::value_ptr(view), glm::value_ptr(proj));
 }
