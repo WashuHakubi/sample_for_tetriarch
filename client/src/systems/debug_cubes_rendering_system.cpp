@@ -133,14 +133,14 @@ void DebugCubesRenderingSystem::render(float dt) {
   }
 
   // Submit 11x11 cubes.
-  for (uint32_t yy = 0; yy < 11; ++yy) {
+  for (uint32_t zz = 0; zz < 11; ++zz) {
     for (uint32_t xx = 0; xx < 11; ++xx) {
       glm::mat4x4 mat = glm::identity<glm::mat4x4>();
       mat = glm::rotate(mat, accum_ + xx * 0.21f, glm::vec3(1, 0, 0));
-      mat = glm::rotate(mat, accum_ + yy * 0.37f, glm::vec3(0, 1, 0));
+      mat = glm::rotate(mat, accum_ + zz * 0.37f, glm::vec3(0, 1, 0));
       mat[3][0] = -15.0f + xx * 3.0f;
-      mat[3][1] = -15.0f + yy * 3.0f;
-      mat[3][2] = 0.0f;
+      mat[3][1] = -3.0f;
+      mat[3][2] = -15.0f + zz * 3.0f;
 
       bgfx::setTransform(glm::value_ptr(mat));
 

@@ -24,6 +24,8 @@ struct is_enum_flags_type<WindowFlags> : std::true_type {};
 struct IWindow {
   virtual ~IWindow() = default;
 
+  virtual void captureMouse(bool capture) = 0;
+
   /// @brief Gets the native device descriptor (or null if none), and window handle.
   virtual auto getWindowDescriptors() const -> std::pair<void*, void*> = 0;
 

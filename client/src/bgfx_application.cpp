@@ -80,6 +80,9 @@ bool BgfxApplication::init(int argc, char** argv) {
     LOG(FATAL) << "Failed to create window";
   }
 
+  // Keep the mouse in the window (while we have focus)
+  window_->captureMouse(true);
+
   // Calling this before bgfx::init() ensures we don't create a rendering thread.
   bgfx::renderFrame();
 

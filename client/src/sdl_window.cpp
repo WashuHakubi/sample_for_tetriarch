@@ -55,6 +55,11 @@ struct SDLWindow final : IWindow {
     SDL_SyncWindow(window_);
   }
 
+  void captureMouse(bool capture) override {
+    SDL_SetWindowRelativeMouseMode(window_, capture);
+    // SDL_SetWindowMouseGrab(capture ? SDL_TRUE : SDL_FALSE);
+  }
+
  private:
   SDL_Window* window_;
 };
