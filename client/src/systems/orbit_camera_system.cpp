@@ -14,39 +14,48 @@
 namespace ew {
 OrbitCameraSystem::OrbitCameraSystem(entt::registry& registry, ApplicationPtr app)
     : aspectRatio_(0)
-    , registry_(&registry)
-    , app_(std::move(app)) {
+    , app_(std::move(app))
+    , registry_(&registry) {
+  // Origin axis
+  auto axis = registry_->create();
+  registry_->emplace<Transform>(axis, glm::vec3{0}, glm::vec3{10.0f});
+  registry_->emplace<AxisDebug>(axis);
+
+  // The entity our camera is following.
   targetEntity_ = registry_->create();
 
   registry_->emplace<Transform>(
       targetEntity_,
       glm::vec3{0},
-      glm::vec3{10.0f},
-      glm::angleAxis(-camera_.phi, glm::vec3{0, 1, 0}));
+      glm::vec3{3.0f},
+      glm::angleAxis(glm::radians(0.0f), glm::vec3{0, 1, 0}));
 
   registry_->emplace<AxisDebug>(targetEntity_);
+
+  registry_->emplace<OrbitCamera>(targetEntity_, 35.0f, glm::radians(-45.0f), glm::radians(0.0f));
 }
 
-void OrbitCameraSystem::render(float dt) {
+void OrbitCameraSystem::render(float const dt) {
   constexpr glm::vec3 up{0, 1, 0};
   constexpr auto speed = 10.0f;
 
-  auto& transform = registry_->get<Transform>(targetEntity_);
+  auto [transform, camera] = registry_->get<Transform, OrbitCamera>(targetEntity_);
 
-  camera_.phi += (angle_ + (unlockAngle_ ? singleFrameAngle_ : 0)) * dt;
+  camera.r = zoom_;
+  camera.phi += (angle_ + (unlockAngle_ ? singleFrameAngle_ : 0)) * dt;
   singleFrameAngle_ = 0;
 
   // A vector pointing from the origin to the camera
-  auto const cameraPos = camera_.toCartesian();
+  auto const cameraPos = camera.toCartesian();
 
   // This should be in a character controller somewhere...
   // Move us in the direction the camera is facing.
   if (movementDirections_.any()) {
     // get a vector pointing to the origin from the camera (facing direction of the camera)
-    // This assumes camera_.r != 0
+    // This assumes camera_.r != 0, we do not need to normalize this as we do that when we apply the movement vector.
     auto const facing = glm::vec3{-cameraPos.x, 0, -cameraPos.z};
 
-    // get our right vector, this will be used to compute our strafe momentum
+    // get the right vector, this will be used to compute our strafe momentum
     auto const right = glm::cross(facing, up);
 
     // compute a movement vector, combining our forward and strafe momentum with our facing direction
@@ -59,15 +68,15 @@ void OrbitCameraSystem::render(float dt) {
 
     if (movement.x != 0 || movement.z != 0) {
       // Update our character to face in the direction of our movement
-      transform.rotation = glm::angleAxis(-camera_.phi, glm::vec3{0, 1, 0});
+      transform.rotation = glm::angleAxis(-camera.phi, glm::vec3{0, 1, 0});
       transform.position += glm::normalize(movement) * speed * dt;
     }
   }
 
-  // Rotate the camera around the Y axis
-  eye_ = transform.position + cameraPos;
+  // Get the camera position relative to the target
+  auto eye = transform.position + cameraPos;
 
-  bgfx::dbgTextPrintf(0, 2, 0x0f, "Camera position: (%.2f, %.2f, %.2f)", eye_.x, eye_.y, eye_.z);
+  bgfx::dbgTextPrintf(0, 2, 0x0f, "Camera position: (%.2f, %.2f, %.2f)", eye.x, eye.y, eye.z);
   bgfx::dbgTextPrintf(
       0, // x
       3, // y
@@ -76,10 +85,10 @@ void OrbitCameraSystem::render(float dt) {
       transform.position.x,
       transform.position.y,
       transform.position.z);
-  bgfx::dbgTextPrintf(0, 4, 0x0f, "Camera rotation: %.2f", glm::degrees(camera_.phi));
+  bgfx::dbgTextPrintf(0, 4, 0x0f, "Camera rotation: %.2f", glm::degrees(camera.phi));
 
-  // Update our view to look at `at_` from `eye_`
-  auto view = glm::lookAt(eye_, transform.position, up);
+  // Update our view to look at `target` from `eye`
+  auto view = glm::lookAt(eye, transform.position, up);
   bgfx::setViewTransform(0, glm::value_ptr(view), glm::value_ptr(proj_));
 }
 
@@ -134,8 +143,8 @@ void OrbitCameraSystem::handleMessage(GameThreadMsg const& msg) {
   }
   // Zoom in and out based on the scroll-wheel direction.
   else if (auto const wheel = std::get_if<MouseWheelMsg>(&msg)) {
-    // adjusts our distance from at_
-    camera_.r += wheel->delta * 0.1f;
+    // adjusts our distance from the target, ensure we are between our min and max zoom level (r should never be 0)
+    zoom_ = std::clamp(zoom_ + wheel->delta * 0.1f, 1.0f, 50.0f);
   }
 }
 } // namespace ew

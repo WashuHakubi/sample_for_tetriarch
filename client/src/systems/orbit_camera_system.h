@@ -37,6 +37,7 @@ struct OrbitCameraSystem {
   float aspectRatio_;
 
   float angle_{0.0f};
+  float zoom_{35.0f};
   bool unlockAngle_{false};
   float singleFrameAngle_{0.0f};
   float mouseSensitivity_{0.5f};
@@ -44,13 +45,10 @@ struct OrbitCameraSystem {
   enum MovementDirection { Forward, Backward, Left, Right };
   std::bitset<sizeof(MovementDirection) * CHAR_BIT> movementDirections_;
 
-  glm::vec3 eye_{0, 0, -35};
   glm::mat4x4 proj_{};
 
+  ApplicationPtr app_;
   entt::registry* registry_;
   entt::entity targetEntity_;
-
-  ApplicationPtr app_;
-  OrbitCamera camera_{-35.0f, glm::radians(120.0f), glm::radians(90.0f)};
 };
 } // namespace ew
