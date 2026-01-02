@@ -17,8 +17,6 @@ CameraSystem::CameraSystem(entt::registry& registry, ApplicationPtr app)
     : aspectRatio_(0)
     , registry_(&registry)
     , app_(std::move(app)) {
-  homogeneousDepth_ = bgfx::getCaps()->homogeneousDepth;
-
   targetEntity_ = registry_->create();
   registry_->emplace<AxisDebugEntity>(
       targetEntity_,
@@ -89,16 +87,14 @@ void CameraSystem::handleMessage(ew::GameThreadMsg const& msg) {
     width_ = resize->width;
     height_ = resize->height;
     aspectRatio_ = static_cast<float>(width_) / static_cast<float>(height_);
-    if (homogeneousDepth_) {
+    if (bgfx::getCaps()->homogeneousDepth) {
       // Depth goes from -1,1 (OpenGL)
       proj_ = glm::perspectiveNO(glm::radians(60.0f), aspectRatio_, 0.1f, 1000.0f);
     } else {
       // Depth goes from 0,1
       proj_ = glm::perspectiveZO(glm::radians(60.0f), aspectRatio_, 0.1f, 1000.0f);
     }
-  }
-
-  else if (auto key = std::get_if<ew::KeyMsg>(&msg)) {
+  } else if (auto key = std::get_if<ew::KeyMsg>(&msg)) {
     if (key->scancode == ew::Scancode::SCANCODE_Q || key->scancode == ew::Scancode::SCANCODE_E) {
       angle_ = key->down ? key->scancode == ew::Scancode::SCANCODE_Q ? 1.0f : -1.0f : 0.0f;
     }
@@ -119,9 +115,7 @@ void CameraSystem::handleMessage(ew::GameThreadMsg const& msg) {
       default:
         break;
     }
-  }
-
-  else if (auto motion = std::get_if<ew::MouseMotionMsg>(&msg)) {
+  } else if (auto motion = std::get_if<ew::MouseMotionMsg>(&msg)) {
     singleFrameAngle_ = motion->relPosition.x * mouseSensitivity_;
   } else if (auto const click = std::get_if<ew::MouseButtonMsg>(&msg)) {
     if (click->button == MouseButton::Right) {

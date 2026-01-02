@@ -47,11 +47,11 @@ struct CameraSystem {
 
   glm::vec3 eye_{0, 0, -35};
   glm::mat4x4 proj_;
-  bool homogeneousDepth_{false};
 
   entt::registry* registry_;
-  ApplicationPtr app_;
   entt::entity targetEntity_;
+
+  ApplicationPtr app_;
   OrbitCamera camera_{-35.0f, glm::radians(120.0f), glm::radians(90.0f)};
 };
 } // namespace ew
