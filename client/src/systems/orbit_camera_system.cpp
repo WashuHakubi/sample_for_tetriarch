@@ -41,7 +41,7 @@ void OrbitCameraSystem::render(float dt) {
 
   // This should be in a character controller somewhere...
   // Move us in the direction the camera is facing.
-  if (left_ || right_ || forward_ || backward_) {
+  if (movementDirections_.any()) {
     // get a vector pointing to the origin from the camera (facing direction of the camera)
     // This assumes camera_.r != 0
     auto const facing = glm::vec3{-cameraPos.x, 0, -cameraPos.z};
@@ -51,11 +51,11 @@ void OrbitCameraSystem::render(float dt) {
 
     // compute a movement vector, combining our forward and strafe momentum with our facing direction
     auto const movement = glm::vec3{
-        facing.x * ((forward_ ? 1.0f : 0) + (backward_ ? -1.0f : 0)) +
-            right.x * ((left_ ? 1.0f : 0) + (right_ ? -1.0f : 0)),
+        facing.x * ((movementDirections_[Forward] ? 1.0f : 0) + (movementDirections_[Backward] ? -1.0f : 0)) +
+            right.x * ((movementDirections_[Left] ? 1.0f : 0) + (movementDirections_[Right] ? -1.0f : 0)),
         0,
-        facing.z * ((forward_ ? 1.0f : 0) + (backward_ ? -1.0f : 0)) +
-            right.z * ((left_ ? 1.0f : 0) + (right_ ? -1.0f : 0))};
+        facing.z * ((movementDirections_[Forward] ? 1.0f : 0) + (movementDirections_[Backward] ? -1.0f : 0)) +
+            right.z * ((movementDirections_[Left] ? 1.0f : 0) + (movementDirections_[Right] ? -1.0f : 0))};
 
     if (movement.x != 0 || movement.z != 0) {
       // Update our character to face in the direction of our movement
@@ -84,6 +84,7 @@ void OrbitCameraSystem::render(float dt) {
 }
 
 void OrbitCameraSystem::handleMessage(GameThreadMsg const& msg) {
+  // Recompute the aspect ratio and projection matrix on resize
   if (auto resize = std::get_if<ResizeMsg>(&msg)) {
     width_ = resize->width;
     height_ = resize->height;
@@ -95,35 +96,44 @@ void OrbitCameraSystem::handleMessage(GameThreadMsg const& msg) {
       // Depth goes from 0,1
       proj_ = glm::perspectiveZO(glm::radians(60.0f), aspectRatio_, 0.1f, 1000.0f);
     }
-  } else if (auto key = std::get_if<KeyMsg>(&msg)) {
+  }
+  // Handle input. This does not belong here, and instead input should be handled by a system specifically designed for
+  // that.
+  else if (auto key = std::get_if<KeyMsg>(&msg)) {
     if (key->scancode == SCANCODE_Q || key->scancode == SCANCODE_E) {
       angle_ = key->down ? key->scancode == SCANCODE_Q ? 1.0f : -1.0f : 0.0f;
     }
 
     switch (key->scancode) {
       case SCANCODE_W:
-        forward_ = key->down;
+        movementDirections_[Forward] = key->down;
         break;
       case SCANCODE_S:
-        backward_ = key->down;
+        movementDirections_[Backward] = key->down;
         break;
       case SCANCODE_A:
-        left_ = key->down;
+        movementDirections_[Left] = key->down;
         break;
       case SCANCODE_D:
-        right_ = key->down;
+        movementDirections_[Right] = key->down;
         break;
       default:
         break;
     }
-  } else if (auto motion = std::get_if<MouseMotionMsg>(&msg)) {
+  }
+  // Rotate the camera by some amount based on the mouse motion. This is only applied if unlockAngle_ is true.
+  else if (auto motion = std::get_if<MouseMotionMsg>(&msg)) {
     singleFrameAngle_ = motion->relPosition.x * mouseSensitivity_;
-  } else if (auto const click = std::get_if<MouseButtonMsg>(&msg)) {
+  }
+  // Unlock the camera while the RMB is held down.
+  else if (auto const click = std::get_if<MouseButtonMsg>(&msg)) {
     if (click->button == MouseButton::Right) {
       app_->sendMainThreadMessage(CaptureMouseMsg{click->down});
       unlockAngle_ = click->down;
     }
-  } else if (auto const wheel = std::get_if<MouseWheelMsg>(&msg)) {
+  }
+  // Zoom in and out based on the scroll-wheel direction.
+  else if (auto const wheel = std::get_if<MouseWheelMsg>(&msg)) {
     // adjusts our distance from at_
     camera_.r += wheel->delta * 0.1f;
   }

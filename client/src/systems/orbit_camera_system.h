@@ -41,10 +41,8 @@ struct OrbitCameraSystem {
   float singleFrameAngle_{0.0f};
   float mouseSensitivity_{0.5f};
 
-  bool forward_{false};
-  bool backward_{false};
-  bool left_{false};
-  bool right_{false};
+  enum MovementDirection { Forward, Backward, Left, Right };
+  std::bitset<sizeof(MovementDirection) * CHAR_BIT> movementDirections_;
 
   glm::vec3 eye_{0, 0, -35};
   glm::mat4x4 proj_{};
