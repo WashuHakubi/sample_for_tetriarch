@@ -46,7 +46,7 @@ struct CameraSystem {
   bool right_{false};
 
   glm::vec3 eye_{0, 0, -35};
-  glm::mat4x4 proj_;
+  glm::mat4x4 proj_{};
 
   entt::registry* registry_;
   entt::entity targetEntity_;

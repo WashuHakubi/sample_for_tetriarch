@@ -50,18 +50,17 @@ void CameraSystem::render(float dt) {
     auto const right = glm::cross(facing, up);
 
     // compute a movement vector, combining our forward and strafe momentum with our facing direction
-    auto const movement = glm::normalize(
-        glm::vec3{
-            facing.x * ((forward_ ? 1.0f : 0) + (backward_ ? -1.0f : 0)) +
-                right.x * ((left_ ? 1.0f : 0) + (right_ ? -1.0f : 0)),
-            0,
-            facing.z * ((forward_ ? 1.0f : 0) + (backward_ ? -1.0f : 0)) +
-                right.z * ((left_ ? 1.0f : 0) + (right_ ? -1.0f : 0))});
+    auto const movement = glm::vec3{
+        facing.x * ((forward_ ? 1.0f : 0) + (backward_ ? -1.0f : 0)) +
+            right.x * ((left_ ? 1.0f : 0) + (right_ ? -1.0f : 0)),
+        0,
+        facing.z * ((forward_ ? 1.0f : 0) + (backward_ ? -1.0f : 0)) +
+            right.z * ((left_ ? 1.0f : 0) + (right_ ? -1.0f : 0))};
 
     if (movement.x != 0 || movement.z != 0) {
       // Update our character to face in the direction of our movement
       transform.rotation = glm::angleAxis(-camera_.phi, glm::vec3{0, 1, 0});
-      transform.position += movement * speed * dt;
+      transform.position += glm::normalize(movement) * speed * dt;
     }
   }
 
