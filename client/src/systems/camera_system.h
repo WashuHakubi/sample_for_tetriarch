@@ -41,11 +41,11 @@ struct CameraSystem {
   bool left_{false};
   bool right_{false};
 
-  glm::vec3 at_{0, 0, 0};
   glm::vec3 eye_{0, 0, -35};
   bool homogeneousDepth_{false};
 
   entt::registry* registry_;
-  OrbitCamera camera_{-35.0f, glm::radians(120.0f), glm::radians(-90.0f)};
+  entt::entity targetEntity_;
+  OrbitCamera camera_{-35.0f, glm::radians(120.0f), glm::radians(90.0f)};
 };
 } // namespace ew

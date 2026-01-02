@@ -180,7 +180,7 @@ void BgfxApplication::run(std::pair<void*, void*> descriptors) {
 
   systems_.addSystem(std::make_shared<FrameRateSystem>());
   systems_.addSystem(std::make_shared<ew::CameraSystem>(registry));
-  systems_.addSystem(std::make_shared<DebugCubesRenderingSystem>(assetProvider));
+  systems_.addSystem(std::make_shared<DebugCubesRenderingSystem>(assetProvider, registry));
 
   // Game loop
   while (!exit_) {

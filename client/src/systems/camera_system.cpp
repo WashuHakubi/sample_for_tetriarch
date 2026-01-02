@@ -6,21 +6,27 @@
  */
 
 #include "camera_system.h"
+#include "debug_cubes_rendering_system.h"
 
 #include <bgfx/bgfx.h>
-#include <glm/ext/matrix_clip_space.hpp>
-#include <glm/ext/matrix_projection.hpp>
-#include <glm/ext/matrix_transform.hpp>
-#include <glm/gtc/type_ptr.inl>
 
 namespace ew {
+
 CameraSystem::CameraSystem(entt::registry& registry) : aspectRatio_(0), registry_(&registry) {
   homogeneousDepth_ = bgfx::getCaps()->homogeneousDepth;
+  targetEntity_ = registry_->create();
+  registry_->emplace<AxisDebugEntity>(
+      targetEntity_,
+      glm::vec3{},
+      glm::quat{glm::angleAxis(-camera_.phi, glm::vec3{0, 1, 0})},
+      10.0f);
 }
 
 void CameraSystem::render(float dt) {
   constexpr glm::vec3 up{0, 1, 0};
   constexpr auto speed = 10.0f;
+
+  auto& ade = registry_->get<AxisDebugEntity>(targetEntity_);
 
   camera_.phi += angle_ * dt;
 
@@ -38,23 +44,30 @@ void CameraSystem::render(float dt) {
     auto const right = glm::cross(facing, up);
 
     // compute a movement vector, combining our forward and strafe momentum with our facing direction
-    auto const movement = glm::vec3{
-        facing.x * ((forward_ ? 1.0f : 0) + (backward_ ? -1.0f : 0)) +
-            right.x * ((left_ ? -1.0f : 0) + (right_ ? 1.0f : 0)),
-        0,
-        facing.z * ((forward_ ? 1.0f : 0) + (backward_ ? -1.0f : 0)) +
-            right.z * ((left_ ? -1.0f : 0) + (right_ ? 1.0f : 0))};
+    auto const movement = glm::normalize(
+        glm::vec3{
+            facing.x * ((forward_ ? 1.0f : 0) + (backward_ ? -1.0f : 0)) +
+                right.x * ((left_ ? -1.0f : 0) + (right_ ? 1.0f : 0)),
+            0,
+            facing.z * ((forward_ ? 1.0f : 0) + (backward_ ? -1.0f : 0)) +
+                right.z * ((left_ ? -1.0f : 0) + (right_ ? 1.0f : 0))});
 
     if (movement.x != 0 || movement.z != 0) {
-      at_ += glm::normalize(movement) * speed * dt;
+      // Update our character to face in the direction of our movement
+      ade.rotation = glm::angleAxis(-camera_.phi, glm::vec3{0, 1, 0});
+      ade.position += movement * speed * dt;
     }
   }
 
   // Rotate the camera around the Y axis
-  eye_ = at_ + cameraPos;
+  eye_ = ade.position + cameraPos;
+
+  bgfx::dbgTextPrintf(0, 2, 0x0f, "Camera position: (%.2f, %.2f, %.2f)", eye_.x, eye_.y, eye_.z);
+  bgfx::
+      dbgTextPrintf(0, 3, 0x0f, "Target position: (%.2f, %.2f, %.2f)", ade.position.x, ade.position.y, ade.position.z);
 
   // Update our view to look at `at_` from `eye_`
-  auto view = glm::lookAt(eye_, at_, up);
+  auto view = glm::lookAt(eye_, ade.position, up);
   auto proj = glm::perspective(glm::radians(60.0f), aspectRatio_, 0.1f, 1000.0f);
   bgfx::setViewTransform(0, glm::value_ptr(view), glm::value_ptr(proj));
 }

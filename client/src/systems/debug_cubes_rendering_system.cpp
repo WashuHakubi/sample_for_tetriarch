@@ -8,7 +8,6 @@
 #include "debug_cubes_rendering_system.h"
 
 #include <bgfx/bgfx.h>
-#include <glm/ext.hpp>
 
 struct PosColorVertex {
   glm::vec3 pos;
@@ -40,6 +39,22 @@ DebugCubesRenderingSystem::~DebugCubesRenderingSystem() {
 }
 
 void DebugCubesRenderingSystem::render(float dt) {
+  static constexpr PosColorVertex axisVertices[] = {
+      {{0.0f, 0.0f, 0.0f}, 0xffffffff},
+      {{1.0f, 0.0f, 0.0f}, 0xff0000ff},
+      {{0.0f, 1.0f, 0.0f}, 0xff00ff00},
+      {{0.0f, 0.0f, 1.0f}, 0xffff0000},
+  };
+
+  static constexpr uint16_t axisLineList[] = {
+      0,
+      1, // X
+      0,
+      2, // Y
+      0,
+      3, // Z
+  };
+
   static constexpr PosColorVertex cubeVertices[] = {
       {{-1.0f, 1.0f, 1.0f}, 0xff000000},
       {{1.0f, 1.0f, 1.0f}, 0xff0000ff},
@@ -88,7 +103,34 @@ void DebugCubesRenderingSystem::render(float dt) {
         bgfx::makeRef(cubeTriList, sizeof(cubeTriList)));
   }
 
+  if (!bgfx::isValid(axisVbh_)) {
+    axisVbh_ = bgfx::createVertexBuffer(
+        // Static data can be passed with bgfx::makeRef
+        bgfx::makeRef(axisVertices, sizeof(axisVertices)),
+        PosColorVertex::layout());
+  }
+
+  if (!bgfx::isValid(axisIbh_)) {
+    // Create a static index buffer for triangle list rendering.
+    axisIbh_ = bgfx::createIndexBuffer(
+        // Static data can be passed with bgfx::makeRef
+        bgfx::makeRef(axisLineList, sizeof(axisLineList)));
+  }
+
   accum_ += dt;
+
+  for (auto [ent, axis] : registry_->view<AxisDebugEntity>().each()) {
+    auto mat = glm::mat4_cast(axis.rotation);
+    mat = glm::scale(mat, glm::vec3(axis.scale));
+    mat[3][0] = axis.position.x;
+    mat[3][1] = axis.position.y;
+    mat[3][2] = axis.position.z;
+    bgfx::setTransform(glm::value_ptr(mat));
+    bgfx::setVertexBuffer(0, axisVbh_);
+    bgfx::setIndexBuffer(axisIbh_);
+    bgfx::setState(state | BGFX_STATE_PT_LINES);
+    bgfx::submit(0, program_->programHandle);
+  }
 
   // Submit 11x11 cubes.
   for (uint32_t yy = 0; yy < 11; ++yy) {
@@ -105,7 +147,6 @@ void DebugCubesRenderingSystem::render(float dt) {
       // Set vertex and index buffer.
       bgfx::setVertexBuffer(0, vbh_);
       bgfx::setIndexBuffer(ibh_);
-
       // Set render states.
       bgfx::setState(state);
 
