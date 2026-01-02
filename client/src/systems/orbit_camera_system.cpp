@@ -6,9 +6,12 @@
  */
 
 #include "orbit_camera_system.h"
-#include "debug_cubes_rendering_system.h"
+#include "../components/axis_debug.h"
+#include "../components/orbit_camera.h"
+#include "../components/transform.h"
 
 #include <bgfx/bgfx.h>
+#include <glm/gtc/type_ptr.hpp>
 #include <ng-log/logging.h>
 
 namespace ew {
@@ -29,9 +32,7 @@ OrbitCameraSystem::OrbitCameraSystem(entt::registry& registry, ApplicationPtr ap
       glm::vec3{0},
       glm::vec3{3.0f},
       glm::angleAxis(glm::radians(0.0f), glm::vec3{0, 1, 0}));
-
   registry_->emplace<AxisDebug>(targetEntity_);
-
   registry_->emplace<OrbitCamera>(targetEntity_, 35.0f, glm::radians(-45.0f), glm::radians(0.0f));
 }
 
@@ -52,7 +53,8 @@ void OrbitCameraSystem::render(float const dt) {
   // Move us in the direction the camera is facing.
   if (movementDirections_.any()) {
     // get a vector pointing to the origin from the camera (facing direction of the camera)
-    // This assumes camera_.r != 0, we do not need to normalize this as we do that when we apply the movement vector.
+    // This assumes camera_.r != 0.
+    // This does not need to normalize this as we do that when the movement vector is applied to the position.
     auto const facing = glm::vec3{-cameraPos.x, 0, -cameraPos.z};
 
     // get the right vector, this will be used to compute our strafe momentum
@@ -76,6 +78,11 @@ void OrbitCameraSystem::render(float const dt) {
   // Get the camera position relative to the target
   auto eye = transform.position + cameraPos;
 
+  // Update our view to look at `target` from `eye`
+  auto view = glm::lookAt(eye, transform.position, up);
+  bgfx::setViewTransform(0, glm::value_ptr(view), glm::value_ptr(proj_));
+
+  // Print some debug information
   bgfx::dbgTextPrintf(0, 2, 0x0f, "Camera position: (%.2f, %.2f, %.2f)", eye.x, eye.y, eye.z);
   bgfx::dbgTextPrintf(
       0, // x
@@ -86,10 +93,6 @@ void OrbitCameraSystem::render(float const dt) {
       transform.position.y,
       transform.position.z);
   bgfx::dbgTextPrintf(0, 4, 0x0f, "Camera rotation: %.2f", glm::degrees(camera.phi));
-
-  // Update our view to look at `target` from `eye`
-  auto view = glm::lookAt(eye, transform.position, up);
-  bgfx::setViewTransform(0, glm::value_ptr(view), glm::value_ptr(proj_));
 }
 
 void OrbitCameraSystem::handleMessage(GameThreadMsg const& msg) {

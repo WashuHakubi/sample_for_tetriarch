@@ -14,17 +14,6 @@
 #include "../i_application.h"
 
 namespace ew {
-// We use spherical coordinates for the orbit camera since it's attached to a target.
-struct OrbitCamera {
-  float r;
-  float theta;
-  float phi;
-
-  auto toCartesian() const {
-    return glm::vec3(r * std::sin(theta) * std::cos(phi), r * std::cos(theta), r * std::sin(theta) * std::sin(phi));
-  }
-};
-
 struct OrbitCameraSystem {
   explicit OrbitCameraSystem(entt::registry& registry, ApplicationPtr app);
 

@@ -28,6 +28,7 @@
 
 #include "assets/i_asset.h"
 #include "assets/simple_file_provider.h"
+#include "systems/axis_debug_system.h"
 #include "systems/debug_cubes_rendering_system.h"
 #include "systems/frame_rate_system.h"
 #include "systems/orbit_camera_system.h"
@@ -188,6 +189,7 @@ void BgfxApplication::run(std::pair<void*, void*> descriptors) {
   systems_.addSystem(std::make_shared<FrameRateSystem>());
   systems_.addSystem(std::make_shared<ew::OrbitCameraSystem>(registry, shared_from_this()));
   systems_.addSystem(std::make_shared<DebugCubesRenderingSystem>(assetProvider, registry));
+  systems_.addSystem(std::make_shared<AxisDebugSystem>(assetProvider, registry));
 
   // Game loop
   while (!exit_) {

@@ -11,17 +11,6 @@
 #include "../assets/shader_program_asset.h"
 
 #include <entt/entt.hpp>
-#include <glm/ext.hpp>
-#include <glm/glm.hpp>
-
-struct Transform {
-  glm::vec3 position;
-  glm::vec3 scale;
-  glm::quat rotation;
-};
-
-/// When present on an entity will display the coordinate axis
-struct AxisDebug {};
 
 struct DebugCubesRenderingSystem {
   explicit DebugCubesRenderingSystem(ew::AssetProviderPtr provider, entt::registry& registry)
@@ -33,8 +22,6 @@ struct DebugCubesRenderingSystem {
   void render(float dt);
 
   float accum_{0};
-  bgfx::VertexBufferHandle axisVbh_{bgfx::kInvalidHandle};
-  bgfx::IndexBufferHandle axisIbh_{bgfx::kInvalidHandle};
   bgfx::VertexBufferHandle vbh_{bgfx::kInvalidHandle};
   bgfx::IndexBufferHandle ibh_{bgfx::kInvalidHandle};
   ShaderProgram::Ptr program_;
