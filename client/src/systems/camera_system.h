@@ -36,12 +36,16 @@ struct CameraSystem {
   float aspectRatio_;
 
   float angle_{0.0f};
+  float singleFrameAngle_{0.0f};
+  float mouseSensitivity_{0.5f};
+
   bool forward_{false};
   bool backward_{false};
   bool left_{false};
   bool right_{false};
 
   glm::vec3 eye_{0, 0, -35};
+  glm::mat4x4 proj_;
   bool homogeneousDepth_{false};
 
   entt::registry* registry_;

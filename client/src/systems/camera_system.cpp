@@ -9,11 +9,13 @@
 #include "debug_cubes_rendering_system.h"
 
 #include <bgfx/bgfx.h>
+#include <ng-log/logging.h>
 
 namespace ew {
 
 CameraSystem::CameraSystem(entt::registry& registry) : aspectRatio_(0), registry_(&registry) {
   homogeneousDepth_ = bgfx::getCaps()->homogeneousDepth;
+
   targetEntity_ = registry_->create();
   registry_->emplace<AxisDebugEntity>(
       targetEntity_,
@@ -28,7 +30,8 @@ void CameraSystem::render(float dt) {
 
   auto& ade = registry_->get<AxisDebugEntity>(targetEntity_);
 
-  camera_.phi += angle_ * dt;
+  camera_.phi += (angle_ + singleFrameAngle_) * dt;
+  singleFrameAngle_ = 0;
 
   // A vector pointing from the origin to the camera
   auto const cameraPos = camera_.toCartesian();
@@ -63,14 +66,19 @@ void CameraSystem::render(float dt) {
   eye_ = ade.position + cameraPos;
 
   bgfx::dbgTextPrintf(0, 2, 0x0f, "Camera position: (%.2f, %.2f, %.2f)", eye_.x, eye_.y, eye_.z);
-  bgfx::
-      dbgTextPrintf(0, 3, 0x0f, "Target position: (%.2f, %.2f, %.2f)", ade.position.x, ade.position.y, ade.position.z);
+  bgfx::dbgTextPrintf(
+      0, // x
+      3, // y
+      0x0f,
+      "Target position: (%.2f, %.2f, %.2f)",
+      ade.position.x,
+      ade.position.y,
+      ade.position.z);
   bgfx::dbgTextPrintf(0, 4, 0x0f, "Camera rotation: %.2f", glm::degrees(camera_.phi));
 
   // Update our view to look at `at_` from `eye_`
   auto view = glm::lookAt(eye_, ade.position, up);
-  auto proj = glm::perspective(glm::radians(60.0f), aspectRatio_, 0.1f, 1000.0f);
-  bgfx::setViewTransform(0, glm::value_ptr(view), glm::value_ptr(proj));
+  bgfx::setViewTransform(0, glm::value_ptr(view), glm::value_ptr(proj_));
 }
 
 void CameraSystem::handleMessage(ew::Msg const& msg) {
@@ -78,6 +86,13 @@ void CameraSystem::handleMessage(ew::Msg const& msg) {
     width_ = resize->width;
     height_ = resize->height;
     aspectRatio_ = static_cast<float>(width_) / static_cast<float>(height_);
+    if (homogeneousDepth_) {
+      // Depth goes from -1,1 (OpenGL)
+      proj_ = glm::perspectiveNO(glm::radians(60.0f), aspectRatio_, 0.1f, 1000.0f);
+    } else {
+      // Depth goes from 0,1
+      proj_ = glm::perspectiveZO(glm::radians(60.0f), aspectRatio_, 0.1f, 1000.0f);
+    }
   }
 
   if (auto key = std::get_if<ew::KeyMsg>(&msg)) {
@@ -101,6 +116,10 @@ void CameraSystem::handleMessage(ew::Msg const& msg) {
       default:
         break;
     }
+  }
+
+  if (auto motion = std::get_if<ew::MouseMotionMsg>(&msg)) {
+    singleFrameAngle_ = motion->relPosition.x * mouseSensitivity_;
   }
 
   if (auto const wheel = std::get_if<ew::MouseWheelMsg>(&msg)) {
