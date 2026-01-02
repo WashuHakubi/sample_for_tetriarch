@@ -5,14 +5,14 @@
  *  file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
  */
 
-#include "camera_system.h"
+#include "orbit_camera_system.h"
 #include "debug_cubes_rendering_system.h"
 
 #include <bgfx/bgfx.h>
 #include <ng-log/logging.h>
 
 namespace ew {
-CameraSystem::CameraSystem(entt::registry& registry, ApplicationPtr app)
+OrbitCameraSystem::OrbitCameraSystem(entt::registry& registry, ApplicationPtr app)
     : aspectRatio_(0)
     , registry_(&registry)
     , app_(std::move(app)) {
@@ -27,7 +27,7 @@ CameraSystem::CameraSystem(entt::registry& registry, ApplicationPtr app)
   registry_->emplace<AxisDebug>(targetEntity_);
 }
 
-void CameraSystem::render(float dt) {
+void OrbitCameraSystem::render(float dt) {
   constexpr glm::vec3 up{0, 1, 0};
   constexpr auto speed = 10.0f;
 
@@ -83,8 +83,8 @@ void CameraSystem::render(float dt) {
   bgfx::setViewTransform(0, glm::value_ptr(view), glm::value_ptr(proj_));
 }
 
-void CameraSystem::handleMessage(ew::GameThreadMsg const& msg) {
-  if (auto resize = std::get_if<ew::ResizeMsg>(&msg)) {
+void OrbitCameraSystem::handleMessage(GameThreadMsg const& msg) {
+  if (auto resize = std::get_if<ResizeMsg>(&msg)) {
     width_ = resize->width;
     height_ = resize->height;
     aspectRatio_ = static_cast<float>(width_) / static_cast<float>(height_);
@@ -95,9 +95,9 @@ void CameraSystem::handleMessage(ew::GameThreadMsg const& msg) {
       // Depth goes from 0,1
       proj_ = glm::perspectiveZO(glm::radians(60.0f), aspectRatio_, 0.1f, 1000.0f);
     }
-  } else if (auto key = std::get_if<ew::KeyMsg>(&msg)) {
-    if (key->scancode == ew::Scancode::SCANCODE_Q || key->scancode == ew::Scancode::SCANCODE_E) {
-      angle_ = key->down ? key->scancode == ew::Scancode::SCANCODE_Q ? 1.0f : -1.0f : 0.0f;
+  } else if (auto key = std::get_if<KeyMsg>(&msg)) {
+    if (key->scancode == SCANCODE_Q || key->scancode == SCANCODE_E) {
+      angle_ = key->down ? key->scancode == SCANCODE_Q ? 1.0f : -1.0f : 0.0f;
     }
 
     switch (key->scancode) {
@@ -116,14 +116,14 @@ void CameraSystem::handleMessage(ew::GameThreadMsg const& msg) {
       default:
         break;
     }
-  } else if (auto motion = std::get_if<ew::MouseMotionMsg>(&msg)) {
+  } else if (auto motion = std::get_if<MouseMotionMsg>(&msg)) {
     singleFrameAngle_ = motion->relPosition.x * mouseSensitivity_;
-  } else if (auto const click = std::get_if<ew::MouseButtonMsg>(&msg)) {
+  } else if (auto const click = std::get_if<MouseButtonMsg>(&msg)) {
     if (click->button == MouseButton::Right) {
       app_->sendMainThreadMessage(CaptureMouseMsg{click->down});
       unlockAngle_ = click->down;
     }
-  } else if (auto const wheel = std::get_if<ew::MouseWheelMsg>(&msg)) {
+  } else if (auto const wheel = std::get_if<MouseWheelMsg>(&msg)) {
     // adjusts our distance from at_
     camera_.r += wheel->delta * 0.1f;
   }

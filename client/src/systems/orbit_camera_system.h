@@ -14,6 +14,7 @@
 #include "../i_application.h"
 
 namespace ew {
+// We use spherical coordinates for the orbit camera since it's attached to a target.
 struct OrbitCamera {
   float r;
   float theta;
@@ -24,8 +25,8 @@ struct OrbitCamera {
   }
 };
 
-struct CameraSystem {
-  explicit CameraSystem(entt::registry& registry, ApplicationPtr app);
+struct OrbitCameraSystem {
+  explicit OrbitCameraSystem(entt::registry& registry, ApplicationPtr app);
 
   void render(float dt);
 

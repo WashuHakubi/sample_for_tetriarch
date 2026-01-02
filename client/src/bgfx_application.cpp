@@ -28,9 +28,9 @@
 
 #include "assets/i_asset.h"
 #include "assets/simple_file_provider.h"
-#include "systems/camera_system.h"
 #include "systems/debug_cubes_rendering_system.h"
 #include "systems/frame_rate_system.h"
+#include "systems/orbit_camera_system.h"
 
 struct BgfxApplication : ew::IApplication, std::enable_shared_from_this<BgfxApplication> {
   const unsigned kDefaultClearColor = 0x303030ff;
@@ -186,7 +186,7 @@ void BgfxApplication::run(std::pair<void*, void*> descriptors) {
   assetProvider->registerAssetLoader(std::make_shared<ShaderProgramLoader>());
 
   systems_.addSystem(std::make_shared<FrameRateSystem>());
-  systems_.addSystem(std::make_shared<ew::CameraSystem>(registry, shared_from_this()));
+  systems_.addSystem(std::make_shared<ew::OrbitCameraSystem>(registry, shared_from_this()));
   systems_.addSystem(std::make_shared<DebugCubesRenderingSystem>(assetProvider, registry));
 
   // Game loop
