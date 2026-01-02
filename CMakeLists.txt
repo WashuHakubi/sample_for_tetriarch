@@ -19,6 +19,8 @@ else ()
             -Wno-missing-field-initializers)
 endif ()
 
+add_compile_definitions(GLM_FORCE_LEFT_HANDED)
+
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/$<CONFIGURATION>")
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/$<CONFIGURATION>")
 

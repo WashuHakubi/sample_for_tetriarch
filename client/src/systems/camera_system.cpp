@@ -47,10 +47,10 @@ void CameraSystem::render(float dt) {
     auto const movement = glm::normalize(
         glm::vec3{
             facing.x * ((forward_ ? 1.0f : 0) + (backward_ ? -1.0f : 0)) +
-                right.x * ((left_ ? -1.0f : 0) + (right_ ? 1.0f : 0)),
+                right.x * ((left_ ? 1.0f : 0) + (right_ ? -1.0f : 0)),
             0,
             facing.z * ((forward_ ? 1.0f : 0) + (backward_ ? -1.0f : 0)) +
-                right.z * ((left_ ? -1.0f : 0) + (right_ ? 1.0f : 0))});
+                right.z * ((left_ ? 1.0f : 0) + (right_ ? -1.0f : 0))});
 
     if (movement.x != 0 || movement.z != 0) {
       // Update our character to face in the direction of our movement
@@ -65,6 +65,7 @@ void CameraSystem::render(float dt) {
   bgfx::dbgTextPrintf(0, 2, 0x0f, "Camera position: (%.2f, %.2f, %.2f)", eye_.x, eye_.y, eye_.z);
   bgfx::
       dbgTextPrintf(0, 3, 0x0f, "Target position: (%.2f, %.2f, %.2f)", ade.position.x, ade.position.y, ade.position.z);
+  bgfx::dbgTextPrintf(0, 4, 0x0f, "Camera rotation: %.2f", glm::degrees(camera_.phi));
 
   // Update our view to look at `at_` from `eye_`
   auto view = glm::lookAt(eye_, ade.position, up);
