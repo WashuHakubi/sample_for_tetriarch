@@ -13,7 +13,10 @@
 
 namespace ew {
 
-CameraSystem::CameraSystem(entt::registry& registry) : aspectRatio_(0), registry_(&registry) {
+CameraSystem::CameraSystem(entt::registry& registry, ApplicationPtr app)
+    : aspectRatio_(0)
+    , registry_(&registry)
+    , app_(std::move(app)) {
   homogeneousDepth_ = bgfx::getCaps()->homogeneousDepth;
 
   targetEntity_ = registry_->create();
@@ -30,7 +33,7 @@ void CameraSystem::render(float dt) {
 
   auto& ade = registry_->get<AxisDebugEntity>(targetEntity_);
 
-  camera_.phi += (angle_ + singleFrameAngle_) * dt;
+  camera_.phi += (angle_ + (unlockAngle_ ? singleFrameAngle_ : 0)) * dt;
   singleFrameAngle_ = 0;
 
   // A vector pointing from the origin to the camera
@@ -81,7 +84,7 @@ void CameraSystem::render(float dt) {
   bgfx::setViewTransform(0, glm::value_ptr(view), glm::value_ptr(proj_));
 }
 
-void CameraSystem::handleMessage(ew::Msg const& msg) {
+void CameraSystem::handleMessage(ew::GameThreadMsg const& msg) {
   if (auto resize = std::get_if<ew::ResizeMsg>(&msg)) {
     width_ = resize->width;
     height_ = resize->height;
@@ -95,7 +98,7 @@ void CameraSystem::handleMessage(ew::Msg const& msg) {
     }
   }
 
-  if (auto key = std::get_if<ew::KeyMsg>(&msg)) {
+  else if (auto key = std::get_if<ew::KeyMsg>(&msg)) {
     if (key->scancode == ew::Scancode::SCANCODE_Q || key->scancode == ew::Scancode::SCANCODE_E) {
       angle_ = key->down ? key->scancode == ew::Scancode::SCANCODE_Q ? 1.0f : -1.0f : 0.0f;
     }
@@ -118,11 +121,14 @@ void CameraSystem::handleMessage(ew::Msg const& msg) {
     }
   }
 
-  if (auto motion = std::get_if<ew::MouseMotionMsg>(&msg)) {
+  else if (auto motion = std::get_if<ew::MouseMotionMsg>(&msg)) {
     singleFrameAngle_ = motion->relPosition.x * mouseSensitivity_;
-  }
-
-  if (auto const wheel = std::get_if<ew::MouseWheelMsg>(&msg)) {
+  } else if (auto const click = std::get_if<ew::MouseButtonMsg>(&msg)) {
+    if (click->button == MouseButton::Right) {
+      app_->sendMainThreadMessage(CaptureMouseMsg{click->down});
+      unlockAngle_ = click->down;
+    }
+  } else if (auto const wheel = std::get_if<ew::MouseWheelMsg>(&msg)) {
     // adjusts our distance from at_
     camera_.r += wheel->delta * 0.1f;
   }

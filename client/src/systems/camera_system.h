@@ -25,17 +25,18 @@ struct OrbitCamera {
 };
 
 struct CameraSystem {
-  explicit CameraSystem(entt::registry& registry);
+  explicit CameraSystem(entt::registry& registry, ApplicationPtr app);
 
   void render(float dt);
 
-  void handleMessage(ew::Msg const& msg);
+  void handleMessage(ew::GameThreadMsg const& msg);
 
   int width_{0};
   int height_{0};
   float aspectRatio_;
 
   float angle_{0.0f};
+  bool unlockAngle_{false};
   float singleFrameAngle_{0.0f};
   float mouseSensitivity_{0.5f};
 
@@ -49,6 +50,7 @@ struct CameraSystem {
   bool homogeneousDepth_{false};
 
   entt::registry* registry_;
+  ApplicationPtr app_;
   entt::entity targetEntity_;
   OrbitCamera camera_{-35.0f, glm::radians(120.0f), glm::radians(90.0f)};
 };

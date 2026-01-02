@@ -26,7 +26,7 @@ void EcsSystems::update(float dt) const {
   }
 }
 
-void EcsSystems::handleMessage(Msg const& msg) const {
+void EcsSystems::handleMessage(GameThreadMsg const& msg) const {
   for (auto&& system : messageHandlers_) {
     system(msg);
   }

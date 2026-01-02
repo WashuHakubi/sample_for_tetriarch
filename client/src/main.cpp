@@ -88,7 +88,7 @@ SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* event) {
     case SDL_EVENT_MOUSE_BUTTON_UP:
       state->app->handle(
           ew::MouseButtonMsg{
-              .button = event->button.button,
+              .button = static_cast<ew::MouseButton>(event->button.button),
               .clicks = event->button.clicks,
               .down = event->type == SDL_EVENT_MOUSE_BUTTON_DOWN,
           });

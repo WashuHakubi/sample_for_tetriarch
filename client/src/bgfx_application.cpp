@@ -32,23 +32,19 @@
 #include "systems/debug_cubes_rendering_system.h"
 #include "systems/frame_rate_system.h"
 
-struct SetFullScreenMsg {
-  bool fullscreen;
-};
-
-using MainMsg = std::variant<SetFullScreenMsg>;
-
-struct BgfxApplication : ew::IApplication {
+struct BgfxApplication : ew::IApplication, std::enable_shared_from_this<BgfxApplication> {
   const unsigned kDefaultClearColor = 0x303030ff;
   const unsigned kAltClearColor = 0x334433ff;
 
   BgfxApplication();
 
-  void handle(ew::Msg const& msg) override;
+  void handle(ew::GameThreadMsg const& msg) override;
 
   bool init(int argc, char** argv) override;
 
   bool update() override;
+
+  void sendMainThreadMessage(ew::MainThreadMsg msg) override;
 
  private:
   void processMessages(ew::SimTime const& time);
@@ -58,19 +54,24 @@ struct BgfxApplication : ew::IApplication {
   ew::WindowPtr window_;
   std::thread gameThread_;
   bx::DefaultAllocator alloc_;
-  bx::SpScBlockingUnboundedQueueT<ew::Msg> gameMsgs_;
-  bx::SpScBlockingUnboundedQueueT<MainMsg> mainMsgs_;
+  bx::SpScBlockingUnboundedQueueT<ew::GameThreadMsg> gameMsgs_;
+  bx::SpScBlockingUnboundedQueueT<ew::MainThreadMsg> mainMsgs_;
   ew::EcsSystems systems_;
   std::atomic_bool exit_{false};
   bool fullscreen_{false};
   std::pair<int, int> windowSize_{800, 600};
 };
 
-BgfxApplication::BgfxApplication() : gameMsgs_(&alloc_), mainMsgs_(&alloc_) {}
+static BgfxApplication* app_{nullptr};
 
-void BgfxApplication::handle(ew::Msg const& msg) {
+BgfxApplication::BgfxApplication() : gameMsgs_(&alloc_), mainMsgs_(&alloc_) {
+  assert(!app_);
+  app_ = this;
+}
+
+void BgfxApplication::handle(ew::GameThreadMsg const& msg) {
   // Forward message to the game thread
-  gameMsgs_.push(new ew::Msg(msg));
+  gameMsgs_.push(new ew::GameThreadMsg(msg));
 }
 
 bool BgfxApplication::init(int argc, char** argv) {
@@ -79,9 +80,6 @@ bool BgfxApplication::init(int argc, char** argv) {
   if (!window_) {
     LOG(FATAL) << "Failed to create window";
   }
-
-  // Keep the mouse in the window (while we have focus)
-  window_->captureMouse(true);
 
   // Calling this before bgfx::init() ensures we don't create a rendering thread.
   bgfx::renderFrame();
@@ -106,10 +104,12 @@ bool BgfxApplication::update() {
 
   // Process any requests from the game thread.
   while (auto const ptr = mainMsgs_.pop(0)) {
-    std::unique_ptr<MainMsg> msg(ptr);
+    std::unique_ptr<ew::MainThreadMsg> msg(ptr);
 
-    if (auto const fs = std::get_if<SetFullScreenMsg>(msg.get())) {
+    if (auto const fs = std::get_if<ew::SetFullScreenMsg>(msg.get())) {
       window_->setFullscreen(fs->fullscreen);
+    } else if (auto const cm = std::get_if<ew::CaptureMouseMsg>(msg.get())) {
+      window_->captureMouse(cm->capture);
     }
   }
 
@@ -123,10 +123,14 @@ bool BgfxApplication::update() {
   return !exit_;
 }
 
+void BgfxApplication::sendMainThreadMessage(ew::MainThreadMsg msg) {
+  mainMsgs_.push(new ew::MainThreadMsg(msg));
+}
+
 void BgfxApplication::processMessages(ew::SimTime const& time) {
   while (auto const ptr = gameMsgs_.pop(0)) {
     // Ensure the message always gets deleted.
-    std::unique_ptr<ew::Msg> msg(ptr);
+    std::unique_ptr<ew::GameThreadMsg> msg(ptr);
 
     systems_.handleMessage(*msg);
 
@@ -148,7 +152,7 @@ void BgfxApplication::processMessages(ew::SimTime const& time) {
         fullscreen_ = !fullscreen_;
 
         // Request the render thread to switch our full-screen status.
-        mainMsgs_.push(new MainMsg{SetFullScreenMsg{fullscreen_}});
+        mainMsgs_.push(new ew::MainThreadMsg{ew::SetFullScreenMsg{fullscreen_}});
       }
     } else if (std::get_if<ew::ShutdownMsg>(msg.get())) {
       exit_ = true;
@@ -182,7 +186,7 @@ void BgfxApplication::run(std::pair<void*, void*> descriptors) {
   assetProvider->registerAssetLoader(std::make_shared<ShaderProgramLoader>());
 
   systems_.addSystem(std::make_shared<FrameRateSystem>());
-  systems_.addSystem(std::make_shared<ew::CameraSystem>(registry));
+  systems_.addSystem(std::make_shared<ew::CameraSystem>(registry, shared_from_this()));
   systems_.addSystem(std::make_shared<DebugCubesRenderingSystem>(assetProvider, registry));
 
   // Game loop

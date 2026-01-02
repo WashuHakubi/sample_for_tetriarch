@@ -56,7 +56,7 @@ struct HasMsgHandler {
   // ReSharper disable once CppFunctionIsNotImplemented
   template <class T>
   static constexpr auto check(int)
-      -> decltype(std::declval<T>().handleMessage(std::declval<Msg const&>()), std::true_type{});
+      -> decltype(std::declval<T>().handleMessage(std::declval<GameThreadMsg const&>()), std::true_type{});
 
   // ReSharper disable once CppFunctionIsNotImplemented
   template <class T>
@@ -80,13 +80,13 @@ class EcsSystems {
 
   void update(float dt) const;
 
-  void handleMessage(Msg const& msg) const;
+  void handleMessage(GameThreadMsg const& msg) const;
 
  private:
   std::vector<std::shared_ptr<void>> systems_;
   std::vector<std::function<void(float dt)>> updateSystems_;
   std::vector<std::function<void(float dt)>> renderSystems_;
-  std::vector<std::function<void(Msg const&)>> messageHandlers_;
+  std::vector<std::function<void(GameThreadMsg const&)>> messageHandlers_;
 };
 
 template <class T>
@@ -102,7 +102,7 @@ void EcsSystems::addSystem(std::shared_ptr<T> const& system) {
   }
 
   if constexpr (detail::HasMsgHandler<T>::value) {
-    messageHandlers_.push_back([system](Msg const& msg) { system->handleMessage(msg); });
+    messageHandlers_.push_back([system](GameThreadMsg const& msg) { system->handleMessage(msg); });
   }
 }
 } // namespace ew

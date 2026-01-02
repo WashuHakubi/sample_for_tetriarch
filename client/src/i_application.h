@@ -240,8 +240,17 @@ struct KeyMsg {
   bool down;
 };
 
+enum class MouseButton {
+  Left = 1,
+  Middle = 2,
+  Right = 3,
+  X1 = 4,
+  X2 = 5,
+  X3 = 6,
+};
+
 struct MouseButtonMsg {
-  int button;
+  MouseButton button;
   int clicks; // 1 for single-click, 2 for double-click, etc.
   bool down;
 };
@@ -255,18 +264,31 @@ struct MouseWheelMsg {
   float delta;
 };
 
-using Msg = std::variant<ShutdownMsg, ResizeMsg, KeyMsg, MouseButtonMsg, MouseMotionMsg, MouseWheelMsg>;
+using GameThreadMsg = std::variant<ShutdownMsg, ResizeMsg, KeyMsg, MouseButtonMsg, MouseMotionMsg, MouseWheelMsg>;
+
+struct SetFullScreenMsg {
+  bool fullscreen;
+};
+
+struct CaptureMouseMsg {
+  bool capture;
+};
+
+using MainThreadMsg = std::variant<SetFullScreenMsg, CaptureMouseMsg>;
 
 struct IApplication {
   virtual ~IApplication() = default;
 
-  virtual void handle(Msg const& msg) = 0;
+  virtual void handle(GameThreadMsg const& msg) = 0;
 
   virtual bool init(int argc, char** argv) = 0;
 
   virtual bool update() = 0;
+
+  virtual void sendMainThreadMessage(ew::MainThreadMsg msg) = 0;
 };
 using ApplicationPtr = std::shared_ptr<IApplication>;
 
 ApplicationPtr createApplication();
+
 } // namespace ew
