@@ -119,9 +119,9 @@ void DebugCubesRenderingSystem::render(float dt) {
 
   accum_ += dt;
 
-  for (auto [ent, axis] : registry_->view<AxisDebugEntity>().each()) {
+  for (auto [ent, axis] : registry_->view<AxisDebug, Transform>().each()) {
     auto mat = glm::mat4_cast(axis.rotation);
-    mat = glm::scale(mat, glm::vec3(axis.scale));
+    mat = glm::scale(mat, axis.scale);
     mat[3][0] = axis.position.x;
     mat[3][1] = axis.position.y;
     mat[3][2] = axis.position.z;

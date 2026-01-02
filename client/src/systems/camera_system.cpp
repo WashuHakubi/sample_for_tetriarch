@@ -12,24 +12,26 @@
 #include <ng-log/logging.h>
 
 namespace ew {
-
 CameraSystem::CameraSystem(entt::registry& registry, ApplicationPtr app)
     : aspectRatio_(0)
     , registry_(&registry)
     , app_(std::move(app)) {
   targetEntity_ = registry_->create();
-  registry_->emplace<AxisDebugEntity>(
+
+  registry_->emplace<Transform>(
       targetEntity_,
-      glm::vec3{},
-      glm::quat{glm::angleAxis(-camera_.phi, glm::vec3{0, 1, 0})},
-      10.0f);
+      glm::vec3{0},
+      glm::vec3{10.0f},
+      glm::angleAxis(-camera_.phi, glm::vec3{0, 1, 0}));
+
+  registry_->emplace<AxisDebug>(targetEntity_);
 }
 
 void CameraSystem::render(float dt) {
   constexpr glm::vec3 up{0, 1, 0};
   constexpr auto speed = 10.0f;
 
-  auto& ade = registry_->get<AxisDebugEntity>(targetEntity_);
+  auto& transform = registry_->get<Transform>(targetEntity_);
 
   camera_.phi += (angle_ + (unlockAngle_ ? singleFrameAngle_ : 0)) * dt;
   singleFrameAngle_ = 0;
@@ -58,13 +60,13 @@ void CameraSystem::render(float dt) {
 
     if (movement.x != 0 || movement.z != 0) {
       // Update our character to face in the direction of our movement
-      ade.rotation = glm::angleAxis(-camera_.phi, glm::vec3{0, 1, 0});
-      ade.position += movement * speed * dt;
+      transform.rotation = glm::angleAxis(-camera_.phi, glm::vec3{0, 1, 0});
+      transform.position += movement * speed * dt;
     }
   }
 
   // Rotate the camera around the Y axis
-  eye_ = ade.position + cameraPos;
+  eye_ = transform.position + cameraPos;
 
   bgfx::dbgTextPrintf(0, 2, 0x0f, "Camera position: (%.2f, %.2f, %.2f)", eye_.x, eye_.y, eye_.z);
   bgfx::dbgTextPrintf(
@@ -72,13 +74,13 @@ void CameraSystem::render(float dt) {
       3, // y
       0x0f,
       "Target position: (%.2f, %.2f, %.2f)",
-      ade.position.x,
-      ade.position.y,
-      ade.position.z);
+      transform.position.x,
+      transform.position.y,
+      transform.position.z);
   bgfx::dbgTextPrintf(0, 4, 0x0f, "Camera rotation: %.2f", glm::degrees(camera_.phi));
 
   // Update our view to look at `at_` from `eye_`
-  auto view = glm::lookAt(eye_, ade.position, up);
+  auto view = glm::lookAt(eye_, transform.position, up);
   bgfx::setViewTransform(0, glm::value_ptr(view), glm::value_ptr(proj_));
 }
 

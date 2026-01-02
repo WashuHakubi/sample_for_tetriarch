@@ -14,11 +14,14 @@
 #include <glm/ext.hpp>
 #include <glm/glm.hpp>
 
-struct AxisDebugEntity {
+struct Transform {
   glm::vec3 position;
+  glm::vec3 scale;
   glm::quat rotation;
-  float scale{2.0f};
 };
+
+/// When present on an entity will display the coordinate axis
+struct AxisDebug {};
 
 struct DebugCubesRenderingSystem {
   explicit DebugCubesRenderingSystem(ew::AssetProviderPtr provider, entt::registry& registry)
