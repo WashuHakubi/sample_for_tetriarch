@@ -8,6 +8,8 @@
 #include "sample_terrain_system.h"
 
 #include <random>
+
+#include <glm/ext/quaternion_common.hpp>
 #include <stb/stb_image.h>
 
 #include "../../../ext/stb/include/stb/stb_image.h"
@@ -91,8 +93,39 @@ void SampleTerrainSystem::render(float dt) {
 }
 
 float SampleTerrainSystem::sample(float x, float z) const {
+  constexpr float kEpsilon = 0.001f;
+
   auto const h = x + height_ / 2.0f;
   auto const w = z + width_ / 2.0f;
-  auto const idx = static_cast<size_t>(h) * width_ + static_cast<size_t>(w);
-  return idx >= heights_.size() ? 0.0f : heights_[idx];
+
+  auto const ih0 = static_cast<int>(h);
+  auto const iw0 = static_cast<int>(w);
+  auto const ih1 = static_cast<int>(h) + 1;
+  auto const iw1 = static_cast<int>(w) + 1;
+
+  // Out of bounds, so return a default value
+  if (ih0 >= height_ || iw0 >= width_) {
+    return 0.0f;
+  }
+
+  // Check if our extra points are out of bounds or if we're very close to a specific point, if so just return that
+  // point.
+  if (ih1 >= height_ || iw1 >= width_ || (std::abs(h - ih0) < kEpsilon && std::abs(w - iw0) < kEpsilon)) {
+    return heights_[ih0 * width_ + iw0];
+  }
+
+  // Get the % between the truncated coordinates and original coordinates.
+  auto const frac_h = h - ih0;
+  auto const frac_w = w - iw0;
+
+  // Sample the heights at each of the positions, this essentially samples a rectangle
+  const auto h0w0 = heights_[ih0 * width_ + iw0];
+  const auto h0w1 = heights_[ih0 * width_ + iw1];
+  const auto h1w0 = heights_[ih1 * width_ + iw0];
+  const auto h1w1 = heights_[ih1 * width_ + iw1];
+
+  // Blend the sampled heights based on the %
+  auto const a = glm::mix(h0w0, h0w1, frac_w);
+  auto const b = glm::mix(h1w0, h1w1, frac_w);
+  return glm::mix(a, b, frac_h);
 }
