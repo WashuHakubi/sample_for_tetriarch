@@ -6,7 +6,7 @@
  */
 
 #include "axis_debug_system.h"
-#include "../components/axis_debug.h"
+#include "../components/debug_components.h"
 #include "../components/pos_color_vertex.h"
 #include "../components/transform.h"
 

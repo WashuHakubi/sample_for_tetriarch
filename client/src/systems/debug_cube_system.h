@@ -12,16 +12,13 @@
 
 #include <entt/entt.hpp>
 
-struct DebugCubesRenderingSystem {
-  explicit DebugCubesRenderingSystem(ew::AssetProviderPtr provider, entt::registry& registry)
-      : assetProvider_(std::move(provider))
-      , registry_(&registry) {}
+struct DebugCubeSystem {
+  explicit DebugCubeSystem(ew::AssetProviderPtr provider, entt::registry& registry);
 
-  ~DebugCubesRenderingSystem();
+  ~DebugCubeSystem();
 
   void render(float dt);
 
-  float accum_{0};
   bgfx::VertexBufferHandle vbh_{bgfx::kInvalidHandle};
   bgfx::IndexBufferHandle ibh_{bgfx::kInvalidHandle};
   ShaderProgram::Ptr program_;

@@ -5,14 +5,40 @@
  *  file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
  */
 
-#include "debug_cubes_rendering_system.h"
+#include "debug_cube_system.h"
+#include "../components/debug_components.h"
 #include "../components/pos_color_vertex.h"
+#include "../components/transform.h"
 
 #include <bgfx/bgfx.h>
 #include <glm/ext/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
-DebugCubesRenderingSystem::~DebugCubesRenderingSystem() {
+struct SampleTag {};
+
+DebugCubeSystem::DebugCubeSystem(ew::AssetProviderPtr provider, entt::registry& registry)
+    : assetProvider_(std::move(provider))
+    , registry_(&registry) {
+  for (size_t xx = 0; xx < 11; ++xx) {
+    for (size_t zz = 0; zz < 11; ++zz) {
+      auto e = registry_->create();
+      registry.emplace<CubeDebug>(e);
+      registry.emplace<SampleTag>(e);
+      registry.emplace<Transform>(
+          e,
+          glm::vec3{
+              static_cast<float>(xx) * 3.0f - 15.0f,
+              -3.0f,
+              static_cast<float>(zz) * 3.0f - 15.0f,
+          },
+          glm::vec3{1.0f},
+          glm::angleAxis(static_cast<float>(xx) * 0.21f, glm::vec3{1, 0, 0}) *
+              glm::angleAxis(static_cast<float>(zz) * 0.37f, glm::vec3{0, 1, 0}));
+    }
+  }
+}
+
+DebugCubeSystem::~DebugCubeSystem() {
   if (bgfx::isValid(vbh_)) {
     bgfx::destroy(vbh_);
   }
@@ -21,7 +47,7 @@ DebugCubesRenderingSystem::~DebugCubesRenderingSystem() {
   }
 }
 
-void DebugCubesRenderingSystem::render(float dt) {
+void DebugCubeSystem::render(float dt) {
   static constexpr PosColorVertex cubeVertices[] = {
       {{-1.0f, 1.0f, 1.0f}, 0xff000000},
       {{1.0f, 1.0f, 1.0f}, 0xff0000ff},
@@ -70,28 +96,26 @@ void DebugCubesRenderingSystem::render(float dt) {
         bgfx::makeRef(cubeTriList, sizeof(cubeTriList)));
   }
 
-  accum_ += dt;
+  for (auto&& [ent, transform] : registry_->view<CubeDebug, Transform, SampleTag>().each()) {
+    transform.rotation *= glm::angleAxis(dt, glm::vec3(1, 1, 0));
+  }
 
-  // Submit 11x11 cubes.
-  for (uint32_t zz = 0; zz < 11; ++zz) {
-    for (uint32_t xx = 0; xx < 11; ++xx) {
-      glm::mat4x4 mat = glm::identity<glm::mat4x4>();
-      mat = glm::rotate(mat, accum_ + xx * 0.21f, glm::vec3(1, 0, 0));
-      mat = glm::rotate(mat, accum_ + zz * 0.37f, glm::vec3(0, 1, 0));
-      mat[3][0] = -15.0f + xx * 3.0f;
-      mat[3][1] = -3.0f;
-      mat[3][2] = -15.0f + zz * 3.0f;
+  for (auto&& [ent, transform] : registry_->view<CubeDebug, Transform>().each()) {
+    auto mat = glm::mat4_cast(transform.rotation);
+    mat = glm::scale(mat, transform.scale);
+    mat[3][0] = transform.position.x;
+    mat[3][1] = transform.position.y;
+    mat[3][2] = transform.position.z;
 
-      bgfx::setTransform(glm::value_ptr(mat));
+    bgfx::setTransform(glm::value_ptr(mat));
 
-      // Set vertex and index buffer.
-      bgfx::setVertexBuffer(0, vbh_);
-      bgfx::setIndexBuffer(ibh_);
-      // Set render states.
-      bgfx::setState(state);
+    // Set vertex and index buffer.
+    bgfx::setVertexBuffer(0, vbh_);
+    bgfx::setIndexBuffer(ibh_);
+    // Set render states.
+    bgfx::setState(state);
 
-      // Submit primitive for rendering to view 0.
-      bgfx::submit(0, program_->programHandle);
-    }
+    // Submit primitive for rendering to view 0.
+    bgfx::submit(0, program_->programHandle);
   }
 }

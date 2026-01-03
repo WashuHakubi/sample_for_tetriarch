@@ -9,3 +9,5 @@
 
 /// When present on an entity will display the coordinate axis
 struct AxisDebug {};
+
+struct CubeDebug {};

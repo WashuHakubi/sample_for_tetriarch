@@ -27,11 +27,10 @@ struct OrbitCameraSystem {
 
   float angle_{0.0f};
   float zoom_{35.0f};
-  bool unlockAngle_{false};
   float singleFrameAngle_{0.0f};
   float mouseSensitivity_{0.5f};
 
-  enum MovementDirection { Forward, Backward, Left, Right };
+  enum MovementDirection { Forward, Backward, Left, Right, UnlockAngle };
   std::bitset<sizeof(MovementDirection) * CHAR_BIT> movementDirections_;
 
   glm::mat4x4 proj_{};

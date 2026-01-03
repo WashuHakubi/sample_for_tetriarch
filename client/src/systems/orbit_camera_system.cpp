@@ -6,7 +6,7 @@
  */
 
 #include "orbit_camera_system.h"
-#include "../components/axis_debug.h"
+#include "../components/debug_components.h"
 #include "../components/orbit_camera.h"
 #include "../components/transform.h"
 
@@ -32,7 +32,8 @@ OrbitCameraSystem::OrbitCameraSystem(entt::registry& registry, ApplicationPtr ap
       glm::vec3{0},
       glm::vec3{3.0f},
       glm::angleAxis(glm::radians(0.0f), glm::vec3{0, 1, 0}));
-  registry_->emplace<AxisDebug>(targetEntity_);
+  // registry_->emplace<AxisDebug>(targetEntity_);
+  registry_->emplace<CubeDebug>(targetEntity_);
   registry_->emplace<OrbitCamera>(targetEntity_, 35.0f, glm::radians(-45.0f), glm::radians(0.0f));
 }
 
@@ -43,7 +44,7 @@ void OrbitCameraSystem::render(float const dt) {
   auto [transform, camera] = registry_->get<Transform, OrbitCamera>(targetEntity_);
 
   camera.r = zoom_;
-  camera.phi += (angle_ + (unlockAngle_ ? singleFrameAngle_ : 0)) * dt;
+  camera.phi += (angle_ + (movementDirections_[UnlockAngle] ? singleFrameAngle_ : 0)) * dt;
   singleFrameAngle_ = 0;
 
   // A vector pointing from the origin to the camera
@@ -97,7 +98,7 @@ void OrbitCameraSystem::render(float const dt) {
 
 void OrbitCameraSystem::handleMessage(GameThreadMsg const& msg) {
   // Recompute the aspect ratio and projection matrix on resize
-  if (auto resize = std::get_if<ResizeMsg>(&msg)) {
+  if (auto const resize = std::get_if<ResizeMsg>(&msg)) {
     width_ = resize->width;
     height_ = resize->height;
     aspectRatio_ = static_cast<float>(width_) / static_cast<float>(height_);
@@ -111,7 +112,7 @@ void OrbitCameraSystem::handleMessage(GameThreadMsg const& msg) {
   }
   // Handle input. This does not belong here, and instead input should be handled by a system specifically designed for
   // that.
-  else if (auto key = std::get_if<KeyMsg>(&msg)) {
+  else if (auto const key = std::get_if<KeyMsg>(&msg)) {
     if (key->scancode == SCANCODE_Q || key->scancode == SCANCODE_E) {
       angle_ = key->down ? key->scancode == SCANCODE_Q ? 1.0f : -1.0f : 0.0f;
     }
@@ -134,14 +135,14 @@ void OrbitCameraSystem::handleMessage(GameThreadMsg const& msg) {
     }
   }
   // Rotate the camera by some amount based on the mouse motion. This is only applied if unlockAngle_ is true.
-  else if (auto motion = std::get_if<MouseMotionMsg>(&msg)) {
+  else if (auto const motion = std::get_if<MouseMotionMsg>(&msg)) {
     singleFrameAngle_ = motion->relPosition.x * mouseSensitivity_;
   }
   // Unlock the camera while the RMB is held down.
   else if (auto const click = std::get_if<MouseButtonMsg>(&msg)) {
     if (click->button == MouseButton::Right) {
       app_->sendMainThreadMessage(CaptureMouseMsg{click->down});
-      unlockAngle_ = click->down;
+      movementDirections_[UnlockAngle] = click->down;
     }
   }
   // Zoom in and out based on the scroll-wheel direction.
