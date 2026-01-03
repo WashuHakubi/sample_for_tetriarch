@@ -16,7 +16,12 @@
 
 AxisDebugSystem::AxisDebugSystem(ew::AssetProviderPtr provider, entt::registry& registry)
     : assetProvider_(std::move(provider))
-    , registry_(&registry) {}
+    , registry_(&registry) {
+  // Origin axis
+  auto const axis = registry_->create();
+  registry_->emplace<Transform>(axis, glm::vec3{0}, glm::vec3{10.0f});
+  registry_->emplace<AxisDebug>(axis);
+}
 
 AxisDebugSystem::~AxisDebugSystem() {
   if (bgfx::isValid(axisVbh_)) {

@@ -15,3 +15,5 @@ struct Transform {
   glm::vec3 scale;
   glm::quat rotation;
 };
+
+constexpr glm::vec3 kUp{0, 1, 0};

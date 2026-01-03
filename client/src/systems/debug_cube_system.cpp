@@ -28,7 +28,7 @@ DebugCubeSystem::DebugCubeSystem(ew::AssetProviderPtr provider, entt::registry& 
           e,
           glm::vec3{
               static_cast<float>(xx) * 3.0f - 15.0f,
-              -3.0f,
+              0,
               static_cast<float>(zz) * 3.0f - 15.0f,
           },
           glm::vec3{1.0f},
@@ -36,6 +36,8 @@ DebugCubeSystem::DebugCubeSystem(ew::AssetProviderPtr provider, entt::registry& 
               glm::angleAxis(static_cast<float>(zz) * 0.37f, glm::vec3{0, 1, 0}));
     }
   }
+
+  program_ = assetProvider_->load<ShaderProgram>("cube.json");
 }
 
 DebugCubeSystem::~DebugCubeSystem() {

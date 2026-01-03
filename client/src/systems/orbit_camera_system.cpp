@@ -14,16 +14,14 @@
 #include <glm/gtc/type_ptr.hpp>
 #include <ng-log/logging.h>
 
+#include "../components/pos_color_vertex.h"
+
 namespace ew {
+
 OrbitCameraSystem::OrbitCameraSystem(entt::registry& registry, ApplicationPtr app)
     : aspectRatio_(0)
     , app_(std::move(app))
     , registry_(&registry) {
-  // Origin axis
-  auto axis = registry_->create();
-  registry_->emplace<Transform>(axis, glm::vec3{0}, glm::vec3{10.0f});
-  registry_->emplace<AxisDebug>(axis);
-
   // The entity our camera is following.
   targetEntity_ = registry_->create();
 
@@ -38,53 +36,64 @@ OrbitCameraSystem::OrbitCameraSystem(entt::registry& registry, ApplicationPtr ap
 }
 
 void OrbitCameraSystem::render(float const dt) {
-  constexpr glm::vec3 up{0, 1, 0};
-  constexpr auto speed = 10.0f;
-
   auto [transform, camera] = registry_->get<Transform, OrbitCamera>(targetEntity_);
 
   camera.r = zoom_;
   camera.phi += (angle_ + (movementDirections_[UnlockAngle] ? singleFrameAngle_ : 0)) * dt;
+  // Ensure phi remains between [0, 2pi]. This isn't necessary, but it makes debugging easier.
+  if (camera.phi > glm::two_pi<float>()) {
+    camera.phi -= glm::two_pi<float>();
+  } else if (camera.phi < 0.0f) {
+    camera.phi += glm::two_pi<float>();
+  }
   singleFrameAngle_ = 0;
 
   // A vector pointing from the origin to the camera
   auto const cameraPos = camera.toCartesian();
 
   // This should be in a character controller somewhere...
-  // Move us in the direction the camera is facing.
-  if (movementDirections_.any()) {
-    // get a vector pointing to the origin from the camera (facing direction of the camera)
-    // This assumes camera_.r != 0.
-    // This does not need to normalize this as we do that when the movement vector is applied to the position.
-    auto const facing = glm::vec3{-cameraPos.x, 0, -cameraPos.z};
+  // get a vector pointing to the origin from the camera (the direction the camera is facing)
+  // This assumes camera_.r != 0.
+  // This does not need to normalize this as we do that when the movement vector is applied to the position.
+  auto const facing = glm::vec3{-cameraPos.x, 0, -cameraPos.z};
 
-    // get the right vector, this will be used to compute our strafe momentum
-    auto const right = glm::cross(facing, up);
+  // get the right vector, this will be used to compute our strafe momentum
+  auto const right = glm::cross(facing, kUp);
 
-    // compute a movement vector, combining our forward and strafe momentum with our facing direction
-    auto const movement = glm::vec3{
-        facing.x * ((movementDirections_[Forward] ? 1.0f : 0) + (movementDirections_[Backward] ? -1.0f : 0)) +
-            right.x * ((movementDirections_[Left] ? 1.0f : 0) + (movementDirections_[Right] ? -1.0f : 0)),
-        0,
-        facing.z * ((movementDirections_[Forward] ? 1.0f : 0) + (movementDirections_[Backward] ? -1.0f : 0)) +
-            right.z * ((movementDirections_[Left] ? 1.0f : 0) + (movementDirections_[Right] ? -1.0f : 0))};
+  // compute a movement vector, combining our forward and strafe momentum with our facing direction
+  auto const movement = glm::vec3{
+      facing.x * ((movementDirections_[Forward] ? 1.0f : 0) + (movementDirections_[Backward] ? -1.0f : 0)) +
+          right.x * ((movementDirections_[Left] ? 1.0f : 0) + (movementDirections_[Right] ? -1.0f : 0)),
+      0,
+      facing.z * ((movementDirections_[Forward] ? 1.0f : 0) + (movementDirections_[Backward] ? -1.0f : 0)) +
+          right.z * ((movementDirections_[Left] ? 1.0f : 0) + (movementDirections_[Right] ? -1.0f : 0))};
 
-    if (movement.x != 0 || movement.z != 0) {
-      // Update our character to face in the direction of our movement
-      transform.rotation = glm::angleAxis(-camera.phi, glm::vec3{0, 1, 0});
-      transform.position += glm::normalize(movement) * speed * dt;
-    }
+  // Only update if we actually have movement
+  if (movement.x != 0 || movement.z != 0) {
+    constexpr auto speed = 10.0f;
+
+    // Update our character to face in the direction of our movement
+    transform.rotation = glm::angleAxis(-camera.phi, glm::vec3{0, 1, 0});
+    transform.position += glm::normalize(movement) * speed * dt;
   }
 
   // Get the camera position relative to the target
-  auto eye = transform.position + cameraPos;
+  auto const eye = transform.position + cameraPos;
 
   // Update our view to look at `target` from `eye`
-  auto view = glm::lookAt(eye, transform.position, up);
+  auto const view = glm::lookAt(eye, transform.position, kUp);
   bgfx::setViewTransform(0, glm::value_ptr(view), glm::value_ptr(proj_));
 
   // Print some debug information
-  bgfx::dbgTextPrintf(0, 2, 0x0f, "Camera position: (%.2f, %.2f, %.2f)", eye.x, eye.y, eye.z);
+  bgfx::dbgTextPrintf(
+      0,
+      2,
+      0x0f,
+      "Camera position: (%.2f, %.2f, %.2f), rotation: %.2f",
+      eye.x,
+      eye.y,
+      eye.z,
+      glm::degrees(camera.phi));
   bgfx::dbgTextPrintf(
       0, // x
       3, // y
@@ -93,7 +102,6 @@ void OrbitCameraSystem::render(float const dt) {
       transform.position.x,
       transform.position.y,
       transform.position.z);
-  bgfx::dbgTextPrintf(0, 4, 0x0f, "Camera rotation: %.2f", glm::degrees(camera.phi));
 }
 
 void OrbitCameraSystem::handleMessage(GameThreadMsg const& msg) {

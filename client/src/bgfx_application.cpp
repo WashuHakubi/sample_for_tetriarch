@@ -32,6 +32,7 @@
 #include "systems/debug_cube_system.h"
 #include "systems/frame_rate_system.h"
 #include "systems/orbit_camera_system.h"
+#include "systems/sample_terrain_system.h"
 
 struct BgfxApplication : ew::IApplication, std::enable_shared_from_this<BgfxApplication> {
   const unsigned kDefaultClearColor = 0x303030ff;
@@ -189,6 +190,7 @@ void BgfxApplication::run(std::pair<void*, void*> descriptors) {
   systems_.addSystem(std::make_shared<FrameRateSystem>());
   systems_.addSystem(std::make_shared<ew::OrbitCameraSystem>(registry, shared_from_this()));
   systems_.addSystem(std::make_shared<DebugCubeSystem>(assetProvider, registry));
+  systems_.addSystem(std::make_shared<SampleTerrainSystem>(assetProvider, registry));
   systems_.addSystem(std::make_shared<AxisDebugSystem>(assetProvider, registry));
 
   // Game loop
