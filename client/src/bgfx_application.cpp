@@ -188,9 +188,10 @@ void BgfxApplication::run(std::pair<void*, void*> descriptors) {
   assetProvider->registerAssetLoader(std::make_shared<ShaderProgramLoader>());
 
   systems_.addSystem(std::make_shared<FrameRateSystem>());
-  systems_.addSystem(std::make_shared<ew::OrbitCameraSystem>(registry, shared_from_this()));
-  systems_.addSystem(std::make_shared<DebugCubeSystem>(assetProvider, registry));
-  systems_.addSystem(std::make_shared<SampleTerrainSystem>(assetProvider, registry));
+  auto terrain = std::make_shared<SampleTerrainSystem>(assetProvider, registry);
+  systems_.addSystem(terrain);
+  systems_.addSystem(std::make_shared<DebugCubeSystem>(assetProvider, registry, terrain));
+  systems_.addSystem(std::make_shared<ew::OrbitCameraSystem>(registry, shared_from_this(), terrain));
   systems_.addSystem(std::make_shared<AxisDebugSystem>(assetProvider, registry));
 
   // Game loop

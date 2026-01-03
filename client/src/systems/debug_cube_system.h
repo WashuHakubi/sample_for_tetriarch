@@ -12,8 +12,13 @@
 
 #include <entt/entt.hpp>
 
+#include "sample_terrain_system.h"
+
 struct DebugCubeSystem {
-  explicit DebugCubeSystem(ew::AssetProviderPtr provider, entt::registry& registry);
+  explicit DebugCubeSystem(
+      ew::AssetProviderPtr provider,
+      entt::registry& registry,
+      std::shared_ptr<SampleTerrainSystem> terrain);
 
   ~DebugCubeSystem();
 

@@ -9,7 +9,9 @@ target_link_libraries(client
         nlohmann_json::nlohmann_json
         imgui
         freetype
-        shared)
+        shared
+        stb_image
+)
 
 target_compile_definitions(client PUBLIC SDL_MAIN_USE_CALLBACKS)
 
@@ -42,4 +44,10 @@ bgfx_compile_shaders(
         SHADERS ${PROJECT_SOURCE_DIR}/assets/shaders/fs_cubes.sc
 )
 
+add_custom_target(copy_assets
+        COMMAND ${CMAKE_COMMAND} -E copy_directory ${PROJECT_SOURCE_DIR}/assets ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/assets
+        BYPRODUCTS ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/assets/does_not_exist.txt
+)
+
 target_sources(client PRIVATE ${out_fragment_shaders} ${out_vertex_shaders})
+add_dependencies(client copy_assets)

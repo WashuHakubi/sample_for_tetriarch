@@ -20,6 +20,8 @@ class SampleTerrainSystem {
 
   void render(float dt);
 
+  float sample(float x, float z) const;
+
  private:
   ew::AssetProviderPtr assetProvider_;
   entt::registry* registry_;
@@ -28,8 +30,9 @@ class SampleTerrainSystem {
 
   bgfx::IndexBufferHandle tibh_{bgfx::kInvalidHandle};
   bgfx::VertexBufferHandle tvbh_{bgfx::kInvalidHandle};
-  std::vector<PosColorVertex> vertices_;
-  std::vector<uint16_t> indices_;
+  std::vector<float> heights_;
+  int width_{0};
+  int height_{0};
   int numStrips_{0};
   int numVertsPerStrip_{0};
 };

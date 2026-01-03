@@ -18,21 +18,24 @@
 
 namespace ew {
 
-OrbitCameraSystem::OrbitCameraSystem(entt::registry& registry, ApplicationPtr app)
+OrbitCameraSystem::OrbitCameraSystem(
+    entt::registry& registry,
+    ApplicationPtr app,
+    std::shared_ptr<SampleTerrainSystem> terrain)
     : aspectRatio_(0)
     , app_(std::move(app))
-    , registry_(&registry) {
+    , registry_(&registry)
+    , terrain_(std::move(terrain)) {
   // The entity our camera is following.
   targetEntity_ = registry_->create();
 
   registry_->emplace<Transform>(
       targetEntity_,
-      glm::vec3{0},
+      glm::vec3{0, terrain_->sample(0, 0), 0},
       glm::vec3{3.0f},
       glm::angleAxis(glm::radians(0.0f), glm::vec3{0, 1, 0}));
-  // registry_->emplace<AxisDebug>(targetEntity_);
   registry_->emplace<CubeDebug>(targetEntity_);
-  registry_->emplace<OrbitCamera>(targetEntity_, 35.0f, glm::radians(-45.0f), glm::radians(0.0f));
+  registry_->emplace<OrbitCamera>(targetEntity_, 60.0f, glm::radians(-45.0f), glm::radians(0.0f));
 }
 
 void OrbitCameraSystem::render(float const dt) {
@@ -70,11 +73,13 @@ void OrbitCameraSystem::render(float const dt) {
 
   // Only update if we actually have movement
   if (movement.x != 0 || movement.z != 0) {
-    constexpr auto speed = 10.0f;
+    auto const speed = movementDirections_[Sprint] ? 30.0f : 10.0f;
 
     // Update our character to face in the direction of our movement
     transform.rotation = glm::angleAxis(-camera.phi, glm::vec3{0, 1, 0});
     transform.position += glm::normalize(movement) * speed * dt;
+    // Adjust our vertical position to be on the height map
+    transform.position.y = terrain_->sample(transform.position.x, transform.position.z);
   }
 
   // Get the camera position relative to the target
@@ -138,6 +143,9 @@ void OrbitCameraSystem::handleMessage(GameThreadMsg const& msg) {
       case SCANCODE_D:
         movementDirections_[Right] = key->down;
         break;
+      case SCANCODE_LSHIFT:
+        movementDirections_[Sprint] = key->down;
+        break;
       default:
         break;
     }
@@ -156,7 +164,7 @@ void OrbitCameraSystem::handleMessage(GameThreadMsg const& msg) {
   // Zoom in and out based on the scroll-wheel direction.
   else if (auto const wheel = std::get_if<MouseWheelMsg>(&msg)) {
     // adjusts our distance from the target, ensure we are between our min and max zoom level (r should never be 0)
-    zoom_ = std::clamp(zoom_ + wheel->delta * 0.1f, 1.0f, 50.0f);
+    zoom_ = std::clamp(zoom_ + wheel->delta * 0.1f, 1.0f, 100.0f);
   }
 }
 } // namespace ew

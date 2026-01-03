@@ -8,50 +8,71 @@
 #include "sample_terrain_system.h"
 
 #include <random>
+#include <stb/stb_image.h>
+
+#include "../../../ext/stb/include/stb/stb_image.h"
 
 SampleTerrainSystem::SampleTerrainSystem(ew::AssetProviderPtr provider, entt::registry& registry)
     : assetProvider_(std::move(provider))
     , registry_(&registry) {
-  const int width = 256;
-  const int height = 256;
+  auto raw_heightmap = assetProvider_->loadRawAsset("iceland_heightmap.png");
 
-  numStrips_ = height - 1;
-  numVertsPerStrip_ = width * 2;
+  int channels;
 
-  // Generate a random terrain sample
-  std::mt19937 rng(0);
-  std::uniform_real_distribution dist(-1.0f, 1.0f);
+  const auto data = stbi_load_from_memory(
+      reinterpret_cast<stbi_uc const*>(raw_heightmap.data()),
+      raw_heightmap.size(),
+      &width_,
+      &height_,
+      &channels,
+      0);
+
+  numStrips_ = height_ - 1;
+  numVertsPerStrip_ = width_ * 2;
+
+  std::vector<PosColorVertex> vertices;
+  std::vector<uint32_t> indices;
 
   // Generate our vertices, each row of the height map is a triangle strip
-  for (int h = 0; h < height; ++h) {
-    for (int w = 0; w < width; ++w) {
-      auto y = dist(rng);
-      auto color = static_cast<unsigned>(0xFF * ((y + 1.0f) / 2.0f));
-      color = 0xFF000000 | (color << 16) | (color << 8) | color;
-      vertices_.push_back(
+  for (int h = 0; h < height_; ++h) {
+    for (int w = 0; w < width_; ++w) {
+      constexpr auto yScale = 1.0f / 8.0f;
+      constexpr auto yShift = 0.0f;
+
+      const auto texel = data + (w + h * width_) * channels;
+      const auto y = *texel;
+      const auto color = 0xFF000000 | (y << 16) | (y << 8) | y;
+
+      const auto y_coord = y * yScale + yShift;
+
+      heights_.push_back(y_coord);
+      vertices.push_back(
           {{
-               -height / 2.0f + static_cast<float>(h),
-               y,
-               -width / 2.0f + static_cast<float>(w),
+               -height_ / 2.0f + static_cast<float>(h),
+               y_coord,
+               -width_ / 2.0f + static_cast<float>(w),
            },
            color});
     }
   }
 
+  stbi_image_free(data);
+
   // generate our triangle strip indices. There are numStrips_ triangle strips, with numVertsPerStrip_ vertices in each
   // strip.
-  for (int h = 0; h < height - 1; ++h) {
-    for (int w = 0; w < width; ++w) {
+  for (int h = 0; h < height_ - 1; ++h) {
+    for (int w = 0; w < width_; ++w) {
       for (int k = 0; k < 2; ++k) {
-        indices_.push_back(w + width * (h + k));
+        indices.push_back(w + width_ * (h + k));
       }
     }
   }
 
   tvbh_ = bgfx::createVertexBuffer(
-      bgfx::makeRef(vertices_.data(), vertices_.size() * sizeof(PosColorVertex)),
+      bgfx::makeRef(vertices.data(), vertices.size() * sizeof(PosColorVertex)),
       PosColorVertex::layout());
-  tibh_ = bgfx::createIndexBuffer(bgfx::makeRef(indices_.data(), indices_.size() * sizeof(uint16_t)));
+  tibh_ =
+      bgfx::createIndexBuffer(bgfx::makeRef(indices.data(), indices.size() * sizeof(uint32_t)), BGFX_BUFFER_INDEX32);
 
   program_ = assetProvider_->load<ShaderProgram>("cube.json");
 }
@@ -67,4 +88,11 @@ void SampleTerrainSystem::render(float dt) {
     bgfx::setState(kState);
     bgfx::submit(0, program_->programHandle);
   }
+}
+
+float SampleTerrainSystem::sample(float x, float z) const {
+  auto const h = x + height_ / 2.0f;
+  auto const w = z + width_ / 2.0f;
+  auto const idx = static_cast<size_t>(h) * width_ + static_cast<size_t>(w);
+  return idx >= heights_.size() ? 0.0f : heights_[idx];
 }

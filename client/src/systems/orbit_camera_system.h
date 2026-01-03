@@ -12,10 +12,14 @@
 #include <entt/entt.hpp>
 
 #include "../i_application.h"
+#include "sample_terrain_system.h"
 
 namespace ew {
 struct OrbitCameraSystem {
-  explicit OrbitCameraSystem(entt::registry& registry, ApplicationPtr app);
+  explicit OrbitCameraSystem(
+      entt::registry& registry,
+      ApplicationPtr app,
+      std::shared_ptr<SampleTerrainSystem> terrain);
 
   void render(float dt);
 
@@ -30,13 +34,14 @@ struct OrbitCameraSystem {
   float singleFrameAngle_{0.0f};
   float mouseSensitivity_{0.5f};
 
-  enum MovementDirection { Forward, Backward, Left, Right, UnlockAngle };
-  std::bitset<sizeof(MovementDirection) * CHAR_BIT> movementDirections_;
+  enum InputStates { Forward, Backward, Left, Right, UnlockAngle, Sprint };
+  std::bitset<sizeof(InputStates) * CHAR_BIT> movementDirections_;
 
   glm::mat4x4 proj_{};
 
   ApplicationPtr app_;
   entt::registry* registry_;
   entt::entity targetEntity_;
+  std::shared_ptr<SampleTerrainSystem> terrain_;
 };
 } // namespace ew

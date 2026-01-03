@@ -16,20 +16,25 @@
 
 struct SampleTag {};
 
-DebugCubeSystem::DebugCubeSystem(ew::AssetProviderPtr provider, entt::registry& registry)
+DebugCubeSystem::DebugCubeSystem(
+    ew::AssetProviderPtr provider,
+    entt::registry& registry,
+    std::shared_ptr<SampleTerrainSystem> terrain)
     : assetProvider_(std::move(provider))
     , registry_(&registry) {
   for (size_t xx = 0; xx < 11; ++xx) {
     for (size_t zz = 0; zz < 11; ++zz) {
       auto e = registry_->create();
+      auto x = static_cast<float>(xx) * 3.0f - 15.0f;
+      auto z = static_cast<float>(zz) * 3.0f - 15.0f;
       registry.emplace<CubeDebug>(e);
       registry.emplace<SampleTag>(e);
       registry.emplace<Transform>(
           e,
           glm::vec3{
-              static_cast<float>(xx) * 3.0f - 15.0f,
-              0,
-              static_cast<float>(zz) * 3.0f - 15.0f,
+              x,
+              terrain->sample(x, z),
+              z,
           },
           glm::vec3{1.0f},
           glm::angleAxis(static_cast<float>(xx) * 0.21f, glm::vec3{1, 0, 0}) *
