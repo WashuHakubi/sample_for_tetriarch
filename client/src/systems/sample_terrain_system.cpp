@@ -12,8 +12,6 @@
 #include <glm/ext/quaternion_common.hpp>
 #include <stb/stb_image.h>
 
-#include "../../../ext/stb/include/stb/stb_image.h"
-
 SampleTerrainSystem::SampleTerrainSystem(ew::AssetProviderPtr provider, entt::registry& registry)
     : assetProvider_(std::move(provider))
     , registry_(&registry) {
