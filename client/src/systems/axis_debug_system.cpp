@@ -75,11 +75,11 @@ void AxisDebugSystem::render(float dt) {
       BGFX_STATE_PT_LINES;
 
   for (auto [ent, axis] : registry_->view<AxisDebug, Transform>().each()) {
-    auto mat = glm::mat4_cast(axis.rotation);
+    auto mat = glm::identity<glm::mat4>();
+    mat = glm::translate(mat, axis.position);
     mat = glm::scale(mat, axis.scale);
-    mat[3][0] = axis.position.x;
-    mat[3][1] = axis.position.y;
-    mat[3][2] = axis.position.z;
+    mat = mat * glm::mat4_cast(axis.rotation);
+
     bgfx::setTransform(glm::value_ptr(mat));
     bgfx::setVertexBuffer(0, axisVbh_);
     bgfx::setIndexBuffer(axisIbh_);

@@ -105,11 +105,11 @@ void SampleTerrainSystem::render(float dt) {
   for (auto&& [ent, chunk, transform] : registry_->view<TerrainChunk, Transform>().each()) {
     // Render each strip
     for (int i = 0; i < chunk.numStrips; ++i) {
-      auto mat = glm::mat4_cast(transform.rotation);
+      auto mat = glm::identity<glm::mat4>();
+      mat = glm::translate(mat, transform.position);
       mat = glm::scale(mat, transform.scale);
-      mat[3][0] = transform.position.x;
-      mat[3][1] = transform.position.y;
-      mat[3][2] = transform.position.z;
+      mat = mat * glm::mat4_cast(transform.rotation);
+
       bgfx::setTransform(glm::value_ptr(mat));
       bgfx::setVertexBuffer(0, chunk.vbh);
       bgfx::setIndexBuffer(chunk.ibh, i * chunk.numVertsPerStrip, chunk.numVertsPerStrip);
@@ -124,8 +124,18 @@ float SampleTerrainSystem::sample(float x, float z) const {
 
   for (auto&& [ent, chunk, transform] : registry_->view<TerrainChunk, Transform>().each()) {
     // translate the coordinates into terrain space.
+    // If the terrain starts at position (1024, 1024) and with width and height of 1024x1024 then:
+    // - given x,z (512, 512), translating this into terrain space will result in coordinates of (-512, -512), which are
+    // clearly not on the terrain.
+    // - given x,z (1536,1536), translating into terrain space will result in coordinates of (512,512), which are on the
+    // terrain.
     auto const h = x - transform.position.x;
     auto const w = z - transform.position.z;
+
+    if (h < 0 || w < 0) {
+      // Terrain coordinates will always be between 0,0 and width,height.
+      return 0.0f;
+    }
 
     auto const ih0 = static_cast<int>(h);
     auto const iw0 = static_cast<int>(w);

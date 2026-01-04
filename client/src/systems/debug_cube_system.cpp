@@ -108,11 +108,10 @@ void DebugCubeSystem::render(float dt) {
   }
 
   for (auto&& [ent, transform] : registry_->view<CubeDebug, Transform>().each()) {
-    auto mat = glm::mat4_cast(transform.rotation);
+    auto mat = glm::identity<glm::mat4x4>();
+    mat = glm::translate(mat, transform.position);
     mat = glm::scale(mat, transform.scale);
-    mat[3][0] = transform.position.x;
-    mat[3][1] = transform.position.y;
-    mat[3][2] = transform.position.z;
+    mat = mat * glm::mat4_cast(transform.rotation);
 
     bgfx::setTransform(glm::value_ptr(mat));
 
