@@ -20,45 +20,47 @@
 SampleTerrainSystem::SampleTerrainSystem(ew::AssetProviderPtr provider, entt::registry& registry)
     : assetProvider_(std::move(provider))
     , registry_(&registry) {
-  auto terrainChunk = registry_->create();
-  auto& chunk = registry_->emplace<TerrainChunk>(terrainChunk);
+  auto const terrainChunk = registry_->create();
+  auto& [width, height, numStrips, numVertsPerStrip, heights, vbh, ibh] =
+      registry_->emplace<TerrainChunk>(terrainChunk);
 
-  auto raw_heightmap = assetProvider_->loadRawAsset("iceland_heightmap.png");
+  auto const raw_heightmap = assetProvider_->loadRawAsset("iceland_heightmap.png");
 
   int channels;
 
-  const auto data = stbi_load_from_memory(
+  auto const data = stbi_load_from_memory(
       reinterpret_cast<stbi_uc const*>(raw_heightmap.data()),
       static_cast<int>(raw_heightmap.size()),
-      &chunk.width,
-      &chunk.height,
+      &width,
+      &height,
       &channels,
       0);
 
   registry_->emplace<Transform>(
       terrainChunk,
-      glm::vec3{-chunk.height / 2.0f, 0, -chunk.width / 2.0f},
+      // center the chunk over the origin
+      glm::vec3{-static_cast<float>(height) / 2.0f, 0, -static_cast<float>(width) / 2.0f},
       glm::vec3{1.0f},
       glm::quat{});
-  chunk.numStrips = chunk.height - 1;
-  chunk.numVertsPerStrip = chunk.width * 2;
+  numStrips = height - 1;
+  numVertsPerStrip = width * 2;
 
   std::vector<PosColorVertex> vertices;
   std::vector<uint32_t> indices;
 
   // Generate our vertices, each row of the height map is a triangle strip
-  for (int h = 0; h < chunk.height; ++h) {
-    for (int w = 0; w < chunk.width; ++w) {
+  for (int h = 0; h < height; ++h) {
+    for (int w = 0; w < width; ++w) {
       constexpr auto yScale = 1.0f / 8.0f;
       constexpr auto yShift = 0.0f;
 
-      const auto texel = data + (w + h * chunk.width) * channels;
+      const auto texel = data + (w + h * width) * channels;
       const auto y = *texel;
       const auto color = 0xFF000000 | (y << 16) | (y << 8) | y;
 
       const auto y_coord = y * yScale + yShift;
 
-      chunk.heights.push_back(y_coord);
+      heights.push_back(y_coord);
       vertices.push_back(
           {{
                static_cast<float>(h),
@@ -71,21 +73,20 @@ SampleTerrainSystem::SampleTerrainSystem(ew::AssetProviderPtr provider, entt::re
 
   stbi_image_free(data);
 
-  // generate our triangle strip indices. There are numStrips_ triangle strips, with numVertsPerStrip_ vertices in each
+  // generate our triangle strip indices. There are numStrips triangle strips, with numVertsPerStrip vertices in each
   // strip.
-  for (int h = 0; h < chunk.height - 1; ++h) {
-    for (int w = 0; w < chunk.width; ++w) {
+  for (int h = 0; h < height - 1; ++h) {
+    for (int w = 0; w < width; ++w) {
       for (int k = 0; k < 2; ++k) {
-        indices.push_back(w + chunk.width * (h + k));
+        indices.push_back(w + width * (h + k));
       }
     }
   }
 
-  chunk.vbh = bgfx::createVertexBuffer(
+  vbh = bgfx::createVertexBuffer(
       bgfx::copy(vertices.data(), vertices.size() * sizeof(PosColorVertex)),
       PosColorVertex::layout());
-  chunk.ibh =
-      bgfx::createIndexBuffer(bgfx::copy(indices.data(), indices.size() * sizeof(uint32_t)), BGFX_BUFFER_INDEX32);
+  ibh = bgfx::createIndexBuffer(bgfx::copy(indices.data(), indices.size() * sizeof(uint32_t)), BGFX_BUFFER_INDEX32);
 
   program_ = assetProvider_->load<ShaderProgram>("cube.json");
 }
@@ -122,6 +123,7 @@ float SampleTerrainSystem::sample(float x, float z) const {
   constexpr float kEpsilon = 0.001f;
 
   for (auto&& [ent, chunk, transform] : registry_->view<TerrainChunk, Transform>().each()) {
+    // translate the coordinates into terrain space.
     auto const h = x - transform.position.x;
     auto const w = z - transform.position.z;
 
@@ -130,26 +132,27 @@ float SampleTerrainSystem::sample(float x, float z) const {
     auto const ih1 = static_cast<int>(h) + 1;
     auto const iw1 = static_cast<int>(w) + 1;
 
-    // Out of bounds, so return a default value
+    // Out of bounds, skip
     if (ih0 >= chunk.height || iw0 >= chunk.width) {
-      return 0.0f;
+      continue;
     }
 
     // Check if our extra points are out of bounds or if we're very close to a specific point, return that point in
     // either case.
-    if (ih1 >= chunk.height || iw1 >= chunk.width || (std::abs(h - ih0) < kEpsilon && std::abs(w - iw0) < kEpsilon)) {
+    if (ih1 >= chunk.height || iw1 >= chunk.width ||
+        (std::abs(h - static_cast<float>(ih0)) < kEpsilon && std::abs(w - static_cast<float>(iw0)) < kEpsilon)) {
       return chunk.heights[ih0 * chunk.width + iw0];
     }
 
     // Get the % between the truncated coordinates and original coordinates.
-    auto const frac_h = h - ih0;
-    auto const frac_w = w - iw0;
+    auto const frac_h = h - static_cast<float>(ih0);
+    auto const frac_w = w - static_cast<float>(iw0);
 
     // Sample the heights at each of the positions, this essentially samples a rectangle
-    const auto h0w0 = chunk.heights[ih0 * chunk.width + iw0];
-    const auto h0w1 = chunk.heights[ih0 * chunk.width + iw1];
-    const auto h1w0 = chunk.heights[ih1 * chunk.width + iw0];
-    const auto h1w1 = chunk.heights[ih1 * chunk.width + iw1];
+    auto const h0w0 = chunk.heights[ih0 * chunk.width + iw0];
+    auto const h0w1 = chunk.heights[ih0 * chunk.width + iw1];
+    auto const h1w0 = chunk.heights[ih1 * chunk.width + iw0];
+    auto const h1w1 = chunk.heights[ih1 * chunk.width + iw1];
 
     // Blend the sampled heights based on the %
     auto const a = glm::mix(h0w0, h0w1, frac_w);
@@ -157,5 +160,6 @@ float SampleTerrainSystem::sample(float x, float z) const {
     return glm::mix(a, b, frac_h);
   }
 
+  // Not found or no terrain chunks
   return 0.0f;
 }

@@ -18,12 +18,13 @@
 
 namespace ew {
 
+constexpr float kGravity = 9.8f;
+
 OrbitCameraSystem::OrbitCameraSystem(
     entt::registry& registry,
     ApplicationPtr app,
     std::shared_ptr<SampleTerrainSystem> terrain)
-    : aspectRatio_(0)
-    , app_(std::move(app))
+    : app_(std::move(app))
     , registry_(&registry)
     , terrain_(std::move(terrain)) {
   // The entity our camera is following.
@@ -78,8 +79,19 @@ void OrbitCameraSystem::render(float const dt) {
     // Update our character to face in the direction of our movement
     transform.rotation = glm::angleAxis(-camera.phi, glm::vec3{0, 1, 0});
     transform.position += glm::normalize(movement) * speed * dt;
-    // Adjust our vertical position to be on the height map
-    transform.position.y = terrain_->sample(transform.position.x, transform.position.z);
+  }
+
+  auto terrainHeight = terrain_->sample(transform.position.x, transform.position.z);
+
+  // Apply the jump velocity
+  transform.position.y += yVelocity_ * dt;
+  yVelocity_ -= 2 * kGravity * dt;
+
+  // If we've ended up at a position lower than the terrain, adjust ourselves to be on the terrain and set the
+  // velocity to 0.
+  if (transform.position.y < terrainHeight) {
+    transform.position.y = terrainHeight;
+    yVelocity_ = 0;
   }
 
   // Get the camera position relative to the target
@@ -112,15 +124,13 @@ void OrbitCameraSystem::render(float const dt) {
 void OrbitCameraSystem::handleMessage(GameThreadMsg const& msg) {
   // Recompute the aspect ratio and projection matrix on resize
   if (auto const resize = std::get_if<ResizeMsg>(&msg)) {
-    width_ = resize->width;
-    height_ = resize->height;
-    aspectRatio_ = static_cast<float>(width_) / static_cast<float>(height_);
+    auto aspectRatio = static_cast<float>(resize->width) / static_cast<float>(resize->height);
     if (bgfx::getCaps()->homogeneousDepth) {
       // Depth goes from -1,1 (OpenGL)
-      proj_ = glm::perspectiveNO(glm::radians(60.0f), aspectRatio_, 0.1f, 1000.0f);
+      proj_ = glm::perspectiveNO(glm::radians(60.0f), aspectRatio, 0.1f, 1000.0f);
     } else {
       // Depth goes from 0,1
-      proj_ = glm::perspectiveZO(glm::radians(60.0f), aspectRatio_, 0.1f, 1000.0f);
+      proj_ = glm::perspectiveZO(glm::radians(60.0f), aspectRatio, 0.1f, 1000.0f);
     }
   }
   // Handle input. This does not belong here, and instead input should be handled by a system specifically designed for
@@ -145,6 +155,11 @@ void OrbitCameraSystem::handleMessage(GameThreadMsg const& msg) {
         break;
       case SCANCODE_LSHIFT:
         movementDirections_[Sprint] = key->down;
+        break;
+      case SCANCODE_SPACE:
+        if (yVelocity_ == 0 && key->down) {
+          yVelocity_ = kGravity;
+        }
         break;
       default:
         break;

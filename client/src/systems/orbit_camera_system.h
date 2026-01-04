@@ -26,10 +26,7 @@ struct OrbitCameraSystem {
 
   void handleMessage(ew::GameThreadMsg const& msg);
 
-  int width_{0};
-  int height_{0};
-  float aspectRatio_;
-
+  float yVelocity_{0.0f};
   float angle_{0.0f};
   float zoom_{35.0f};
   float singleFrameAngle_{0.0f};
