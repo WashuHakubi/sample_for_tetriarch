@@ -7,13 +7,17 @@
 
 #pragma once
 
-#include <glm/gtc/quaternion.hpp>
-#include <glm/vec3.hpp>
+#include <vector>
 
-struct Transform {
-  glm::vec3 position{0};
-  glm::vec3 scale{1};
-  glm::quat rotation;
+#include <bgfx/bgfx.h>
+
+struct TerrainChunk {
+  int width;
+  int height;
+  int numStrips;
+  int numVertsPerStrip;
+
+  std::vector<float> heights;
+  bgfx::VertexBufferHandle vbh;
+  bgfx::IndexBufferHandle ibh;
 };
-
-constexpr glm::vec3 kUp{0, 1, 0};
