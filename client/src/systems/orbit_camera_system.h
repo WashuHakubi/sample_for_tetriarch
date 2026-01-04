@@ -18,8 +18,8 @@
 namespace ew {
 struct OrbitCameraSystem {
   explicit OrbitCameraSystem(
-      entt::registry& registry,
       ApplicationPtr app,
+      std::shared_ptr<entt::registry> registry,
       std::shared_ptr<SampleTerrainSystem> terrain);
 
   void render(float dt);
@@ -38,8 +38,8 @@ struct OrbitCameraSystem {
   glm::mat4x4 proj_{};
 
   ApplicationPtr app_;
-  entt::registry* registry_;
-  entt::entity targetEntity_;
+  std::shared_ptr<entt::registry> registry_;
   std::shared_ptr<SampleTerrainSystem> terrain_;
+  entt::entity targetEntity_;
 };
 } // namespace ew

@@ -9,6 +9,7 @@
 #include <iostream>
 #include <typeindex>
 
+#include "assets/i_asset.h"
 #include "i_application.h"
 #include "i_window.h"
 
@@ -26,8 +27,10 @@
 #include <ng-log/logging.h>
 #include <nlohmann/json.hpp>
 
-#include "assets/i_asset.h"
+#include "assets/heightmap_asset.h"
+#include "assets/shader_program_asset.h"
 #include "assets/simple_file_provider.h"
+
 #include "systems/axis_debug_system.h"
 #include "systems/debug_cube_system.h"
 #include "systems/frame_rate_system.h"
@@ -182,17 +185,24 @@ void BgfxApplication::run(std::pair<void*, void*> descriptors) {
 
   ew::SimTime time;
   double timeAccumulator{0};
-  entt::registry registry;
 
   auto assetProvider = std::make_shared<ew::AssetProvider>(std::make_shared<SimpleFileProvider>("assets"));
   assetProvider->registerAssetLoader(std::make_shared<ShaderProgramLoader>());
+  assetProvider->registerAssetLoader(std::make_shared<HeightmapAssetLoader>());
 
-  systems_.addSystem(std::make_shared<FrameRateSystem>());
-  auto terrain = std::make_shared<SampleTerrainSystem>(assetProvider, registry);
-  systems_.addSystem(std::make_shared<DebugCubeSystem>(assetProvider, registry, terrain));
-  systems_.addSystem(std::make_shared<ew::OrbitCameraSystem>(registry, shared_from_this(), terrain));
-  systems_.addSystem(std::exchange(terrain, nullptr));
-  systems_.addSystem(std::make_shared<AxisDebugSystem>(assetProvider, registry));
+  systems_.addSystem<entt::registry>();
+  systems_.addSystem<FrameRateSystem>();
+  systems_.addSystem<AxisDebugSystem>(assetProvider, systems_.get<entt::registry>());
+  systems_.addSystem<SampleTerrainSystem>(assetProvider, systems_.get<entt::registry>());
+  systems_.addSystem<DebugCubeSystem>(
+      assetProvider, //
+      systems_.get<entt::registry>(),
+      systems_.get<SampleTerrainSystem>());
+
+  systems_.addSystem<ew::OrbitCameraSystem>(
+      shared_from_this(),
+      systems_.get<entt::registry>(),
+      systems_.get<SampleTerrainSystem>());
 
   // Game loop
   while (!exit_) {
@@ -225,7 +235,6 @@ void BgfxApplication::run(std::pair<void*, void*> descriptors) {
 
   systems_.clear();
 
-  registry.clear();
   assetProvider = nullptr;
 
   bgfx::shutdown();

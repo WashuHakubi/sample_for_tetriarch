@@ -10,15 +10,15 @@
 
 #include "i_asset.h"
 
-struct ShaderProgram final : ew::Asset<ShaderProgram> {
-  ShaderProgram(bgfx::ProgramHandle handle) : programHandle{handle} {}
+struct ShaderProgramAsset final : ew::Asset<ShaderProgramAsset> {
+  ShaderProgramAsset(bgfx::ProgramHandle handle) : programHandle{handle} {}
 
-  ~ShaderProgram() override { bgfx::destroy(programHandle); }
+  ~ShaderProgramAsset() override { bgfx::destroy(programHandle); }
 
   bgfx::ProgramHandle programHandle{bgfx::kInvalidHandle};
 };
 
-struct ShaderProgramLoader final : ew::AssetLoader<ShaderProgram> {
+struct ShaderProgramLoader final : ew::AssetLoader<ShaderProgramAsset> {
   [[nodiscard]] auto load(ew::AssetProviderPtr const& provider, const std::string& fn, std::string const& data)
       -> ew::IAssetPtr override;
 };

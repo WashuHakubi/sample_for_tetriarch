@@ -17,7 +17,7 @@
 struct DebugCubeSystem {
   explicit DebugCubeSystem(
       ew::AssetProviderPtr provider,
-      entt::registry& registry,
+      std::shared_ptr<entt::registry> registry,
       std::shared_ptr<SampleTerrainSystem> terrain);
 
   ~DebugCubeSystem();
@@ -26,7 +26,7 @@ struct DebugCubeSystem {
 
   bgfx::VertexBufferHandle vbh_{bgfx::kInvalidHandle};
   bgfx::IndexBufferHandle ibh_{bgfx::kInvalidHandle};
-  ShaderProgram::Ptr program_;
+  ShaderProgramAsset::Ptr program_;
   ew::AssetProviderPtr assetProvider_;
-  entt::registry* registry_;
+  std::shared_ptr<entt::registry> registry_;
 };

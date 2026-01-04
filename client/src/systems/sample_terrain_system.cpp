@@ -13,13 +13,14 @@
 #include <glm/gtc/type_ptr.hpp>
 #include <stb/stb_image.h>
 
+#include "../assets/heightmap_asset.h"
 #include "../components/pos_color_vertex.h"
 #include "../components/terrain_chunk.h"
 #include "../components/transform.h"
 
-SampleTerrainSystem::SampleTerrainSystem(ew::AssetProviderPtr provider, entt::registry& registry)
+SampleTerrainSystem::SampleTerrainSystem(ew::AssetProviderPtr provider, std::shared_ptr<entt::registry> registry)
     : assetProvider_(std::move(provider))
-    , registry_(&registry) {
+    , registry_(std::move(registry)) {
   auto const terrainChunk = registry_->create();
 
   // Add a terrain chunk and get references to the components of the chunk
@@ -27,17 +28,9 @@ SampleTerrainSystem::SampleTerrainSystem(ew::AssetProviderPtr provider, entt::re
       registry_->emplace<TerrainChunk>(terrainChunk);
 
   // Load image data for our terrain
-  auto const raw_heightmap = assetProvider_->loadRawAsset("iceland_heightmap.png");
-
-  int channels;
-
-  auto const data = stbi_load_from_memory(
-      reinterpret_cast<stbi_uc const*>(raw_heightmap.data()),
-      static_cast<int>(raw_heightmap.size()),
-      &width,
-      &height,
-      &channels,
-      0);
+  auto heightmap = assetProvider_->load<HeightmapAsset>("iceland_heightmap.png");
+  width = heightmap->width();
+  height = heightmap->height();
 
   registry_->emplace<Transform>(
       terrainChunk,
@@ -60,8 +53,7 @@ SampleTerrainSystem::SampleTerrainSystem(ew::AssetProviderPtr provider, entt::re
       constexpr auto yScale = 1.0f / 8.0f;
       constexpr auto yShift = 0.0f;
 
-      const auto texel = data + (w + h * width) * channels;
-      const auto y = *texel;
+      const auto y = heightmap->sample(w, h);
       const auto color = 0xFF000000 | (y << 16) | (y << 8) | y;
 
       const auto y_coord = y * yScale + yShift;
@@ -77,8 +69,6 @@ SampleTerrainSystem::SampleTerrainSystem(ew::AssetProviderPtr provider, entt::re
           color};
     }
   }
-
-  stbi_image_free(data);
 
   // Allocate a buffer to contain our indices.
   auto terrainIndexData = bgfx::alloc(sizeof(uint32_t) * width * height * 2);
@@ -98,7 +88,7 @@ SampleTerrainSystem::SampleTerrainSystem(ew::AssetProviderPtr provider, entt::re
   vbh = bgfx::createVertexBuffer(terrainVertexData, PosColorVertex::layout());
   ibh = bgfx::createIndexBuffer(terrainIndexData, BGFX_BUFFER_INDEX32);
 
-  program_ = assetProvider_->load<ShaderProgram>("cube.json");
+  program_ = assetProvider_->load<ShaderProgramAsset>("cube.json");
 }
 
 SampleTerrainSystem::~SampleTerrainSystem() {

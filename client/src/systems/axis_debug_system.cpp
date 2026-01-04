@@ -14,9 +14,9 @@
 
 #include <glm/gtc/type_ptr.hpp>
 
-AxisDebugSystem::AxisDebugSystem(ew::AssetProviderPtr provider, entt::registry& registry)
+AxisDebugSystem::AxisDebugSystem(ew::AssetProviderPtr provider, std::shared_ptr<entt::registry> registry)
     : assetProvider_(std::move(provider))
-    , registry_(&registry) {
+    , registry_(std::move(registry)) {
   // Origin axis
   auto const axis = registry_->create();
   registry_->emplace<Transform>(axis, glm::vec3{0}, glm::vec3{10.0f});
@@ -49,7 +49,7 @@ void AxisDebugSystem::render(float dt) {
   };
 
   if (!program_) {
-    program_ = assetProvider_->load<ShaderProgram>("cube.json");
+    program_ = assetProvider_->load<ShaderProgramAsset>("cube.json");
     return;
   }
 

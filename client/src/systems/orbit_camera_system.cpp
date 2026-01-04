@@ -21,11 +21,11 @@ namespace ew {
 constexpr float kGravity = -9.8f;
 
 OrbitCameraSystem::OrbitCameraSystem(
-    entt::registry& registry,
     ApplicationPtr app,
+    std::shared_ptr<entt::registry> registry,
     std::shared_ptr<SampleTerrainSystem> terrain)
     : app_(std::move(app))
-    , registry_(&registry)
+    , registry_(std::move(registry))
     , terrain_(std::move(terrain)) {
   // The entity our camera is following.
   targetEntity_ = registry_->create();

@@ -10,6 +10,7 @@
 #include <functional>
 #include <memory>
 #include <type_traits>
+#include <typeindex>
 #include <vector>
 
 #include "../i_application.h"
@@ -71,8 +72,8 @@ struct HasMsgHandler {
 
 class EcsSystems {
  public:
-  template <class T>
-  void addSystem(std::shared_ptr<T> const& system);
+  template <class T, class... TArgs>
+  void addSystem(TArgs&&... args);
 
   void clear();
 
@@ -82,15 +83,21 @@ class EcsSystems {
 
   void handleMessage(GameThreadMsg const& msg) const;
 
+  template <class T>
+  std::shared_ptr<T> get();
+
  private:
+  std::unordered_map<std::type_index, std::shared_ptr<void>> typeToSystem_;
   std::vector<std::shared_ptr<void>> systems_;
   std::vector<std::function<void(float dt)>> updateSystems_;
   std::vector<std::function<void(float dt)>> renderSystems_;
   std::vector<std::function<void(GameThreadMsg const&)>> messageHandlers_;
 };
 
-template <class T>
-void EcsSystems::addSystem(std::shared_ptr<T> const& system) {
+template <class T, class... TArgs>
+void EcsSystems::addSystem(TArgs&&... args) {
+  auto system = std::make_shared<T>(std::forward<TArgs>(args)...);
+  typeToSystem_.emplace(typeid(T), system);
   systems_.push_back(system);
 
   if constexpr (detail::HasUpdate<T>::value) {
@@ -104,5 +111,13 @@ void EcsSystems::addSystem(std::shared_ptr<T> const& system) {
   if constexpr (detail::HasMsgHandler<T>::value) {
     messageHandlers_.push_back([system](GameThreadMsg const& msg) { system->handleMessage(msg); });
   }
+}
+
+template <class T>
+std::shared_ptr<T> EcsSystems::get() {
+  if (auto it = typeToSystem_.find(typeid(T)); it != typeToSystem_.end()) {
+    return std::static_pointer_cast<T>(it->second);
+  }
+  assert(false && "Failed to find system matching type");
 }
 } // namespace ew

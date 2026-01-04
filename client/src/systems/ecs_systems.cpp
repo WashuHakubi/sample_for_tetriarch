@@ -12,7 +12,13 @@ void EcsSystems::clear() {
   updateSystems_.clear();
   renderSystems_.clear();
   messageHandlers_.clear();
-  systems_.clear();
+  typeToSystem_.clear();
+
+  // Remove the systems in the opposite order they were added, this should ensure that any ordering related destruction
+  // semantics are respected.
+  while (!systems_.empty()) {
+    systems_.pop_back();
+  }
 }
 
 void EcsSystems::render(float dt) const {

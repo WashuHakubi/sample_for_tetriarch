@@ -18,18 +18,18 @@ struct SampleTag {};
 
 DebugCubeSystem::DebugCubeSystem(
     ew::AssetProviderPtr provider,
-    entt::registry& registry,
+    std::shared_ptr<entt::registry> registry,
     std::shared_ptr<SampleTerrainSystem> terrain)
     : assetProvider_(std::move(provider))
-    , registry_(&registry) {
+    , registry_(std::move(registry)) {
   for (size_t xx = 0; xx < 11; ++xx) {
     for (size_t zz = 0; zz < 11; ++zz) {
       auto e = registry_->create();
       auto x = static_cast<float>(xx) * 3.0f - 15.0f;
       auto z = static_cast<float>(zz) * 3.0f - 15.0f;
-      registry.emplace<CubeDebug>(e);
-      registry.emplace<SampleTag>(e);
-      registry.emplace<Transform>(
+      registry_->emplace<CubeDebug>(e);
+      registry_->emplace<SampleTag>(e);
+      registry_->emplace<Transform>(
           e,
           glm::vec3{
               x,
@@ -42,7 +42,7 @@ DebugCubeSystem::DebugCubeSystem(
     }
   }
 
-  program_ = assetProvider_->load<ShaderProgram>("cube.json");
+  program_ = assetProvider_->load<ShaderProgramAsset>("cube.json");
 }
 
 DebugCubeSystem::~DebugCubeSystem() {
@@ -85,7 +85,7 @@ void DebugCubeSystem::render(float dt) {
       BGFX_STATE_DEPTH_TEST_LESS | BGFX_STATE_MSAA | BGFX_STATE_CULL_CW;
 
   if (!program_) {
-    program_ = assetProvider_->load<ShaderProgram>("cube.json");
+    program_ = assetProvider_->load<ShaderProgramAsset>("cube.json");
     return;
   }
 

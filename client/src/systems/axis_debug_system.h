@@ -15,15 +15,15 @@
 #include "../assets/shader_program_asset.h"
 
 struct AxisDebugSystem {
-  AxisDebugSystem(ew::AssetProviderPtr provider, entt::registry& registry);
+  AxisDebugSystem(ew::AssetProviderPtr provider, std::shared_ptr<entt::registry> registry);
   ~AxisDebugSystem();
 
   void render(float dt);
 
   bgfx::VertexBufferHandle axisVbh_{bgfx::kInvalidHandle};
   bgfx::IndexBufferHandle axisIbh_{bgfx::kInvalidHandle};
-  ShaderProgram::Ptr program_;
+  ShaderProgramAsset::Ptr program_;
 
   ew::AssetProviderPtr assetProvider_;
-  entt::registry* registry_;
+  std::shared_ptr<entt::registry> registry_;
 };

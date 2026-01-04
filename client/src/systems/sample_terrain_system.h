@@ -15,7 +15,7 @@
 
 class SampleTerrainSystem {
  public:
-  SampleTerrainSystem(ew::AssetProviderPtr provider, entt::registry& registry);
+  SampleTerrainSystem(ew::AssetProviderPtr provider, std::shared_ptr<entt::registry> registry);
   ~SampleTerrainSystem();
 
   void render(float dt);
@@ -24,6 +24,6 @@ class SampleTerrainSystem {
 
  private:
   ew::AssetProviderPtr assetProvider_;
-  entt::registry* registry_;
-  ShaderProgram::Ptr program_;
+  std::shared_ptr<entt::registry> registry_;
+  ShaderProgramAsset::Ptr program_;
 };

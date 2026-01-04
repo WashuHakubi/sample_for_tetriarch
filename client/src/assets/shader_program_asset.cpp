@@ -48,5 +48,5 @@ auto ShaderProgramLoader::load(ew::AssetProviderPtr const& provider, const std::
   bgfx::setName(fs, fsFileName.c_str());
 
   auto program = bgfx::createProgram(vs, fs, true);
-  return std::make_shared<ShaderProgram>(program);
+  return std::make_shared<ShaderProgramAsset>(program);
 }
