@@ -18,7 +18,7 @@
 
 namespace ew {
 
-constexpr float kGravity = 9.8f;
+constexpr float kGravity = -9.8f;
 
 OrbitCameraSystem::OrbitCameraSystem(
     entt::registry& registry,
@@ -43,7 +43,7 @@ void OrbitCameraSystem::render(float const dt) {
   auto [transform, camera] = registry_->get<Transform, OrbitCamera>(targetEntity_);
 
   camera.r = zoom_;
-  camera.phi += (angle_ + (movementDirections_[UnlockAngle] ? singleFrameAngle_ : 0)) * dt;
+  camera.phi += (angle_ + (inputStates_[UnlockAngle] ? singleFrameAngle_ : 0)) * dt;
   // Ensure phi remains between [0, 2pi]. This isn't necessary, but it makes debugging easier.
   if (camera.phi > glm::two_pi<float>()) {
     camera.phi -= glm::two_pi<float>();
@@ -66,15 +66,15 @@ void OrbitCameraSystem::render(float const dt) {
 
   // compute a movement vector, combining our forward and strafe momentum with our facing direction
   auto const movement = glm::vec3{
-      facing.x * ((movementDirections_[Forward] ? 1.0f : 0) + (movementDirections_[Backward] ? -1.0f : 0)) +
-          right.x * ((movementDirections_[Left] ? 1.0f : 0) + (movementDirections_[Right] ? -1.0f : 0)),
+      facing.x * ((inputStates_[Forward] ? 1.0f : 0) + (inputStates_[Backward] ? -1.0f : 0)) +
+          right.x * ((inputStates_[Left] ? 1.0f : 0) + (inputStates_[Right] ? -1.0f : 0)),
       0,
-      facing.z * ((movementDirections_[Forward] ? 1.0f : 0) + (movementDirections_[Backward] ? -1.0f : 0)) +
-          right.z * ((movementDirections_[Left] ? 1.0f : 0) + (movementDirections_[Right] ? -1.0f : 0))};
+      facing.z * ((inputStates_[Forward] ? 1.0f : 0) + (inputStates_[Backward] ? -1.0f : 0)) +
+          right.z * ((inputStates_[Left] ? 1.0f : 0) + (inputStates_[Right] ? -1.0f : 0))};
 
   // Only update if we actually have movement
   if (movement.x != 0 || movement.z != 0) {
-    auto const speed = movementDirections_[Sprint] ? 30.0f : 10.0f;
+    auto const speed = inputStates_[Sprint] ? 30.0f : 10.0f;
 
     // Update our character to face in the direction of our movement
     transform.rotation = glm::angleAxis(-camera.phi, glm::vec3{0, 1, 0});
@@ -83,13 +83,18 @@ void OrbitCameraSystem::render(float const dt) {
 
   auto terrainHeight = terrain_->sample(transform.position.x, transform.position.z);
 
+  // If we're on the ground and the jump button is pressed then jump
+  if (transform.position.y <= terrainHeight && inputStates_[Jump]) {
+    yVelocity_ = 6.0f;
+  }
+
   // Apply the jump velocity
   transform.position.y += yVelocity_ * dt;
-  yVelocity_ -= 2 * kGravity * dt;
+  yVelocity_ += kGravity * dt;
 
   // If we've ended up at a position lower than the terrain, adjust ourselves to be on the terrain and set the
   // velocity to 0.
-  if (transform.position.y < terrainHeight) {
+  if (transform.position.y <= terrainHeight) {
     transform.position.y = terrainHeight;
     yVelocity_ = 0;
   }
@@ -142,24 +147,22 @@ void OrbitCameraSystem::handleMessage(GameThreadMsg const& msg) {
 
     switch (key->scancode) {
       case SCANCODE_W:
-        movementDirections_[Forward] = key->down;
+        inputStates_[Forward] = key->down;
         break;
       case SCANCODE_S:
-        movementDirections_[Backward] = key->down;
+        inputStates_[Backward] = key->down;
         break;
       case SCANCODE_A:
-        movementDirections_[Left] = key->down;
+        inputStates_[Left] = key->down;
         break;
       case SCANCODE_D:
-        movementDirections_[Right] = key->down;
+        inputStates_[Right] = key->down;
         break;
       case SCANCODE_LSHIFT:
-        movementDirections_[Sprint] = key->down;
+        inputStates_[Sprint] = key->down;
         break;
       case SCANCODE_SPACE:
-        if (yVelocity_ == 0 && key->down) {
-          yVelocity_ = kGravity;
-        }
+        inputStates_[Jump] = key->down;
         break;
       default:
         break;
@@ -173,7 +176,7 @@ void OrbitCameraSystem::handleMessage(GameThreadMsg const& msg) {
   else if (auto const click = std::get_if<MouseButtonMsg>(&msg)) {
     if (click->button == MouseButton::Right) {
       app_->sendMainThreadMessage(CaptureMouseMsg{click->down});
-      movementDirections_[UnlockAngle] = click->down;
+      inputStates_[UnlockAngle] = click->down;
     }
   }
   // Zoom in and out based on the scroll-wheel direction.

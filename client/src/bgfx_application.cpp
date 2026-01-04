@@ -49,7 +49,7 @@ struct BgfxApplication : ew::IApplication, std::enable_shared_from_this<BgfxAppl
   void sendMainThreadMessage(ew::MainThreadMsg msg) override;
 
  private:
-  void processMessages(ew::SimTime const& time);
+  void processMessages();
 
   void run(std::pair<void*, void*> descriptors);
 
@@ -129,7 +129,7 @@ void BgfxApplication::sendMainThreadMessage(ew::MainThreadMsg msg) {
   mainMsgs_.push(new ew::MainThreadMsg(msg));
 }
 
-void BgfxApplication::processMessages(ew::SimTime const& time) {
+void BgfxApplication::processMessages() {
   while (auto const ptr = gameMsgs_.pop(0)) {
     // Ensure the message always gets deleted.
     std::unique_ptr<ew::GameThreadMsg> msg(ptr);
@@ -198,7 +198,7 @@ void BgfxApplication::run(std::pair<void*, void*> descriptors) {
   while (!exit_) {
     time.update();
 
-    processMessages(time);
+    processMessages();
 
     // Cap the number of times we'll update the sim per frame to ensure rendering and other events are handled.
     timeAccumulator = std::max(timeAccumulator + time.simDeltaTime(), kMaxSimTime);
