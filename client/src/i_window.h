@@ -26,8 +26,8 @@ struct IWindow {
 
   virtual void captureMouse(bool capture) = 0;
 
-  /// @brief Gets the native device descriptor (or null if none), and window handle.
-  virtual auto getWindowDescriptors() const -> std::pair<void*, void*> = 0;
+  /// @brief Gets the video driver name, native device descriptor (or null if none), and window handle.
+  virtual auto getWindowDescriptors() const -> std::tuple<std::string_view, void*, void*> = 0;
 
   virtual auto getWindowSize() const -> std::pair<int, int> = 0;
 

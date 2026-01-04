@@ -16,7 +16,7 @@ struct SDLWindow final : IWindow {
   SDLWindow(SDL_Window* window) : window_(window) {}
   ~SDLWindow() override { SDL_DestroyWindow(window_); }
 
-  auto getWindowDescriptors() const -> std::pair<void*, void*> override {
+  auto getWindowDescriptors() const -> std::tuple<std::string_view, void*, void*> override {
     auto windowProps = SDL_GetWindowProperties(window_);
     std::string_view currentVideoDriver = SDL_GetCurrentVideoDriver();
     LOG(INFO) << "Video driver: " << currentVideoDriver;
@@ -25,20 +25,20 @@ struct SDLWindow final : IWindow {
     if (currentVideoDriver == "x11") {
       auto xdisplay = SDL_GetPointerProperty(windowProps, SDL_PROP_WINDOW_X11_DISPLAY_POINTER, nullptr);
       auto xwindow = SDL_GetNumberProperty(windowProps, SDL_PROP_WINDOW_X11_WINDOW_NUMBER, 0);
-      return {xdisplay, reinterpret_cast<void*>(xwindow)};
+      return {currentVideoDriver, xdisplay, reinterpret_cast<void*>(xwindow)};
     } else if (currentVideoDriver == "wayland") {
       auto display = SDL_GetPointerProperty(windowProps, SDL_PROP_WINDOW_WAYLAND_DISPLAY_POINTER, nullptr);
       auto surface = SDL_GetPointerProperty(windowProps, SDL_PROP_WINDOW_WAYLAND_SURFACE_POINTER, nullptr);
-      return {display, surface};
+      return {currentVideoDriver, display, surface};
     } else {
       LOG(FATAL) << "Unknown video driver: " << currentVideoDriver;
     }
 #elif SDL_PLATFORM_MACOS
     auto window = SDL_GetPointerProperty(windowProps, SDL_PROP_WINDOW_COCOA_WINDOW_POINTER, nullptr);
-    return {nullptr, window};
+    return {currentVideoDriver, nullptr, window};
 #elif SDL_PLATFORM_WIN32
     auto window = SDL_GetPointerProperty(windowProps, SDL_PROP_WINDOW_WIN32_HWND_POINTER, nullptr);
-    return {nullptr, window};
+    return {currentVideoDriver, nullptr, window};
 #endif
   }
 

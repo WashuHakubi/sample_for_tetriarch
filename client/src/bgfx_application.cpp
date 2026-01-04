@@ -54,7 +54,7 @@ struct BgfxApplication : ew::IApplication, std::enable_shared_from_this<BgfxAppl
  private:
   void processMessages();
 
-  void run(std::pair<void*, void*> descriptors);
+  void run(std::tuple<std::string_view, void*, void*> descriptors);
 
   ew::WindowPtr window_;
   std::thread gameThread_;
@@ -165,13 +165,19 @@ void BgfxApplication::processMessages() {
   }
 }
 
-void BgfxApplication::run(std::pair<void*, void*> descriptors) {
+void BgfxApplication::run(std::tuple<std::string_view, void*, void*> descriptors) {
   bgfx::Init init;
 
-  auto [ndt, nwh] = descriptors;
+  auto [currentVideoDriver, ndt, nwh] = descriptors;
 
   init.platformData.ndt = ndt;
   init.platformData.nwh = nwh;
+
+  if (currentVideoDriver == "wayland") {
+    init.platformData.type = bgfx::NativeWindowHandleType::Wayland;
+  } else {
+    init.platformData.type = bgfx::NativeWindowHandleType::Default;
+  }
 
   // This must be called on the "game" thread.
   bgfx::init(init);
@@ -226,7 +232,14 @@ void BgfxApplication::run(std::pair<void*, void*> descriptors) {
     bgfx::touch(0);
 
     bgfx::dbgTextClear();
-    bgfx::dbgTextPrintf(0, 0, 0x0b, "Dimensions: %d x %d", windowSize_.first, windowSize_.second);
+    bgfx::dbgTextPrintf(
+        0,
+        0,
+        0x0b,
+        "Dimensions: %d x %d, Driver: %s",
+        windowSize_.first,
+        windowSize_.second,
+        currentVideoDriver.data());
 
     systems_.render(static_cast<float>(time.simDeltaTime()));
 

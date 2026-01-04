@@ -14,7 +14,10 @@
 #include <glm/ext/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
+namespace {
+// Tags cubes that the DebugCubeSystem should animate internally.
 struct SampleTag {};
+} // namespace
 
 DebugCubeSystem::DebugCubeSystem(
     ew::AssetProviderPtr provider,
@@ -55,6 +58,7 @@ DebugCubeSystem::~DebugCubeSystem() {
 }
 
 void DebugCubeSystem::update(float dt) {
+  // Animate the sample cubes
   for (auto&& [ent, transform] : registry_->view<CubeDebug, Transform, SampleTag>().each()) {
     transform.rotation *= glm::angleAxis(dt, glm::vec3(1, 1, 0));
   }
