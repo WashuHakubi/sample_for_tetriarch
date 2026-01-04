@@ -54,6 +54,12 @@ DebugCubeSystem::~DebugCubeSystem() {
   }
 }
 
+void DebugCubeSystem::update(float dt) {
+  for (auto&& [ent, transform] : registry_->view<CubeDebug, Transform, SampleTag>().each()) {
+    transform.rotation *= glm::angleAxis(dt, glm::vec3(1, 1, 0));
+  }
+}
+
 void DebugCubeSystem::render(float dt) {
   static constexpr PosColorVertex cubeVertices[] = {
       {{-1.0f, 1.0f, 1.0f}, 0xff000000},
@@ -101,10 +107,6 @@ void DebugCubeSystem::render(float dt) {
     ibh_ = bgfx::createIndexBuffer(
         // Static data can be passed with bgfx::makeRef
         bgfx::makeRef(cubeTriList, sizeof(cubeTriList)));
-  }
-
-  for (auto&& [ent, transform] : registry_->view<CubeDebug, Transform, SampleTag>().each()) {
-    transform.rotation *= glm::angleAxis(dt, glm::vec3(1, 1, 0));
   }
 
   for (auto&& [ent, transform] : registry_->view<CubeDebug, Transform>().each()) {

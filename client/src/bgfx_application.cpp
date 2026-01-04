@@ -187,22 +187,23 @@ void BgfxApplication::run(std::pair<void*, void*> descriptors) {
   double timeAccumulator{0};
 
   auto assetProvider = std::make_shared<ew::AssetProvider>(std::make_shared<SimpleFileProvider>("assets"));
-  assetProvider->registerAssetLoader(std::make_shared<ShaderProgramLoader>());
-  assetProvider->registerAssetLoader(std::make_shared<HeightmapAssetLoader>());
 
-  systems_.addSystem<entt::registry>();
-  systems_.addSystem<FrameRateSystem>();
-  systems_.addSystem<AxisDebugSystem>(assetProvider, systems_.get<entt::registry>());
-  systems_.addSystem<SampleTerrainSystem>(assetProvider, systems_.get<entt::registry>());
-  systems_.addSystem<DebugCubeSystem>(
-      assetProvider, //
-      systems_.get<entt::registry>(),
-      systems_.get<SampleTerrainSystem>());
+  // Register all of our asset loaders
+  {
+    assetProvider->registerAssetLoader(std::make_shared<ShaderProgramLoader>());
+    assetProvider->registerAssetLoader(std::make_shared<HeightmapAssetLoader>());
+  }
 
-  systems_.addSystem<ew::OrbitCameraSystem>(
-      shared_from_this(),
-      systems_.get<entt::registry>(),
-      systems_.get<SampleTerrainSystem>());
+  // Register all of our systems
+  {
+    auto registry = systems_.addSystem<entt::registry>();
+    systems_.addSystem<FrameRateSystem>();
+    systems_.addSystem<AxisDebugSystem>(assetProvider, registry);
+
+    auto terrain = systems_.addSystem<SampleTerrainSystem>(assetProvider, registry);
+    systems_.addSystem<DebugCubeSystem>(assetProvider, registry, terrain);
+    systems_.addSystem<ew::OrbitCameraSystem>(shared_from_this(), registry, terrain);
+  }
 
   // Game loop
   while (!exit_) {
@@ -211,7 +212,7 @@ void BgfxApplication::run(std::pair<void*, void*> descriptors) {
     processMessages();
 
     // Cap the number of times we'll update the sim per frame to ensure rendering and other events are handled.
-    timeAccumulator = std::max(timeAccumulator + time.simDeltaTime(), kMaxSimTime);
+    timeAccumulator = std::min(timeAccumulator + time.simDeltaTime(), kMaxSimTime);
 
     while (timeAccumulator >= kSimTickRate) {
       // update sim

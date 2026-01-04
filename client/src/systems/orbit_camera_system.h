@@ -22,6 +22,8 @@ struct OrbitCameraSystem {
       std::shared_ptr<entt::registry> registry,
       std::shared_ptr<SampleTerrainSystem> terrain);
 
+  void update(float dt);
+
   void render(float dt);
 
   void handleMessage(ew::GameThreadMsg const& msg);

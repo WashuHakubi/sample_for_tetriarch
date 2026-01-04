@@ -22,6 +22,8 @@ struct DebugCubeSystem {
 
   ~DebugCubeSystem();
 
+  void update(float dt);
+
   void render(float dt);
 
   bgfx::VertexBufferHandle vbh_{bgfx::kInvalidHandle};

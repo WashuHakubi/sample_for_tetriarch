@@ -39,7 +39,7 @@ OrbitCameraSystem::OrbitCameraSystem(
   registry_->emplace<OrbitCamera>(targetEntity_, 60.0f, glm::radians(-45.0f), glm::radians(0.0f));
 }
 
-void OrbitCameraSystem::render(float const dt) {
+void OrbitCameraSystem::update(float dt) {
   auto [transform, camera] = registry_->get<Transform, OrbitCamera>(targetEntity_);
 
   camera.r = zoom_;
@@ -98,6 +98,12 @@ void OrbitCameraSystem::render(float const dt) {
     transform.position.y = terrainHeight;
     yVelocity_ = 0;
   }
+}
+
+void OrbitCameraSystem::render(float const dt) {
+  auto [transform, camera] = registry_->get<Transform, OrbitCamera>(targetEntity_);
+
+  auto const cameraPos = camera.toCartesian();
 
   // Get the camera position relative to the target
   auto const eye = transform.position + cameraPos;

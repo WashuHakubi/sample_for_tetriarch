@@ -73,7 +73,7 @@ struct HasMsgHandler {
 class EcsSystems {
  public:
   template <class T, class... TArgs>
-  void addSystem(TArgs&&... args);
+  auto addSystem(TArgs&&... args) -> std::shared_ptr<T>;
 
   void clear();
 
@@ -84,7 +84,7 @@ class EcsSystems {
   void handleMessage(GameThreadMsg const& msg) const;
 
   template <class T>
-  std::shared_ptr<T> get();
+  [[nodiscard]] std::shared_ptr<T> get() const;
 
  private:
   std::unordered_map<std::type_index, std::shared_ptr<void>> typeToSystem_;
@@ -95,7 +95,7 @@ class EcsSystems {
 };
 
 template <class T, class... TArgs>
-void EcsSystems::addSystem(TArgs&&... args) {
+auto EcsSystems::addSystem(TArgs&&... args) -> std::shared_ptr<T> {
   auto system = std::make_shared<T>(std::forward<TArgs>(args)...);
   typeToSystem_.emplace(typeid(T), system);
   systems_.push_back(system);
@@ -111,10 +111,12 @@ void EcsSystems::addSystem(TArgs&&... args) {
   if constexpr (detail::HasMsgHandler<T>::value) {
     messageHandlers_.push_back([system](GameThreadMsg const& msg) { system->handleMessage(msg); });
   }
+
+  return system;
 }
 
 template <class T>
-std::shared_ptr<T> EcsSystems::get() {
+std::shared_ptr<T> EcsSystems::get() const {
   if (auto it = typeToSystem_.find(typeid(T)); it != typeToSystem_.end()) {
     return std::static_pointer_cast<T>(it->second);
   }
