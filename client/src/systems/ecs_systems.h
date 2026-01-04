@@ -18,6 +18,7 @@
 namespace ew {
 namespace detail {
 template <class C>
+/// Check for an update(float) method.
 struct HasUpdate {
  private:
   // ReSharper disable once CppFunctionIsNotImplemented
@@ -34,6 +35,7 @@ struct HasUpdate {
   static constexpr bool value = type::value;
 };
 
+/// Check for a render(float) method.
 template <class C>
 struct HasRender {
  private:
@@ -51,6 +53,7 @@ struct HasRender {
   static constexpr bool value = type::value;
 };
 
+/// Check for a handleMessage(GameThreadMsg const&) method.
 template <class C>
 struct HasMsgHandler {
  private:
@@ -100,14 +103,23 @@ auto EcsSystems::addSystem(TArgs&&... args) -> std::shared_ptr<T> {
   typeToSystem_.emplace(typeid(T), system);
   systems_.push_back(system);
 
+  // Perform some checks to see if we have compatible methods and register them if we do. This is effectively a form of
+  // static polymorphism. We don't register types that don't have the appropriate method signatures, so we're not
+  // calling update on systems that don't need it. This could be replaced with an interface and virtual methods for very
+  // little cost, since you shouldn't have more than a few hundred systems probably. However, since we can store
+  // arbitrary objects in the EcsSystems container (such as entt::registry) we use this method instead.
+
+  // Check if we have a compatible update method.
   if constexpr (detail::HasUpdate<T>::value) {
     updateSystems_.push_back([system](float dt) { system->update(dt); });
   }
 
+  // Check if we have a compatible render method.
   if constexpr (detail::HasRender<T>::value) {
     renderSystems_.push_back([system](float dt) { system->render(dt); });
   }
 
+  // Check if we have a compatible message handler method.
   if constexpr (detail::HasMsgHandler<T>::value) {
     messageHandlers_.push_back([system](GameThreadMsg const& msg) { system->handleMessage(msg); });
   }
