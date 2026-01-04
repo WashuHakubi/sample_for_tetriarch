@@ -71,10 +71,9 @@ SampleTerrainSystem::SampleTerrainSystem(ew::AssetProviderPtr provider, entt::re
   }
 
   tvbh_ = bgfx::createVertexBuffer(
-      bgfx::makeRef(vertices.data(), vertices.size() * sizeof(PosColorVertex)),
+      bgfx::copy(vertices.data(), vertices.size() * sizeof(PosColorVertex)),
       PosColorVertex::layout());
-  tibh_ =
-      bgfx::createIndexBuffer(bgfx::makeRef(indices.data(), indices.size() * sizeof(uint32_t)), BGFX_BUFFER_INDEX32);
+  tibh_ = bgfx::createIndexBuffer(bgfx::copy(indices.data(), indices.size() * sizeof(uint32_t)), BGFX_BUFFER_INDEX32);
 
   program_ = assetProvider_->load<ShaderProgram>("cube.json");
 }

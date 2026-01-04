@@ -7,6 +7,7 @@
 
 #pragma once
 
+#include <bitset>
 #include <cmath>
 
 #include <entt/entt.hpp>

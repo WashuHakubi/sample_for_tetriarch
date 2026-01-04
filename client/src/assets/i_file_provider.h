@@ -7,6 +7,8 @@
 
 #pragma once
 
+#include <memory>
+
 namespace ew {
 struct IFileProvider {
   virtual ~IFileProvider() = default;
