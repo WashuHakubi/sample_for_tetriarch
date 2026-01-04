@@ -108,8 +108,8 @@ float SampleTerrainSystem::sample(float x, float z) const {
     return 0.0f;
   }
 
-  // Check if our extra points are out of bounds or if we're very close to a specific point, if so just return that
-  // point.
+  // Check if our extra points are out of bounds or if we're very close to a specific point, return that point in either
+  // case.
   if (ih1 >= height_ || iw1 >= width_ || (std::abs(h - ih0) < kEpsilon && std::abs(w - iw0) < kEpsilon)) {
     return heights_[ih0 * width_ + iw0];
   }
