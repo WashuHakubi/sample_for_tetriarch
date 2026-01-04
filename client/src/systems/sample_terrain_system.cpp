@@ -21,9 +21,12 @@ SampleTerrainSystem::SampleTerrainSystem(ew::AssetProviderPtr provider, entt::re
     : assetProvider_(std::move(provider))
     , registry_(&registry) {
   auto const terrainChunk = registry_->create();
+
+  // Add a terrain chunk and get references to the components of the chunk
   auto& [width, height, numStrips, numVertsPerStrip, heights, vbh, ibh] =
       registry_->emplace<TerrainChunk>(terrainChunk);
 
+  // Load image data for our terrain
   auto const raw_heightmap = assetProvider_->loadRawAsset("iceland_heightmap.png");
 
   int channels;
@@ -42,11 +45,14 @@ SampleTerrainSystem::SampleTerrainSystem(ew::AssetProviderPtr provider, entt::re
       glm::vec3{-static_cast<float>(height) / 2.0f, 0, -static_cast<float>(width) / 2.0f},
       glm::vec3{1.0f},
       glm::quat{});
+
   numStrips = height - 1;
   numVertsPerStrip = width * 2;
 
-  std::vector<PosColorVertex> vertices;
-  std::vector<uint32_t> indices;
+  // Allocate a buffer to contain our vertex and data.
+  auto terrainVertexData = bgfx::alloc(sizeof(PosColorVertex) * height * width);
+  auto vertices = reinterpret_cast<PosColorVertex*>(terrainVertexData->data);
+  auto index = 0;
 
   // Generate our vertices, each row of the height map is a triangle strip
   for (int h = 0; h < height; ++h) {
@@ -61,32 +67,36 @@ SampleTerrainSystem::SampleTerrainSystem(ew::AssetProviderPtr provider, entt::re
       const auto y_coord = y * yScale + yShift;
 
       heights.push_back(y_coord);
-      vertices.push_back(
-          {{
-               static_cast<float>(h),
-               y_coord,
-               static_cast<float>(w),
-           },
-           color});
+
+      vertices[index++] = {
+          {
+              static_cast<float>(h),
+              y_coord,
+              static_cast<float>(w),
+          },
+          color};
     }
   }
 
   stbi_image_free(data);
 
+  // Allocate a buffer to contain our indices.
+  auto terrainIndexData = bgfx::alloc(sizeof(uint32_t) * width * height * 2);
+  auto indices = reinterpret_cast<uint32_t*>(terrainIndexData->data);
+
   // generate our triangle strip indices. There are numStrips triangle strips, with numVertsPerStrip vertices in each
   // strip.
+  index = 0;
   for (int h = 0; h < height - 1; ++h) {
     for (int w = 0; w < width; ++w) {
       for (int k = 0; k < 2; ++k) {
-        indices.push_back(w + width * (h + k));
+        indices[index++] = w + width * (h + k);
       }
     }
   }
 
-  vbh = bgfx::createVertexBuffer(
-      bgfx::copy(vertices.data(), vertices.size() * sizeof(PosColorVertex)),
-      PosColorVertex::layout());
-  ibh = bgfx::createIndexBuffer(bgfx::copy(indices.data(), indices.size() * sizeof(uint32_t)), BGFX_BUFFER_INDEX32);
+  vbh = bgfx::createVertexBuffer(terrainVertexData, PosColorVertex::layout());
+  ibh = bgfx::createIndexBuffer(terrainIndexData, BGFX_BUFFER_INDEX32);
 
   program_ = assetProvider_->load<ShaderProgram>("cube.json");
 }

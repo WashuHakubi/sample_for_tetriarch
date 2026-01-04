@@ -58,6 +58,7 @@ void AxisDebugSystem::render(float dt) {
         // Static data can be passed with bgfx::makeRef
         bgfx::makeRef(axisVertices, sizeof(axisVertices)),
         PosColorVertex::layout());
+    bgfx::setName(axisVbh_, "axis debug");
   }
 
   if (!bgfx::isValid(axisIbh_)) {
@@ -65,6 +66,7 @@ void AxisDebugSystem::render(float dt) {
     axisIbh_ = bgfx::createIndexBuffer(
         // Static data can be passed with bgfx::makeRef
         bgfx::makeRef(axisLineList, sizeof(axisLineList)));
+    bgfx::setName(axisIbh_, "axis debug");
   }
 
   constexpr uint64_t state = 0 | //

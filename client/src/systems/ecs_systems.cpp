@@ -11,6 +11,7 @@ namespace ew {
 void EcsSystems::clear() {
   updateSystems_.clear();
   renderSystems_.clear();
+  messageHandlers_.clear();
   systems_.clear();
 }
 
