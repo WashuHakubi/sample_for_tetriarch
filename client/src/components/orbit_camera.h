@@ -8,7 +8,9 @@
 #pragma once
 
 #include <cmath>
+
 #include <glm/vec3.hpp>
+#include <shared/reflection.h>
 
 // We use spherical coordinates for the orbit camera since it's attached to a target.
 struct OrbitCamera {

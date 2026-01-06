@@ -5,6 +5,7 @@
  *  file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
  */
 
+#include <filesystem>
 #include <functional>
 #include <iostream>
 #include <typeindex>
@@ -56,6 +57,7 @@ struct BgfxApplication : ew::IApplication, std::enable_shared_from_this<BgfxAppl
 
   void run(std::tuple<std::string_view, void*, void*> descriptors);
 
+  std::string basePath_;
   ew::WindowPtr window_;
   std::thread gameThread_;
   bx::DefaultAllocator alloc_;
@@ -96,6 +98,12 @@ bool BgfxApplication::init(int argc, char** argv) {
   windowSize_ = window_->getWindowSize();
   auto [width, height] = windowSize_;
   handle(ew::ResizeMsg{width, height});
+
+  std::filesystem::path exe{argv[0]};
+  basePath_ = std::filesystem::absolute(exe.parent_path()).generic_string();
+  if (!basePath_.ends_with('/') || !basePath_.ends_with('\\')) {
+    basePath_ += '/';
+  }
 
   // Create the game thread.
   gameThread_ = std::thread([this, descriptors]() { this->run(descriptors); });
@@ -173,11 +181,13 @@ void BgfxApplication::run(std::tuple<std::string_view, void*, void*> descriptors
   init.platformData.ndt = ndt;
   init.platformData.nwh = nwh;
 
+#if BX_PLATFORM_LINUX
   if (currentVideoDriver == "wayland") {
     init.platformData.type = bgfx::NativeWindowHandleType::Wayland;
   } else {
     init.platformData.type = bgfx::NativeWindowHandleType::Default;
   }
+#endif
 
   // This must be called on the "game" thread.
   bgfx::init(init);
@@ -192,7 +202,7 @@ void BgfxApplication::run(std::tuple<std::string_view, void*, void*> descriptors
   ew::SimTime time;
   double timeAccumulator{0};
 
-  auto assetProvider = std::make_shared<ew::AssetProvider>(std::make_shared<SimpleFileProvider>("assets"));
+  auto assetProvider = std::make_shared<ew::AssetProvider>(std::make_shared<SimpleFileProvider>(basePath_ + "assets"));
 
   // Register all of our asset loaders
   {

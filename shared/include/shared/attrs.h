@@ -8,8 +8,10 @@
 #pragma once
 
 #include <concepts>
-#include <span>
 #include <format>
+#include <span>
+#include <string>
+#include <vector>
 
 namespace ew::attrs {
 struct errors {
@@ -24,13 +26,12 @@ struct errors {
 
   std::span<std::string const> items() const { return errors_; }
 
-private:
+ private:
   std::vector<std::string> errors_;
 };
 
 template <class T, class U>
-concept validatable = requires(T t, errors e, std::string_view path, U u)
-{
+concept validatable = requires(T t, errors e, std::string_view path, U u) {
   { t.validate(e, path, u) };
 };
 

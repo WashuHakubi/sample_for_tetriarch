@@ -9,6 +9,7 @@
 
 #include <glm/gtc/quaternion.hpp>
 #include <glm/vec3.hpp>
+#include <shared/reflection.h>
 
 struct Transform {
   glm::vec3 position{0};

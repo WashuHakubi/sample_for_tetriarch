@@ -7,7 +7,13 @@
 
 #pragma once
 
-/// When present on an entity will display the coordinate axis
-struct AxisDebug {};
+#include <shared/reflection.h>
 
-struct CubeDebug {};
+/// When present on an entity will display the coordinate axis
+struct AxisDebug {
+  EW_DECLARE_REFLECT
+};
+
+struct CubeDebug {
+  EW_DECLARE_REFLECT
+};
