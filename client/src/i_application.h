@@ -287,8 +287,8 @@ struct IApplication {
 
   virtual void sendMainThreadMessage(ew::MainThreadMsg msg) = 0;
 };
-using ApplicationPtr = std::shared_ptr<IApplication>;
+using IApplicationPtr = std::shared_ptr<IApplication>;
 
-ApplicationPtr createApplication();
+IApplicationPtr createApplication();
 
 } // namespace ew

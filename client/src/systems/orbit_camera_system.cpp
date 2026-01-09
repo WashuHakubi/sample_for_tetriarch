@@ -21,7 +21,7 @@ namespace ew {
 constexpr float kGravity = -9.8f;
 
 OrbitCameraSystem::OrbitCameraSystem(
-    ApplicationPtr app,
+    IApplicationPtr app,
     std::shared_ptr<entt::registry> registry,
     std::shared_ptr<SampleTerrainSystem> terrain)
     : app_(std::move(app))
@@ -176,7 +176,7 @@ void OrbitCameraSystem::handleMessage(GameThreadMsg const& msg) {
   }
   // Rotate the camera by some amount based on the mouse motion. This is only applied if unlockAngle_ is true.
   else if (auto const motion = std::get_if<MouseMotionMsg>(&msg)) {
-    singleFrameAngle_ = motion->relPosition.x * mouseSensitivity_;
+    singleFrameAngle_ += motion->relPosition.x * mouseSensitivity_;
   }
   // Unlock the camera while the RMB is held down.
   else if (auto const click = std::get_if<MouseButtonMsg>(&msg)) {

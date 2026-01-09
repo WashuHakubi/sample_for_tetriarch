@@ -13,6 +13,7 @@
 #include <typeindex>
 #include <vector>
 
+#include "../assets/i_asset_provider.h"
 #include "../i_application.h"
 
 namespace ew {
@@ -74,7 +75,13 @@ struct HasMsgHandler {
 } // namespace detail
 
 class EcsSystems {
+  struct InternalOnly {};
+
  public:
+  static std::shared_ptr<EcsSystems> create(IApplicationPtr const& app, IAssetProviderPtr const& assetProvider);
+
+  EcsSystems(InternalOnly const&) {}
+
   template <class T, class... TArgs>
   auto addSystem(TArgs&&... args) -> std::shared_ptr<T>;
 
@@ -96,6 +103,7 @@ class EcsSystems {
   std::vector<std::function<void(float dt)>> renderSystems_;
   std::vector<std::function<void(GameThreadMsg const&)>> messageHandlers_;
 };
+using EcsSystemsPtr = std::shared_ptr<EcsSystems>;
 
 template <class T, class... TArgs>
 auto EcsSystems::addSystem(TArgs&&... args) -> std::shared_ptr<T> {

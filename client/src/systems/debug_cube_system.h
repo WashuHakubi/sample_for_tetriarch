@@ -15,14 +15,9 @@
 #include "sample_terrain_system.h"
 
 struct DebugCubeSystem {
-  explicit DebugCubeSystem(
-      ew::IAssetProviderPtr provider,
-      std::shared_ptr<entt::registry> registry,
-      std::shared_ptr<SampleTerrainSystem> terrain);
+  explicit DebugCubeSystem(ew::IAssetProviderPtr provider, std::shared_ptr<entt::registry> registry);
 
   ~DebugCubeSystem();
-
-  void update(float dt);
 
   void render(float dt);
 

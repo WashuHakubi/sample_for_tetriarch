@@ -62,18 +62,13 @@ struct BgfxApplication : ew::IApplication, std::enable_shared_from_this<BgfxAppl
   bx::DefaultAllocator alloc_;
   bx::SpScBlockingUnboundedQueueT<ew::GameThreadMsg> gameMsgs_;
   bx::SpScBlockingUnboundedQueueT<ew::MainThreadMsg> mainMsgs_;
-  ew::EcsSystems systems_;
+  ew::EcsSystemsPtr systems_;
   std::atomic_bool exit_{false};
   bool fullscreen_{false};
   std::pair<int, int> windowSize_{800, 600};
 };
 
-static BgfxApplication* app_{nullptr};
-
-BgfxApplication::BgfxApplication() : gameMsgs_(&alloc_), mainMsgs_(&alloc_) {
-  assert(!app_);
-  app_ = this;
-}
+BgfxApplication::BgfxApplication() : gameMsgs_(&alloc_), mainMsgs_(&alloc_) {}
 
 void BgfxApplication::handle(ew::GameThreadMsg const& msg) {
   // Forward message to the game thread
@@ -144,7 +139,7 @@ void BgfxApplication::processMessages() {
     // Ensure the message always gets deleted.
     std::unique_ptr<ew::GameThreadMsg> msg(ptr);
 
-    systems_.handleMessage(*msg);
+    systems_->handleMessage(*msg);
 
     if (auto const resize = std::get_if<ew::ResizeMsg>(msg.get())) {
       windowSize_ = {resize->width, resize->height};
@@ -202,17 +197,7 @@ void BgfxApplication::run(std::tuple<std::string_view, void*, void*> descriptors
   double timeAccumulator{0};
 
   auto assetProvider = ew::createAssetProvider(std::make_shared<SimpleFileProvider>(basePath_ + "assets"));
-
-  // Register all of our systems
-  {
-    auto registry = systems_.addSystem<entt::registry>();
-    systems_.addSystem<FrameRateSystem>();
-    systems_.addSystem<AxisDebugSystem>(assetProvider, registry);
-
-    auto terrain = systems_.addSystem<SampleTerrainSystem>(assetProvider, registry);
-    systems_.addSystem<DebugCubeSystem>(assetProvider, registry, terrain);
-    systems_.addSystem<ew::OrbitCameraSystem>(shared_from_this(), registry, terrain);
-  }
+  systems_ = ew::EcsSystems::create(shared_from_this(), assetProvider);
 
   // Game loop
   while (!exit_) {
@@ -225,7 +210,7 @@ void BgfxApplication::run(std::tuple<std::string_view, void*, void*> descriptors
 
     while (timeAccumulator >= kSimTickRate) {
       // update sim
-      systems_.update(kSimTickRate);
+      systems_->update(kSimTickRate);
 
       // Remove sim tick time from the accumulator
       timeAccumulator -= kSimTickRate;
@@ -244,19 +229,19 @@ void BgfxApplication::run(std::tuple<std::string_view, void*, void*> descriptors
         windowSize_.second,
         currentVideoDriver.data());
 
-    systems_.render(static_cast<float>(time.simDeltaTime()));
+    systems_->render(static_cast<float>(time.simDeltaTime()));
 
     // present the frame, dispatches to the rendering thread.
     bgfx::frame();
   }
 
-  systems_.clear();
+  systems_->clear();
 
   assetProvider = nullptr;
 
   bgfx::shutdown();
 }
 
-ew::ApplicationPtr ew::createApplication() {
+ew::IApplicationPtr ew::createApplication() {
   return std::make_shared<BgfxApplication>();
 }

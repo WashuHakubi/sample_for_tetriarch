@@ -30,7 +30,7 @@
 #include <shared/event.h>
 
 struct AppState {
-  ew::ApplicationPtr app;
+  ew::IApplicationPtr app;
 };
 
 SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv) {

@@ -7,6 +7,13 @@
 
 #include "ecs_systems.h"
 
+// Systems
+#include "axis_debug_system.h"
+#include "debug_cube_system.h"
+#include "frame_rate_system.h"
+#include "orbit_camera_system.h"
+#include "sample_terrain_system.h"
+
 namespace ew {
 void EcsSystems::clear() {
   updateSystems_.clear();
@@ -37,5 +44,20 @@ void EcsSystems::handleMessage(GameThreadMsg const& msg) const {
   for (auto&& system : messageHandlers_) {
     system(msg);
   }
+}
+
+std::shared_ptr<EcsSystems> EcsSystems::create(IApplicationPtr const& app, IAssetProviderPtr const& assetProvider) {
+  auto systems = std::make_shared<EcsSystems>(InternalOnly{});
+
+  // Register all systems
+  auto registry = systems->addSystem<entt::registry>();
+  systems->addSystem<FrameRateSystem>();
+  systems->addSystem<AxisDebugSystem>(assetProvider, registry);
+
+  auto terrain = systems->addSystem<SampleTerrainSystem>(assetProvider, registry);
+  systems->addSystem<DebugCubeSystem>(assetProvider, registry);
+  systems->addSystem<ew::OrbitCameraSystem>(app, registry, terrain);
+
+  return systems;
 }
 } // namespace ew
