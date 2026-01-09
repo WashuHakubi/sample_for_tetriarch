@@ -64,11 +64,20 @@ fetch_dependency(Catch2
         SOURCE_ROOT ${PROJECT_SOURCE_DIR}/ext
 )
 
+# fetch_dependency(
+#         concurrencpp
+#         GIT_SOURCE https://github.com/WashuHakubi/concurrencpp.git
+#         VERSION origin/master
+#         CONFIGURATION ${CMAKE_BUILD_TYPE}
+#         SOURCE_ROOT ${PROJECT_SOURCE_DIR}/ext
+# )
+
 fetch_dependency(
-        concurrencpp
-        GIT_SOURCE https://github.com/WashuHakubi/concurrencpp.git
-        VERSION origin/master
+        libcoro
+        GIT_SOURCE https://github.com/jbaldwin/libcoro.git
+        VERSION origin/main
         CONFIGURATION ${CMAKE_BUILD_TYPE}
+        CONFIGURE_OPTIONS -DLIBCORO_FEATURE_TLS=OFF -DLIBCORO_BUILD_EXAMPLES=OFF -DLIBCORO_BUILD_TESTS=OFF
         SOURCE_ROOT ${PROJECT_SOURCE_DIR}/ext
 )
 

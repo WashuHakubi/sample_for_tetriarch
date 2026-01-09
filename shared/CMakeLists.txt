@@ -5,7 +5,7 @@ target_include_directories(shared PUBLIC include)
 
 target_link_libraries(shared PRIVATE nlohmann_json::nlohmann_json)
 target_link_libraries(shared PUBLIC
-        concurrencpp::concurrencpp
+        PkgConfig::libcoro
         ng-log::ng-log
         glm::glm-header-only
 )
