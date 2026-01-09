@@ -18,7 +18,7 @@
 #include "../components/terrain_chunk.h"
 #include "../components/transform.h"
 
-SampleTerrainSystem::SampleTerrainSystem(ew::AssetProviderPtr provider, std::shared_ptr<entt::registry> registry)
+SampleTerrainSystem::SampleTerrainSystem(ew::IAssetProviderPtr provider, std::shared_ptr<entt::registry> registry)
     : assetProvider_(std::move(provider))
     , registry_(std::move(registry)) {
   auto const terrainChunk = registry_->create();

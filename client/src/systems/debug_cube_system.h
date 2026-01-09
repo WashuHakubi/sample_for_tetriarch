@@ -7,7 +7,7 @@
 
 #pragma once
 
-#include "../assets/i_asset.h"
+#include "../assets/i_asset_provider.h"
 #include "../assets/shader_program_asset.h"
 
 #include <entt/entt.hpp>
@@ -16,7 +16,7 @@
 
 struct DebugCubeSystem {
   explicit DebugCubeSystem(
-      ew::AssetProviderPtr provider,
+      ew::IAssetProviderPtr provider,
       std::shared_ptr<entt::registry> registry,
       std::shared_ptr<SampleTerrainSystem> terrain);
 
@@ -29,6 +29,6 @@ struct DebugCubeSystem {
   bgfx::VertexBufferHandle vbh_{bgfx::kInvalidHandle};
   bgfx::IndexBufferHandle ibh_{bgfx::kInvalidHandle};
   ShaderProgramAsset::Ptr program_;
-  ew::AssetProviderPtr assetProvider_;
+  ew::IAssetProviderPtr assetProvider_;
   std::shared_ptr<entt::registry> registry_;
 };

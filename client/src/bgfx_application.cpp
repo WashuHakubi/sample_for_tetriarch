@@ -28,9 +28,8 @@
 #include <ng-log/logging.h>
 #include <nlohmann/json.hpp>
 
-#include "assets/heightmap_asset.h"
-#include "assets/shader_program_asset.h"
-#include "assets/simple_file_provider.h"
+#include "assets/loaders.h"
+#include "assets/loaders/simple_file_provider.h"
 
 #include "systems/axis_debug_system.h"
 #include "systems/debug_cube_system.h"
@@ -202,13 +201,7 @@ void BgfxApplication::run(std::tuple<std::string_view, void*, void*> descriptors
   ew::SimTime time;
   double timeAccumulator{0};
 
-  auto assetProvider = std::make_shared<ew::AssetProvider>(std::make_shared<SimpleFileProvider>(basePath_ + "assets"));
-
-  // Register all of our asset loaders
-  {
-    assetProvider->registerAssetLoader(std::make_shared<ShaderProgramLoader>());
-    assetProvider->registerAssetLoader(std::make_shared<HeightmapAssetLoader>());
-  }
+  auto assetProvider = ew::createAssetProvider(std::make_shared<SimpleFileProvider>(basePath_ + "assets"));
 
   // Register all of our systems
   {

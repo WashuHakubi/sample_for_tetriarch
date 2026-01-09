@@ -10,12 +10,12 @@
 #include <bgfx/bgfx.h>
 #include <entt/entt.hpp>
 
-#include "../assets/i_asset.h"
+#include "../assets/i_asset_provider.h"
 #include "../assets/shader_program_asset.h"
 
 class SampleTerrainSystem {
  public:
-  SampleTerrainSystem(ew::AssetProviderPtr provider, std::shared_ptr<entt::registry> registry);
+  SampleTerrainSystem(ew::IAssetProviderPtr provider, std::shared_ptr<entt::registry> registry);
   ~SampleTerrainSystem();
 
   void render(float dt);
@@ -23,7 +23,7 @@ class SampleTerrainSystem {
   float sample(float x, float z) const;
 
  private:
-  ew::AssetProviderPtr assetProvider_;
+  ew::IAssetProviderPtr assetProvider_;
   std::shared_ptr<entt::registry> registry_;
   ShaderProgramAsset::Ptr program_;
 };

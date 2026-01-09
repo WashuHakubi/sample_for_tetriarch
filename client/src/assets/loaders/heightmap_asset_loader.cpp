@@ -5,7 +5,8 @@
  *  file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
  */
 
-#include "heightmap_asset.h"
+#include "heightmap_asset_loader.h"
+
 #include <stb/stb_image.h>
 
 HeightmapAsset::HeightmapAsset(int width, int height, int channels, unsigned char* data)
@@ -18,7 +19,7 @@ HeightmapAsset::~HeightmapAsset() {
   stbi_image_free(data_);
 }
 
-auto HeightmapAssetLoader::load(ew::AssetProviderPtr const& provider, const std::string& fn, std::string const& data)
+auto HeightmapAssetLoader::load(ew::IAssetProviderPtr const& provider, const std::string& fn, std::string const& data)
     -> ew::IAssetPtr {
   int width;
   int height;

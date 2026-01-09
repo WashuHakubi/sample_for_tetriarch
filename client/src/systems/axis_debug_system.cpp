@@ -14,7 +14,7 @@
 
 #include <glm/gtc/type_ptr.hpp>
 
-AxisDebugSystem::AxisDebugSystem(ew::AssetProviderPtr provider, std::shared_ptr<entt::registry> registry)
+AxisDebugSystem::AxisDebugSystem(ew::IAssetProviderPtr provider, std::shared_ptr<entt::registry> registry)
     : assetProvider_(std::move(provider))
     , registry_(std::move(registry)) {
   // Origin axis

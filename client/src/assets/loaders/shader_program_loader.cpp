@@ -1,15 +1,15 @@
 /*
- *  Copyright (c) 2025 Sean Kent. All rights reserved.
+ * Copyright (c) 2026 Sean Kent. All rights reserved.
  *
- *  Distributed under the Boost Software License, Version 1.0. (See accompanying
- *  file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
+ * Distributed under the Boost Software License, Version 1.0. (See accompanying
+ * file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
  */
 
-#include "shader_program_asset.h"
+#include "shader_program_loader.h"
 
 #include <nlohmann/json.hpp>
 
-auto ShaderProgramLoader::load(ew::AssetProviderPtr const& provider, const std::string& fn, std::string const& data)
+auto ShaderProgramLoader::load(ew::IAssetProviderPtr const& provider, const std::string& fn, std::string const& data)
     -> ew::IAssetPtr {
   nlohmann::json j = nlohmann::json::parse(data);
   auto vsFileName = j["vs"].get<std::string>() + ".bin";

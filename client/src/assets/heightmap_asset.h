@@ -26,8 +26,3 @@ struct HeightmapAsset final : ew::Asset<HeightmapAsset> {
   int height_;
   int channels_;
 };
-
-struct HeightmapAssetLoader final : ew::AssetLoader<HeightmapAsset> {
-  [[nodiscard]] auto load(ew::AssetProviderPtr const& provider, const std::string& fn, std::string const& data)
-      -> ew::IAssetPtr override;
-};

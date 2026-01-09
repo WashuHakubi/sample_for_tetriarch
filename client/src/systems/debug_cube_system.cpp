@@ -20,7 +20,7 @@ struct SampleTag {};
 } // namespace
 
 DebugCubeSystem::DebugCubeSystem(
-    ew::AssetProviderPtr provider,
+    ew::IAssetProviderPtr provider,
     std::shared_ptr<entt::registry> registry,
     std::shared_ptr<SampleTerrainSystem> terrain)
     : assetProvider_(std::move(provider))

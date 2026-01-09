@@ -5,7 +5,7 @@
  *  file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
  */
 
-#include "i_asset.h"
+#include "asset_provider.h"
 
 namespace ew {
 auto AssetProvider::load(std::string const& fn, std::type_index typeId) -> IAssetPtr {
@@ -22,5 +22,9 @@ auto AssetProvider::load(std::string const& fn, std::type_index typeId) -> IAsse
   auto const asset = assetLoaders_.at(typeId)->load(shared_from_this(), fn, data);
   assetsCache_.emplace(fn, asset);
   return asset;
+}
+
+auto AssetProvider::loadRawAsset(std::string const& fn) const -> std::string {
+  return fileProvider_->load(fn);
 }
 } // namespace ew

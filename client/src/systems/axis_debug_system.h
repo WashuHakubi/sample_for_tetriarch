@@ -11,11 +11,11 @@
 #include <entt/entt.hpp>
 #include <glm/glm.hpp>
 
-#include "../assets/i_asset.h"
+#include "../assets/i_asset_provider.h"
 #include "../assets/shader_program_asset.h"
 
 struct AxisDebugSystem {
-  AxisDebugSystem(ew::AssetProviderPtr provider, std::shared_ptr<entt::registry> registry);
+  AxisDebugSystem(ew::IAssetProviderPtr provider, std::shared_ptr<entt::registry> registry);
   ~AxisDebugSystem();
 
   void render(float dt);
@@ -24,6 +24,6 @@ struct AxisDebugSystem {
   bgfx::IndexBufferHandle axisIbh_{bgfx::kInvalidHandle};
   ShaderProgramAsset::Ptr program_;
 
-  ew::AssetProviderPtr assetProvider_;
+  ew::IAssetProviderPtr assetProvider_;
   std::shared_ptr<entt::registry> registry_;
 };
