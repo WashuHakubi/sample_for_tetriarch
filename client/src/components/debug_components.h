@@ -9,11 +9,19 @@
 
 #include <shared/reflection.h>
 
-/// When present on an entity will display the coordinate axis
+/// When present on an entity with a transform will display the coordinate axis
 struct AxisDebug {
   EW_DECLARE_REFLECT
 };
 
+EW_REFLECT(AxisDebug) {
+  return std::make_tuple();
+}
+
 struct CubeDebug {
   EW_DECLARE_REFLECT
 };
+
+EW_REFLECT(CubeDebug) {
+  return std::make_tuple();
+}

@@ -51,11 +51,11 @@ struct BgfxApplication : ew::IApplication, std::enable_shared_from_this<BgfxAppl
 
   void sendMainThreadMessage(ew::MainThreadMsg msg) override;
 
-  auto ioScheduler() const -> std::shared_ptr<coro::io_scheduler> { return ioScheduler_; }
+  auto ioScheduler() const -> std::shared_ptr<coro::io_scheduler> const& override { return ioScheduler_; }
 
-  auto updateScheduler() const -> std::shared_ptr<coro::io_scheduler> { return updateScheduler_; }
+  auto updateScheduler() const -> std::shared_ptr<coro::io_scheduler> const& override { return updateScheduler_; }
 
-  auto renderScheduler() const -> std::shared_ptr<coro::io_scheduler> { return renderScheduler_; }
+  auto renderScheduler() const -> std::shared_ptr<coro::io_scheduler> const& override { return renderScheduler_; }
 
  private:
   void processMessages();

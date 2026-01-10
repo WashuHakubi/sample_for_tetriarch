@@ -22,3 +22,10 @@ struct OrbitCamera {
     return glm::vec3(r * std::sin(theta) * std::cos(phi), r * std::cos(theta), r * std::sin(theta) * std::sin(phi));
   }
 };
+
+EW_REFLECT(OrbitCamera) {
+  return std::make_tuple(
+      std::make_tuple("r", &OrbitCamera::r),
+      std::make_tuple("phi", &OrbitCamera::phi),
+      std::make_tuple("theta", &OrbitCamera::theta));
+}

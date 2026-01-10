@@ -10,28 +10,6 @@
 #include "terrain_chunk.h"
 #include "transform.h"
 
-EW_REFLECT(AxisDebug) {
-  return std::make_tuple();
-}
-
-EW_REFLECT(CubeDebug) {
-  return std::make_tuple();
-}
-
-EW_REFLECT(OrbitCamera) {
-  return std::make_tuple(
-      std::make_tuple("r", &OrbitCamera::r),
-      std::make_tuple("phi", &OrbitCamera::phi),
-      std::make_tuple("theta", &OrbitCamera::theta));
-}
-
-EW_REFLECT(Transform) {
-  return std::make_tuple(
-      std::make_tuple("position", &Transform::position),
-      std::make_tuple("scale", &Transform::scale),
-      std::make_tuple("rotation", &Transform::rotation));
-}
-
 EW_REFLECT(glm::vec3) {
   return std::make_tuple(
       std::make_tuple("x", &glm::vec3::x),

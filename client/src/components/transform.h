@@ -18,3 +18,10 @@ struct Transform {
 };
 
 constexpr glm::vec3 kUp{0, 1, 0};
+
+EW_REFLECT(Transform) {
+  return std::make_tuple(
+      std::make_tuple("position", &Transform::position),
+      std::make_tuple("scale", &Transform::scale),
+      std::make_tuple("rotation", &Transform::rotation));
+}

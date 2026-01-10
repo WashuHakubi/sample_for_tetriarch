@@ -7,15 +7,17 @@
 
 #pragma once
 
-#include <shared/attrs.h>
-#include <shared/type_traits.h>
+#include <string>
+#include <string_view>
+#include <type_traits>
 
 namespace ew {
 /**
  * Template class for getting reflection members. This class should be specialized for each type T whose members should
  * be reflected. For example,
  * <code>
- * struct S {
+ * class S {
+ * private:
  *   float f;
  *   int i;
  *
@@ -75,6 +77,9 @@ std::string nameOf() {
 }
 } // namespace ew
 
+/**
+ * Adds ew::reflect<T> as a friend class
+ */
 #define EW_DECLARE_REFLECT \
   template <class T>       \
   friend struct ::ew::reflect;

@@ -289,13 +289,13 @@ struct IApplication {
   virtual void sendMainThreadMessage(ew::MainThreadMsg msg) = 0;
 
   /// @brief Gets the scheduler for long running IO coroutines
-  virtual auto ioScheduler() const -> std::shared_ptr<coro::io_scheduler> = 0;
+  virtual auto ioScheduler() const -> std::shared_ptr<coro::io_scheduler> const& = 0;
 
   /// @brief Gets the scheduler for coroutines that should run during the game update
-  virtual auto updateScheduler() const -> std::shared_ptr<coro::io_scheduler> = 0;
+  virtual auto updateScheduler() const -> std::shared_ptr<coro::io_scheduler> const& = 0;
 
   /// @brief Gets the scheduler for coroutines that should run during rendering
-  virtual auto renderScheduler() const -> std::shared_ptr<coro::io_scheduler> = 0;
+  virtual auto renderScheduler() const -> std::shared_ptr<coro::io_scheduler> const& = 0;
 };
 using IApplicationPtr = std::shared_ptr<IApplication>;
 

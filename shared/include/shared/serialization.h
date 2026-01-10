@@ -15,7 +15,9 @@
 #include <string_view>
 #include <vector>
 
+#include <shared/attrs.h>
 #include <shared/reflection.h>
+#include <shared/type_traits.h>
 
 namespace ew {
 struct writer {
