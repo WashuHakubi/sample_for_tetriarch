@@ -19,12 +19,12 @@ auto AssetProvider::load(std::string const& fn, std::type_index typeId) -> IAsse
   }
 
   auto const data = fileProvider_->load(fn);
-  auto const asset = assetLoaders_.at(typeId)->load(shared_from_this(), fn, data);
+  auto const asset = assetLoaders_.at(typeId)->load(shared_from_this(), fn, std::move(data));
   assetsCache_.emplace(fn, asset);
   return asset;
 }
 
-auto AssetProvider::loadRawAsset(std::string const& fn) const -> std::string {
+auto AssetProvider::loadRawAsset(std::string const& fn) const -> std::vector<uint8_t> {
   return fileProvider_->load(fn);
 }
 } // namespace ew

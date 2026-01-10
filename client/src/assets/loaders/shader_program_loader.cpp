@@ -9,7 +9,7 @@
 
 #include <nlohmann/json.hpp>
 
-auto ShaderProgramLoader::load(ew::IAssetProviderPtr const& provider, const std::string& fn, std::string const& data)
+auto ShaderProgramLoader::load(ew::IAssetProviderPtr const& provider, const std::string& fn, std::vector<uint8_t> data)
     -> ew::IAssetPtr {
   nlohmann::json j = nlohmann::json::parse(data);
   auto vsFileName = j["vs"].get<std::string>() + ".bin";

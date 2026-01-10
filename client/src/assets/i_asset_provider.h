@@ -9,9 +9,12 @@
 
 #include "i_asset.h"
 
+#include <cstdint>
 #include <memory>
 #include <string>
 #include <type_traits>
+#include <typeindex>
+#include <vector>
 
 namespace ew {
 struct IAssetProvider {
@@ -26,7 +29,7 @@ struct IAssetProvider {
 
   virtual auto load(std::string const& fn, std::type_index typeId) -> IAssetPtr = 0;
 
-  virtual auto loadRawAsset(std::string const& fn) const -> std::string = 0;
+  virtual auto loadRawAsset(std::string const& fn) const -> std::vector<uint8_t> = 0;
 };
 using IAssetProviderPtr = std::shared_ptr<IAssetProvider>;
 

@@ -6,10 +6,9 @@
  */
 
 #pragma once
+
 #include <memory>
-#include <string>
-#include <typeindex>
-#include <unordered_map>
+#include <type_traits>
 
 namespace ew {
 struct IAsset {

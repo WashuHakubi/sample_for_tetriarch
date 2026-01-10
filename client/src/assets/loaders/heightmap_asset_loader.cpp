@@ -19,7 +19,7 @@ HeightmapAsset::~HeightmapAsset() {
   stbi_image_free(data_);
 }
 
-auto HeightmapAssetLoader::load(ew::IAssetProviderPtr const& provider, const std::string& fn, std::string const& data)
+auto HeightmapAssetLoader::load(ew::IAssetProviderPtr const& provider, const std::string& fn, std::vector<uint8_t> data)
     -> ew::IAssetPtr {
   int width;
   int height;

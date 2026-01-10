@@ -11,6 +11,6 @@
 #include "i_asset_loader.h"
 
 struct HeightmapAssetLoader final : ew::AssetLoader<HeightmapAsset> {
-  [[nodiscard]] auto load(ew::IAssetProviderPtr const& provider, const std::string& fn, std::string const& data)
+  [[nodiscard]] auto load(ew::IAssetProviderPtr const& provider, const std::string& fn, std::vector<uint8_t> data)
       -> ew::IAssetPtr override;
 };

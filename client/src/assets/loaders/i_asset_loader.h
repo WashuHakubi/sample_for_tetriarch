@@ -9,8 +9,6 @@
 
 #include "../i_asset_provider.h"
 
-#include <memory>
-#include <string>
 #include <typeindex>
 
 namespace ew {
@@ -19,7 +17,7 @@ struct IAssetLoader {
 
   [[nodiscard]] virtual auto loadedType() const -> std::type_index = 0;
 
-  [[nodiscard]] virtual auto load(IAssetProviderPtr const& provider, const std::string& fn, std::string const& data)
+  [[nodiscard]] virtual auto load(IAssetProviderPtr const& provider, const std::string& fn, std::vector<uint8_t> data)
       -> IAssetPtr = 0;
 };
 using IAssetLoaderPtr = std::shared_ptr<IAssetLoader>;

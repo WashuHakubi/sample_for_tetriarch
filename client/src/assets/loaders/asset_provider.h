@@ -11,6 +11,8 @@
 #include "i_asset_loader.h"
 #include "i_file_provider.h"
 
+#include <unordered_map>
+
 namespace ew {
 struct AssetProvider : IAssetProvider, std::enable_shared_from_this<AssetProvider> {
   explicit AssetProvider(IFileProviderPtr fileProvider) : fileProvider_(std::move(fileProvider)) {}
@@ -19,7 +21,7 @@ struct AssetProvider : IAssetProvider, std::enable_shared_from_this<AssetProvide
 
   auto load(std::string const& fn, std::type_index typeId) -> IAssetPtr override;
 
-  auto loadRawAsset(std::string const& fn) const -> std::string override;
+  auto loadRawAsset(std::string const& fn) const -> std::vector<uint8_t> override;
 
  private:
   std::shared_ptr<IFileProvider> fileProvider_;

@@ -196,7 +196,10 @@ void BgfxApplication::run(std::tuple<std::string_view, void*, void*> descriptors
   ew::SimTime time;
   double timeAccumulator{0};
 
-  auto assetProvider = ew::createAssetProvider(std::make_shared<SimpleFileProvider>(basePath_ + "assets"));
+  auto ioScheduler = std::shared_ptr{coro::io_scheduler::make_unique()};
+
+  auto fileProvider = std::make_shared<SimpleFileProvider>(ioScheduler, basePath_ + "assets");
+  auto assetProvider = ew::createAssetProvider(fileProvider);
   systems_ = ew::EcsSystems::create(shared_from_this(), assetProvider);
 
   // Game loop
