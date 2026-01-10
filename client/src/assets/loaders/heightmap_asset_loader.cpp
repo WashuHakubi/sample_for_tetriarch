@@ -35,3 +35,10 @@ auto HeightmapAssetLoader::load(ew::IAssetProviderPtr const& provider, const std
 
   return std::make_shared<HeightmapAsset>(width, height, channels, imageData);
 }
+
+auto HeightmapAssetLoader::loadAsync(
+    ew::IAssetProviderPtr const& provider,
+    const std::string& fn,
+    std::vector<uint8_t> data) -> coro::task<ew::IAssetPtr> {
+  co_return load(provider, fn, std::move(data));
+}

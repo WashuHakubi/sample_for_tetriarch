@@ -54,7 +54,7 @@ std::shared_ptr<EcsSystems> EcsSystems::create(IApplicationPtr const& app, IAsse
   systems->addSystem<FrameRateSystem>();
   systems->addSystem<AxisDebugSystem>(assetProvider, registry);
 
-  auto terrain = systems->addSystem<SampleTerrainSystem>(assetProvider, registry);
+  auto terrain = systems->addSystem<SampleTerrainSystem>(app->updateScheduler(), assetProvider, registry);
   systems->addSystem<DebugCubeSystem>(assetProvider, registry);
   systems->addSystem<ew::OrbitCameraSystem>(app, registry, terrain);
 

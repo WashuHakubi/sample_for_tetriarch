@@ -11,6 +11,7 @@
 
 #include <glm/ext/quaternion_common.hpp>
 #include <glm/gtc/type_ptr.hpp>
+#include <ng-log/logging.h>
 #include <stb/stb_image.h>
 
 #include "../assets/heightmap_asset.h"
@@ -18,38 +19,33 @@
 #include "../components/terrain_chunk.h"
 #include "../components/transform.h"
 
-SampleTerrainSystem::SampleTerrainSystem(ew::IAssetProviderPtr provider, std::shared_ptr<entt::registry> registry)
-    : assetProvider_(std::move(provider))
-    , registry_(std::move(registry)) {
-  auto const terrainChunk = registry_->create();
-
+namespace {
+auto loadAndCreateSampleTerrain(ew::IAssetProviderPtr provider, std::shared_ptr<entt::registry> registry)
+    -> coro::task<> {
   // Add a terrain chunk and get references to the components of the chunk
-  auto& [width, height, numStrips, numVertsPerStrip, heights, vbh, ibh] =
-      registry_->emplace<TerrainChunk>(terrainChunk);
+  TerrainChunk chunk = {};
 
   // Load image data for our terrain
-  auto heightmap = assetProvider_->load<HeightmapAsset>("iceland_heightmap.png");
-  width = heightmap->width();
-  height = heightmap->height();
+  auto heightmap = co_await provider->loadAsync<HeightmapAsset>("iceland_heightmap.png");
+  if (!heightmap) {
+    LOG(ERROR) << "Failed to load iceland_heightmap.png";
+    co_return;
+  }
 
-  registry_->emplace<Transform>(
-      terrainChunk,
-      // center the chunk over the origin
-      glm::vec3{-static_cast<float>(height) / 2.0f, 0, -static_cast<float>(width) / 2.0f},
-      glm::vec3{1.0f},
-      glm::quat{});
+  chunk.width = heightmap->width();
+  chunk.height = heightmap->height();
 
-  numStrips = height - 1;
-  numVertsPerStrip = width * 2;
+  chunk.numStrips = chunk.height - 1;
+  chunk.numVertsPerStrip = chunk.width * 2;
 
   // Allocate a buffer to contain our vertex and data.
-  auto terrainVertexData = bgfx::alloc(sizeof(PosColorVertex) * height * width);
+  auto terrainVertexData = bgfx::alloc(sizeof(PosColorVertex) * chunk.height * chunk.width);
   auto vertices = reinterpret_cast<PosColorVertex*>(terrainVertexData->data);
   auto index = 0;
 
   // Generate our vertices, each row of the height map is a triangle strip
-  for (int h = 0; h < height; ++h) {
-    for (int w = 0; w < width; ++w) {
+  for (int h = 0; h < chunk.height; ++h) {
+    for (int w = 0; w < chunk.width; ++w) {
       constexpr auto yScale = 1.0f / 8.0f;
       constexpr auto yShift = 0.0f;
 
@@ -58,7 +54,7 @@ SampleTerrainSystem::SampleTerrainSystem(ew::IAssetProviderPtr provider, std::sh
 
       const auto y_coord = y * yScale + yShift;
 
-      heights.push_back(y_coord);
+      chunk.heights.push_back(y_coord);
 
       vertices[index++] = {
           {
@@ -71,22 +67,43 @@ SampleTerrainSystem::SampleTerrainSystem(ew::IAssetProviderPtr provider, std::sh
   }
 
   // Allocate a buffer to contain our indices.
-  auto terrainIndexData = bgfx::alloc(sizeof(uint32_t) * width * height * 2);
+  auto terrainIndexData = bgfx::alloc(sizeof(uint32_t) * chunk.width * chunk.height * 2);
   auto indices = reinterpret_cast<uint32_t*>(terrainIndexData->data);
 
   // generate our triangle strip indices. There are numStrips triangle strips, with numVertsPerStrip vertices in each
   // strip.
   index = 0;
-  for (int h = 0; h < height - 1; ++h) {
-    for (int w = 0; w < width; ++w) {
+  for (int h = 0; h < chunk.height - 1; ++h) {
+    for (int w = 0; w < chunk.width; ++w) {
       for (int k = 0; k < 2; ++k) {
-        indices[index++] = w + width * (h + k);
+        indices[index++] = w + chunk.width * (h + k);
       }
     }
   }
 
-  vbh = bgfx::createVertexBuffer(terrainVertexData, PosColorVertex::layout());
-  ibh = bgfx::createIndexBuffer(terrainIndexData, BGFX_BUFFER_INDEX32);
+  chunk.vbh = bgfx::createVertexBuffer(terrainVertexData, PosColorVertex::layout());
+  chunk.ibh = bgfx::createIndexBuffer(terrainIndexData, BGFX_BUFFER_INDEX32);
+
+  // Create our entity and populate its components. We do this at the very end to ensure that all work has been
+  // completed.
+  auto const terrainChunk = registry->create();
+  registry->emplace<Transform>(
+      terrainChunk,
+      // center the chunk over the origin
+      glm::vec3{-static_cast<float>(chunk.height) / 2.0f, 0, -static_cast<float>(chunk.width) / 2.0f},
+      glm::vec3{1.0f},
+      glm::quat{});
+  registry->emplace<TerrainChunk>(terrainChunk, std::move(chunk));
+}
+} // namespace
+
+SampleTerrainSystem::SampleTerrainSystem(
+    std::shared_ptr<coro::io_scheduler> updateScheduler,
+    ew::IAssetProviderPtr provider,
+    std::shared_ptr<entt::registry> registry)
+    : assetProvider_(std::move(provider))
+    , registry_(std::move(registry)) {
+  updateScheduler->spawn_detached(loadAndCreateSampleTerrain(assetProvider_, registry_));
 
   program_ = assetProvider_->load<ShaderProgramAsset>("cube.json");
 }
@@ -102,7 +119,14 @@ void SampleTerrainSystem::render(float dt) {
   constexpr uint64_t kState = 0 | BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A | BGFX_STATE_WRITE_Z |
       BGFX_STATE_DEPTH_TEST_LESS | BGFX_STATE_MSAA | BGFX_STATE_CULL_CW | BGFX_STATE_PT_TRISTRIP;
 
-  for (auto&& [ent, chunk, transform] : registry_->view<TerrainChunk, Transform>().each()) {
+  auto view = registry_->view<TerrainChunk const, Transform const>();
+  view.refresh();
+
+  for (auto&& [ent, chunk, transform] : view.each()) {
+    if (!bgfx::isValid(chunk.ibh) || !bgfx::isValid(chunk.vbh)) {
+      continue;
+    }
+
     // Render each strip
     for (int i = 0; i < chunk.numStrips; ++i) {
       auto mat = glm::identity<glm::mat4>();

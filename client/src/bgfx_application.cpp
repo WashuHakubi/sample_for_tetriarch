@@ -51,6 +51,12 @@ struct BgfxApplication : ew::IApplication, std::enable_shared_from_this<BgfxAppl
 
   void sendMainThreadMessage(ew::MainThreadMsg msg) override;
 
+  auto ioScheduler() const -> std::shared_ptr<coro::io_scheduler> { return ioScheduler_; }
+
+  auto updateScheduler() const -> std::shared_ptr<coro::io_scheduler> { return updateScheduler_; }
+
+  auto renderScheduler() const -> std::shared_ptr<coro::io_scheduler> { return renderScheduler_; }
+
  private:
   void processMessages();
 
@@ -60,15 +66,37 @@ struct BgfxApplication : ew::IApplication, std::enable_shared_from_this<BgfxAppl
   ew::WindowPtr window_;
   std::thread gameThread_;
   bx::DefaultAllocator alloc_;
+
   bx::SpScBlockingUnboundedQueueT<ew::GameThreadMsg> gameMsgs_;
   bx::SpScBlockingUnboundedQueueT<ew::MainThreadMsg> mainMsgs_;
+
+  std::shared_ptr<coro::io_scheduler> ioScheduler_;
+  std::shared_ptr<coro::io_scheduler> updateScheduler_;
+  std::shared_ptr<coro::io_scheduler> renderScheduler_;
+
   ew::EcsSystemsPtr systems_;
   std::atomic_bool exit_{false};
   bool fullscreen_{false};
   std::pair<int, int> windowSize_{800, 600};
 };
 
-BgfxApplication::BgfxApplication() : gameMsgs_(&alloc_), mainMsgs_(&alloc_) {}
+BgfxApplication::BgfxApplication() : gameMsgs_(&alloc_), mainMsgs_(&alloc_) {
+  ioScheduler_ = std::shared_ptr{coro::io_scheduler::make_unique()};
+
+  // Update scheduler, a manually pumped io scheduler, runs every game update tick
+  updateScheduler_ = std::shared_ptr{coro::io_scheduler::make_unique(
+      coro::io_scheduler::options{
+          .thread_strategy = coro::io_scheduler::thread_strategy_t::manual,
+          .execution_strategy = coro::io_scheduler::execution_strategy_t::process_tasks_inline,
+      })};
+
+  // Render scheduler, a manually pumped io scheduler, runs every render tick
+  renderScheduler_ = std::shared_ptr{coro::io_scheduler::make_unique(
+      coro::io_scheduler::options{
+          .thread_strategy = coro::io_scheduler::thread_strategy_t::manual,
+          .execution_strategy = coro::io_scheduler::execution_strategy_t::process_tasks_inline,
+      })};
+}
 
 void BgfxApplication::handle(ew::GameThreadMsg const& msg) {
   // Forward message to the game thread
@@ -196,10 +224,8 @@ void BgfxApplication::run(std::tuple<std::string_view, void*, void*> descriptors
   ew::SimTime time;
   double timeAccumulator{0};
 
-  auto ioScheduler = std::shared_ptr{coro::io_scheduler::make_unique()};
-
-  auto fileProvider = std::make_shared<SimpleFileProvider>(ioScheduler, basePath_ + "assets");
-  auto assetProvider = ew::createAssetProvider(fileProvider);
+  auto fileProvider = std::make_shared<SimpleFileProvider>(ioScheduler_, basePath_ + "assets");
+  auto assetProvider = ew::createAssetProvider(fileProvider, updateScheduler_);
   systems_ = ew::EcsSystems::create(shared_from_this(), assetProvider);
 
   // Game loop
@@ -217,6 +243,9 @@ void BgfxApplication::run(std::tuple<std::string_view, void*, void*> descriptors
 
       // Remove sim tick time from the accumulator
       timeAccumulator -= kSimTickRate;
+
+      // Run any coroutines.
+      updateScheduler_->process_events();
     }
 
     // Ensure view 0 is touched with at least a dummy event
@@ -233,6 +262,8 @@ void BgfxApplication::run(std::tuple<std::string_view, void*, void*> descriptors
         currentVideoDriver.data());
 
     systems_->render(static_cast<float>(time.simDeltaTime()));
+
+    renderScheduler_->process_events();
 
     // present the frame, dispatches to the rendering thread.
     bgfx::frame();

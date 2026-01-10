@@ -12,10 +12,11 @@
 #include "i_file_provider.h"
 
 #include <unordered_map>
+#include <coro/io_scheduler.hpp>
 
 namespace ew {
 struct AssetProvider : IAssetProvider, std::enable_shared_from_this<AssetProvider> {
-  explicit AssetProvider(IFileProviderPtr fileProvider) : fileProvider_(std::move(fileProvider)) {}
+  explicit AssetProvider(IFileProviderPtr fileProvider, std::shared_ptr<coro::io_scheduler> assetScheduler);
 
   void registerAssetLoader(IAssetLoaderPtr loader) { assetLoaders_[loader->loadedType()] = std::move(loader); }
 
@@ -23,7 +24,13 @@ struct AssetProvider : IAssetProvider, std::enable_shared_from_this<AssetProvide
 
   auto loadRawAsset(std::string const& fn) const -> std::vector<uint8_t> override;
 
+  auto loadAsync(std::string const& fn, std::type_index typeId) -> coro::task<IAssetPtr> override;
+
+  auto loadRawAssetAsync(std::string const& fn) const
+      -> coro::task<std::expected<std::vector<uint8_t>, FileError>> override;
+
  private:
+  std::shared_ptr<coro::io_scheduler> assetScheduler_;
   std::shared_ptr<IFileProvider> fileProvider_;
   std::unordered_map<std::type_index, IAssetLoaderPtr> assetLoaders_;
   std::unordered_map<std::string, IWeakAssetPtr> assetsCache_;

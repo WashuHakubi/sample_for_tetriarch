@@ -19,6 +19,11 @@ struct IAssetLoader {
 
   [[nodiscard]] virtual auto load(IAssetProviderPtr const& provider, const std::string& fn, std::vector<uint8_t> data)
       -> IAssetPtr = 0;
+
+  [[nodiscard]] virtual auto loadAsync(
+      IAssetProviderPtr const& provider,
+      const std::string& fn,
+      std::vector<uint8_t> data) -> coro::task<IAssetPtr> = 0;
 };
 using IAssetLoaderPtr = std::shared_ptr<IAssetLoader>;
 

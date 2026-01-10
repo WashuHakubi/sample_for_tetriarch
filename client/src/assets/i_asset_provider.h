@@ -8,6 +8,7 @@
 #pragma once
 
 #include "i_asset.h"
+#include "loaders/i_file_provider.h"
 
 #include <cstdint>
 #include <memory>
@@ -15,6 +16,8 @@
 #include <type_traits>
 #include <typeindex>
 #include <vector>
+
+#include <coro/task.hpp>
 
 namespace ew {
 struct IAssetProvider {
@@ -30,6 +33,18 @@ struct IAssetProvider {
   virtual auto load(std::string const& fn, std::type_index typeId) -> IAssetPtr = 0;
 
   virtual auto loadRawAsset(std::string const& fn) const -> std::vector<uint8_t> = 0;
+
+  template <class T>
+    requires(std::is_base_of_v<IAsset, T>)
+  auto loadAsync(std::string const& fn) -> coro::task<std::shared_ptr<T>> {
+    auto const asset = co_await loadAsync(fn, std::type_index(typeid(T)));
+    co_return std::static_pointer_cast<T>(asset);
+  }
+
+  virtual auto loadAsync(std::string const& fn, std::type_index typeId) -> coro::task<IAssetPtr> = 0;
+
+  virtual auto loadRawAssetAsync(std::string const& fn) const
+      -> coro::task<std::expected<std::vector<uint8_t>, FileError>> = 0;
 };
 using IAssetProviderPtr = std::shared_ptr<IAssetProvider>;
 

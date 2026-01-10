@@ -10,7 +10,11 @@
 #include "i_asset_provider.h"
 #include "loaders/i_file_provider.h"
 
+#include <coro/io_scheduler.hpp>
+
 namespace ew {
 // Creates an asset provider and registers all known loaders.
-IAssetProviderPtr createAssetProvider(IFileProviderPtr fileProvider);
+IAssetProviderPtr createAssetProvider(
+    IFileProviderPtr fileProvider,
+    std::shared_ptr<coro::io_scheduler> assetScheduler);
 } // namespace ew

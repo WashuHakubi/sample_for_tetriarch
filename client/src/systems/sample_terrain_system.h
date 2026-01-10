@@ -7,15 +7,19 @@
 
 #pragma once
 
-#include <bgfx/bgfx.h>
-#include <entt/entt.hpp>
-
 #include "../assets/i_asset_provider.h"
 #include "../assets/shader_program_asset.h"
 
+#include <bgfx/bgfx.h>
+#include <coro/io_scheduler.hpp>
+#include <entt/entt.hpp>
+
 class SampleTerrainSystem {
  public:
-  SampleTerrainSystem(ew::IAssetProviderPtr provider, std::shared_ptr<entt::registry> registry);
+  SampleTerrainSystem(
+      std::shared_ptr<coro::io_scheduler> updateScheduler,
+      ew::IAssetProviderPtr provider,
+      std::shared_ptr<entt::registry> registry);
   ~SampleTerrainSystem();
 
   void render(float dt);

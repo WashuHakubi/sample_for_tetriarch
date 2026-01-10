@@ -13,4 +13,7 @@
 struct ShaderProgramLoader final : ew::AssetLoader<ShaderProgramAsset> {
   [[nodiscard]] auto load(ew::IAssetProviderPtr const& provider, const std::string& fn, std::vector<uint8_t> data)
       -> ew::IAssetPtr override;
+
+  [[nodiscard]] auto loadAsync(ew::IAssetProviderPtr const& provider, const std::string& fn, std::vector<uint8_t> data)
+      -> coro::task<ew::IAssetPtr> override;
 };
