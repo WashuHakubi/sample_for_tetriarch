@@ -1,23 +1,23 @@
 cmake_minimum_required(VERSION 3.28)
 project(test)
 
-if (CMAKE_BUILD_TYPE STREQUAL "")
-    MESSAGE(WARNING "CMAKE_BUILD_TYPE not set. Defaulting to Debug")
-    set(CMAKE_BUILD_TYPE Debug)
-endif ()
+if(CMAKE_BUILD_TYPE STREQUAL "")
+        message(WARNING "CMAKE_BUILD_TYPE not set. Defaulting to Debug")
+        set(CMAKE_BUILD_TYPE Debug)
+endif()
 
-if (MSVC)
-    add_compile_options(/W4 /WX /wd4100 /wd4996)
-else ()
-    add_compile_options(
-            -Wall
-            -Wextra
-            -Werror
-            -Wno-unused-parameter
-            -Wno-unused-function
-            -Wno-unused-private-field
-            -Wno-missing-field-initializers)
-endif ()
+if(MSVC)
+        add_compile_options(/W4 /WX /wd4100 /wd4996)
+else()
+        add_compile_options(
+                -Wall
+                -Wextra
+                -Werror
+                -Wno-unused-parameter
+                -Wno-unused-function
+                -Wno-unused-private-field
+                -Wno-missing-field-initializers)
+endif()
 
 add_compile_definitions(GLM_FORCE_LEFT_HANDED)
 

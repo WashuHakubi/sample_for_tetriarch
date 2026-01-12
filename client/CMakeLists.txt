@@ -15,18 +15,12 @@ target_link_libraries(client
 
 target_compile_definitions(client PUBLIC SDL_MAIN_USE_CALLBACKS)
 
-if (MSVC)
-    target_compile_options(client PRIVATE /W4 /WX /wd4100 /wd4996)
-else ()
-    target_compile_options(client PRIVATE
-            -Wall
-            -Wextra
-            -Werror
-            -Wno-unused-parameter
-            -Wno-unused-function
-            -Wno-unused-private-field
-            -Wno-missing-field-initializers)
-endif ()
+if(MSVC)
+        target_compile_options(client PRIVATE /W4 /WX)
+else()
+        target_compile_options(client PRIVATE -Wall -Wextra -Wpedantic -Werror
+        )
+endif()
 
 bgfx_compile_shaders(
         TYPE VERTEX

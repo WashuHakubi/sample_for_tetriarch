@@ -1,22 +1,18 @@
 /*
- *  Copyright (c) 2025 Sean Kent. All rights reserved.
+ *  Copyright (c) 2026 Sean Kent. All rights reserved.
  *
  *  Distributed under the Boost Software License, Version 1.0. (See accompanying
  *  file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
  */
 
-#include <filesystem>
-#include <functional>
-#include <iostream>
-#include <typeindex>
-
-#include "assets/i_asset.h"
+#include "assets/loaders.h"
+#include "assets/loaders/simple_file_provider.h"
 #include "i_application.h"
 #include "i_window.h"
-
 #include "sim_time.h"
 #include "systems/ecs_systems.h"
 
+#include <filesystem>
 #include <utility>
 #include <bgfx/bgfx.h>
 #include <bgfx/platform.h>
@@ -27,15 +23,6 @@
 #include <glm/ext.hpp>
 #include <ng-log/logging.h>
 #include <nlohmann/json.hpp>
-
-#include "assets/loaders.h"
-#include "assets/loaders/simple_file_provider.h"
-
-#include "systems/axis_debug_system.h"
-#include "systems/debug_cube_system.h"
-#include "systems/frame_rate_system.h"
-#include "systems/orbit_camera_system.h"
-#include "systems/sample_terrain_system.h"
 
 struct BgfxApplication : ew::IApplication, std::enable_shared_from_this<BgfxApplication> {
   const unsigned kDefaultClearColor = 0x303030ff;
