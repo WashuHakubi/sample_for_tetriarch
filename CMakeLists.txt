@@ -2,14 +2,14 @@ cmake_minimum_required(VERSION 3.28)
 project(test)
 
 if(CMAKE_BUILD_TYPE STREQUAL "")
-        message(WARNING "CMAKE_BUILD_TYPE not set. Defaulting to Debug")
-        set(CMAKE_BUILD_TYPE Debug)
+  message(WARNING "CMAKE_BUILD_TYPE not set. Defaulting to Debug")
+  set(CMAKE_BUILD_TYPE Debug)
 endif()
 
 if(MSVC)
-        add_compile_options(/W4 /WX /wd4100 /wd4996)
+  add_compile_options(/W4 /WX /wd4100 /wd4996)
 else()
-        add_compile_options(
+  add_compile_options(
                 -Wall
                 -Wextra
                 -Werror
@@ -24,7 +24,7 @@ add_compile_definitions(GLM_FORCE_LEFT_HANDED)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/$<CONFIGURATION>")
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/$<CONFIGURATION>")
 
-set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_CXX_STANDARD 20)
 
 include(FetchContent)
 FetchContent_Declare(FetchDependency
@@ -35,12 +35,12 @@ FetchContent_Declare(FetchDependency
 FetchContent_MakeAvailable(FetchDependency)
 include(${fetchdependency_SOURCE_DIR}/FetchDependency.cmake)
 
-fetch_dependency(libuv
-        GIT_SOURCE https://github.com/libuv/libuv.git
-        VERSION v1.51.0
-        CONFIGURATION ${CMAKE_BUILD_TYPE}
-        SOURCE_ROOT ${PROJECT_SOURCE_DIR}/ext
-)
+# fetch_dependency(libuv
+#         GIT_SOURCE https://github.com/libuv/libuv.git
+#         VERSION v1.51.0
+#         CONFIGURATION ${CMAKE_BUILD_TYPE}
+#         SOURCE_ROOT ${PROJECT_SOURCE_DIR}/ext
+# )
 
 fetch_dependency(nlohmann_json
         GIT_SOURCE https://github.com/nlohmann/json.git
@@ -72,22 +72,22 @@ fetch_dependency(Catch2
 #         SOURCE_ROOT ${PROJECT_SOURCE_DIR}/ext
 # )
 
-fetch_dependency(
-        libcoro
-        GIT_SOURCE https://github.com/jbaldwin/libcoro.git
-        VERSION origin/main
-        CONFIGURATION ${CMAKE_BUILD_TYPE}
-        CONFIGURE_OPTIONS -DLIBCORO_FEATURE_TLS=OFF -DLIBCORO_BUILD_EXAMPLES=OFF -DLIBCORO_BUILD_TESTS=OFF -DLIBCORO_FEATURE_NETWORKING=ON
-        SOURCE_ROOT ${PROJECT_SOURCE_DIR}/ext
-)
+# fetch_dependency(
+#         libcoro
+#         GIT_SOURCE https://github.com/jbaldwin/libcoro.git
+#         VERSION origin/main
+#         CONFIGURATION ${CMAKE_BUILD_TYPE}
+#         CONFIGURE_OPTIONS -DLIBCORO_BUILD_EXAMPLES=OFF -DLIBCORO_BUILD_TESTS=OFF -DLIBCORO_FEATURE_NETWORKING=OFF
+#         SOURCE_ROOT ${PROJECT_SOURCE_DIR}/ext
+# )
 
-fetch_dependency(
-        ryml
-        GIT_SOURCE https://github.com/biojppm/rapidyaml.git
-        VERSION v0.9.0
-        CONFIGURATION ${CMAKE_BUILD_TYPE}
-        SOURCE_ROOT ${PROJECT_SOURCE_DIR}/ext
-)
+# fetch_dependency(
+#         ryml
+#         GIT_SOURCE https://github.com/biojppm/rapidyaml.git
+#         VERSION v0.9.0
+#         CONFIGURATION ${CMAKE_BUILD_TYPE}
+#         SOURCE_ROOT ${PROJECT_SOURCE_DIR}/ext
+# )
 
 fetch_dependency(
         SDL3
@@ -99,13 +99,13 @@ fetch_dependency(
         SOURCE_ROOT ${PROJECT_SOURCE_DIR}/ext
 )
 
-fetch_dependency(
-        freetype
-        GIT_SOURCE https://github.com/freetype/freetype.git
-        VERSION VER-2-13-3
-        CONFIGURATION ${CMAKE_BUILD_TYPE}
-        SOURCE_ROOT ${PROJECT_SOURCE_DIR}/ext
-)
+# fetch_dependency(
+#         freetype
+#         GIT_SOURCE https://github.com/freetype/freetype.git
+#         VERSION VER-2-13-3
+#         CONFIGURATION ${CMAKE_BUILD_TYPE}
+#         SOURCE_ROOT ${PROJECT_SOURCE_DIR}/ext
+# )
 
 fetch_dependency(
         bgfx
@@ -116,14 +116,14 @@ fetch_dependency(
         SOURCE_ROOT ${PROJECT_SOURCE_DIR}/ext
 )
 
-fetch_dependency(
-        EnTT
-        GIT_SOURCE https://github.com/skypjack/entt.git
-        VERSION v3.16.0
-        CONFIGURATION ${CMAKE_BUILD_TYPE}
-        CONFIGURE_OPTIONS -DBUILD_SHARED_LIBS=OFF -DENTT_INSTALL=ON
-        SOURCE_ROOT ${PROJECT_SOURCE_DIR}/ext
-)
+# fetch_dependency(
+#         EnTT
+#         GIT_SOURCE https://github.com/skypjack/entt.git
+#         VERSION v3.16.0
+#         CONFIGURATION ${CMAKE_BUILD_TYPE}
+#         CONFIGURE_OPTIONS -DBUILD_SHARED_LIBS=OFF -DENTT_INSTALL=ON
+#         SOURCE_ROOT ${PROJECT_SOURCE_DIR}/ext
+# )
 
 # fetch_dependency(
 #         SDL3_image
@@ -193,6 +193,4 @@ include(ext/bgfx/cmake/bgfxToolUtils.cmake)
 
 add_subdirectory(ext)
 
-add_subdirectory(shared)
-add_subdirectory(client)
-add_subdirectory(server)
+add_subdirectory(game)
