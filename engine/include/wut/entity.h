@@ -14,8 +14,14 @@
 
 namespace wut {
 class Entity : public std::enable_shared_from_this<Entity> {
+  struct InternalOnly {};
+
  public:
   static auto createRoot() -> EntityPtr;
+
+  static auto create(std::shared_ptr<Entity> const& parent = nullptr) -> EntityPtr;
+
+  Entity(InternalOnly const&);
 
  public:
   template <class T>
@@ -32,7 +38,7 @@ class Entity : public std::enable_shared_from_this<Entity> {
   /**
    * True if the entity is in the scene, the entity is enabled, and all ancestors are also enabled.
    */
-  auto enabledInTree() const { return flags_.test(detail::FLAG_ENABLED_IN_TREE); }
+  auto enabledInTree() const { return flags_.test(detail::FLAG_ENTITY_ENABLED_IN_TREE); }
 
   /**
    * True if the entity is enabled locally.
@@ -95,7 +101,6 @@ class Entity : public std::enable_shared_from_this<Entity> {
   EntityHandle root_{};
 
   std::vector<EntityPtr> children_;
-  size_t childCount_{0};
 
   std::vector<ComponentPtr> components_;
   size_t componentCount_{0};

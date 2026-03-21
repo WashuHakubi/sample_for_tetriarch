@@ -58,6 +58,11 @@ class Component {
   virtual void onEnabled() {}
 
   /**
+   * Invoked exactly once, before the first update.
+   */
+  virtual void onStart() {}
+
+  /**
    * Invoked when the entity is diabled in the tree or this component is disabled.
    */
   virtual void onDisabled() {}

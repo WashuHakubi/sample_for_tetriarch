@@ -11,10 +11,27 @@
 
 namespace wut {
 auto Entity::createRoot() -> EntityPtr {
-  auto e = std::make_shared<Entity>();
+  auto e = std::make_shared<Entity>(InternalOnly{});
+  e->flags_.set(detail::FLAG_ENTITY_IS_ROOT);
+  e->flags_.set(detail::FLAG_ENTITY_ENABLED_IN_TREE);
+  e->flags_.set(detail::FLAG_ENABLED);
   e->root_ = e;
   return e;
 }
+
+auto Entity::create(std::shared_ptr<Entity> const& parent) -> EntityPtr {
+  auto e = std::make_shared<Entity>(InternalOnly{});
+  // All entities are enabled by default.
+  e->flags_.set(detail::FLAG_ENABLED);
+
+  if (parent) {
+    e->setParent(parent);
+  }
+
+  return e;
+}
+
+Entity::Entity(InternalOnly const&) {}
 
 void Entity::addComponent(ComponentPtr const& component) {
   assert(component != nullptr);
@@ -32,7 +49,7 @@ void Entity::addComponent(ComponentPtr const& component) {
   component->parent_ = this;
 
   component->onAttach();
-  if (flags_.test(detail::FLAG_ENABLED_IN_TREE) && component->enabled()) {
+  if (flags_.test(detail::FLAG_ENTITY_ENABLED_IN_TREE) && component->enabled()) {
     component->onEnabled();
   }
 }
@@ -55,7 +72,8 @@ void Entity::destroy() {
 }
 
 void Entity::setEnabled(bool enabled) {
-  if (flags_.test(detail::FLAG_ENABLED) == enabled) {
+  // If enabled is the same or we're the root object (in which case we cannot change the enabled state), just return.
+  if (flags_.test(detail::FLAG_ENTITY_IS_ROOT) || flags_.test(detail::FLAG_ENABLED) == enabled) {
     return;
   }
 
@@ -67,6 +85,7 @@ void Entity::setEnabled(bool enabled) {
 void Entity::setParent(EntityPtr const& parent) {
   assert(parent_ == nullptr && "An entity can only ever have one parent.");
   assert(parent != nullptr && "Parent must not be null");
+  assert(!flags_.test(detail::FLAG_ENTITY_IS_ROOT) && "Root object cannot have a parent.");
 
   parent_ = parent.get();
   root_ = parent->root_;
@@ -85,13 +104,18 @@ void Entity::update() {
     auto&& component = components_[i];
 
     if (component->enabled()) {
+      // onStart should be called exactly once during the lifetime of the component.
+      if (!component->flags_.test(detail::FLAG_COMP_STARTED)) {
+        component->flags_.set(detail::FLAG_COMP_STARTED);
+        component->onStart();
+      }
+
       component->update();
     }
   }
 
-  // Iterate by index since children may be added while we are iterating. Added children will only be updated on the
-  // next frame.
-  for (size_t i = 0; i < childCount_; ++i) {
+  // Iterate by index since children may be added while we are iterating.
+  for (size_t i = 0; i < children_.size(); ++i) {
     auto&& child = children_[i];
 
     if (child->enabledSelf()) {
@@ -104,11 +128,16 @@ void Entity::postUpdate() {
   bool needsComponentRemoval{false};
   // Iterate by index since components may be added while we are iterating, when a component is added update will be
   // fired on the the frame.
-  for (size_t i = 0; i < componentCount_; ++i) {
+  for (size_t i = 0; i < components_.size(); ++i) {
     auto&& component = components_[i];
 
     if (component->flags_.test(detail::FLAG_DESTROY)) {
       needsComponentRemoval = true;
+      continue;
+    }
+
+    // Skip over components added after the update started. We still want to check if they need to be destroyed.
+    if (i > componentCount_) {
       continue;
     }
 
@@ -118,9 +147,8 @@ void Entity::postUpdate() {
   }
 
   bool needsChildRemoval{false};
-  // Iterate by index since children may be added while we are iterating. Added children will only be updated on the
-  // next frame.
-  for (size_t i = 0; i < childCount_; ++i) {
+  // Iterate by index since children may be added while we are iterating.
+  for (size_t i = 0; i < children_.size(); ++i) {
     auto&& child = children_[i];
     if (child->flags_.test(detail::FLAG_DESTROY)) {
       // found a dead child, so we need to run some cleanup.
@@ -143,14 +171,13 @@ void Entity::postUpdate() {
 
   // Update our counts to include any components/entities that were added or removed.
   componentCount_ = components_.size();
-  childCount_ = children_.size();
 }
 
 void Entity::updateEnabledRecurse(bool newState) {
   // If we are enabled, have a parent, and the parent is enabled in the tree then we are now active in the tree and
   // onEnabled should be fired.
-  if (newState && parent_ && parent_->flags_.test(detail::FLAG_ENABLED_IN_TREE)) {
-    flags_.set(detail::FLAG_ENABLED_IN_TREE);
+  if (newState && parent_ && parent_->flags_.test(detail::FLAG_ENTITY_ENABLED_IN_TREE)) {
+    flags_.set(detail::FLAG_ENTITY_ENABLED_IN_TREE);
     for (auto&& comp : components_) {
       // Fire onEnabled for all enabled components.
       if (comp->enabled()) {
@@ -161,8 +188,8 @@ void Entity::updateEnabledRecurse(bool newState) {
 
   // If we are disabled, but we were active in the tree then we are no longer enabled in the tree and onDisabled should
   // be fired.
-  if (!newState && flags_.test(detail::FLAG_ENABLED_IN_TREE)) {
-    flags_.set(detail::FLAG_ENABLED_IN_TREE, false);
+  if (!newState && flags_.test(detail::FLAG_ENTITY_ENABLED_IN_TREE)) {
+    flags_.set(detail::FLAG_ENTITY_ENABLED_IN_TREE, false);
     // Fire onDisabled for all enabled components.
     for (auto&& comp : components_) {
       if (comp->enabled()) {
@@ -178,5 +205,4 @@ void Entity::updateEnabledRecurse(bool newState) {
     }
   }
 }
-
 } // namespace wut
