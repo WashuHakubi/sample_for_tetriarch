@@ -13,6 +13,9 @@
 namespace wut {
 class Component {
  public:
+  Component();
+
+ public:
   /**
    * Gets the final type of this component.
    */
@@ -26,7 +29,7 @@ class Component {
   /**
    * Returns a strong reference to the parent of this component, or nullptr if the component does not have a parent.
    */
-  auto parent() const;
+  auto parent() const -> EntityPtr;
 
   /**
    * Indicates the preferred update order between components on the same entity. Lower values will be updated before

@@ -38,10 +38,13 @@ void Entity::addComponent(ComponentPtr const& component) {
   assert(component->parent_ == nullptr && "A component can only be added to one entity.");
 
   components_.push_back(component);
-  // Order components by their update order.
-  std::sort(components_.begin(), components_.end(), [](auto const& lhs, auto const& rhs) {
-    return lhs->updateOrder() < rhs->updateOrder();
-  });
+  if (!flags_.test(detail::FLAG_ENTITY_IS_UPDATING)) {
+    // If we're not updating this object then we can simply update the component order and count
+    std::sort(components_.begin(), components_.end(), [](auto const& lhs, auto const& rhs) {
+      return lhs->updateOrder() < rhs->updateOrder();
+    });
+    componentCount_ = components_.size();
+  }
 
   [[maybe_unused]] auto [_, inserted] = typeToComponents_.emplace(component->componentType(), component);
   assert(inserted && "A component with that type already exists on this entity.");
@@ -98,6 +101,8 @@ void Entity::setParent(EntityPtr const& parent) {
 }
 
 void Entity::update() {
+  flags_.set(detail::FLAG_ENTITY_IS_UPDATING);
+
   // Iterate by index since components may be added while we are iterating, when a component is added update will be
   // fired on the the frame.
   for (size_t i = 0; i < componentCount_; ++i) {
@@ -122,9 +127,13 @@ void Entity::update() {
       child->update();
     }
   }
+
+  flags_.set(detail::FLAG_ENTITY_IS_UPDATING, false);
 }
 
 void Entity::postUpdate() {
+  flags_.set(detail::FLAG_ENTITY_IS_UPDATING);
+
   bool needsComponentRemoval{false};
   // Iterate by index since components may be added while we are iterating, when a component is added update will be
   // fired on the the frame.
@@ -137,7 +146,7 @@ void Entity::postUpdate() {
     }
 
     // Skip over components added after the update started. We still want to check if they need to be destroyed.
-    if (i > componentCount_) {
+    if (i >= componentCount_) {
       continue;
     }
 
@@ -169,8 +178,15 @@ void Entity::postUpdate() {
     std::erase_if(children_, [](auto const& c) { return c->flags_.test(detail::FLAG_DESTROY); });
   }
 
-  // Update our counts to include any components/entities that were added or removed.
-  componentCount_ = components_.size();
+  if (componentCount_ != components_.size()) {
+    // Reorder the components by their update order and then set the count to the number of components.
+    std::sort(components_.begin(), components_.end(), [](auto const& lhs, auto const& rhs) {
+      return lhs->updateOrder() < rhs->updateOrder();
+    });
+    componentCount_ = components_.size();
+  }
+
+  flags_.set(detail::FLAG_ENTITY_IS_UPDATING, false);
 }
 
 void Entity::updateEnabledRecurse(bool newState) {

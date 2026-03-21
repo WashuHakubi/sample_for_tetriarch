@@ -9,6 +9,10 @@
 #include <wut/entity.h>
 
 namespace wut {
+Component::Component() {
+  flags_.set(detail::FLAG_ENABLED);
+}
+
 void Component::destroy() {
   // Mark this component for destruction
   flags_.set(detail::FLAG_DESTROY);
@@ -23,7 +27,7 @@ void Component::destroy() {
   setEnabled(false);
 }
 
-auto Component::parent() const {
+auto Component::parent() const -> EntityPtr {
   return parent_ ? parent_->shared_from_this() : nullptr;
 }
 

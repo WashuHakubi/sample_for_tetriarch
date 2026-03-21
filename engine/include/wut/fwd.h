@@ -26,6 +26,7 @@ enum EntityFlags {
   // Only valid on entities:
   FLAG_ENTITY_ENABLED_IN_TREE = 0x02,
   FLAG_ENTITY_IS_ROOT = 0x03,
+  FLAG_ENTITY_IS_UPDATING = 0x04,
 
   // Only valid on components:
   FLAG_COMP_STARTED = 0x02,
