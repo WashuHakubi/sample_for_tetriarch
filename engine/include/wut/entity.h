@@ -13,6 +13,82 @@
 #include <wut/fwd.h>
 
 namespace wut {
+class ComponentIterator {
+  ComponentIterator(std::shared_ptr<Entity const> entity, size_t index);
+
+ public:
+  using difference_type = std::ptrdiff_t;
+  using value_type = ComponentPtr;
+
+  ComponentIterator(ComponentIterator const&) = default;
+
+  ComponentIterator& operator=(ComponentIterator const&) = default;
+
+  ComponentPtr const& operator*() const;
+
+  ComponentIterator& operator++();
+
+  ComponentIterator operator++(int) {
+    auto result = *this;
+    ++*this;
+    return result;
+  }
+
+  bool operator==(ComponentIterator const& other) const { return entity_ == other.entity_ && index_ == other.index_; }
+
+  bool operator!=(ComponentIterator const& other) const { return !(*this == other); }
+
+ private:
+  friend class Entity;
+  std::shared_ptr<Entity const> entity_;
+  size_t index_;
+};
+
+class ComponentIterable {
+ public:
+  ComponentIterable(ComponentIterator begin, ComponentIterator end) : begin_(std::move(begin)), end_(std::move(end)) {}
+
+  auto begin() const { return begin_; }
+  auto end() const { return end_; }
+
+ private:
+  friend class Entity;
+
+  ComponentIterator begin_;
+  ComponentIterator end_;
+};
+
+class EntityIterator {
+  EntityIterator(std::shared_ptr<Entity const> entity, size_t index);
+
+ public:
+  using difference_type = std::ptrdiff_t;
+  using value_type = EntityPtr;
+
+  EntityIterator(EntityIterator const&) = default;
+
+  EntityIterator& operator=(EntityIterator const&) = default;
+
+  EntityPtr const& operator*() const;
+
+  EntityIterator& operator++();
+
+  EntityIterator operator++(int) {
+    auto result = *this;
+    ++*this;
+    return result;
+  }
+
+  bool operator==(EntityIterator const& other) const { return entity_ == other.entity_ && index_ == other.index_; }
+
+  bool operator!=(EntityIterator const& other) const { return !(*this == other); }
+
+ private:
+  friend class Entity;
+  std::shared_ptr<Entity const> entity_;
+  size_t index_;
+};
+
 class Entity : public std::enable_shared_from_this<Entity> {
   struct InternalOnly {};
 
@@ -34,6 +110,31 @@ class Entity : public std::enable_shared_from_this<Entity> {
    * type then it is unspecified which will be returned.
    */
   auto component(std::type_index type) const -> ComponentPtr;
+
+  /**
+   * Gets a pair of iterators that can be used to iterate over all the components on this entity.
+   * If called outside of update, any removal of components on this entity will result in undefined behaviour, and
+   * component ordering may change unpredictably if components are added during traversal.
+   */
+  auto components() const -> ComponentIterable {
+    return ComponentIterable{
+        ComponentIterator(shared_from_this(), 0),
+        ComponentIterator(shared_from_this(), components_.size())};
+  }
+
+  /**
+   * Gets an iterator to the first valid child object.
+   *
+   * If called outside of update, any removal of a child on this entity will result in undefined behaviour.
+   */
+  auto begin() const { return EntityIterator{shared_from_this(), 0}; }
+
+  /**
+   * Gets an iterator to the end of the child objects collection.
+   *
+   * If called outside of update, any removal of a child on this entity will result in undefined behaviour.
+   */
+  auto end() const { return EntityIterator{shared_from_this(), children_.size()}; }
 
   /**
    * True if the entity is in the scene, the entity is enabled, and all ancestors are also enabled.
@@ -96,6 +197,8 @@ class Entity : public std::enable_shared_from_this<Entity> {
 
  private:
   friend class Component;
+  friend class ComponentIterator;
+  friend class EntityIterator;
 
   Entity* parent_{nullptr};
   EntityHandle root_{};

@@ -83,6 +83,7 @@ class Component {
   virtual void postUpdate() {}
 
  private:
+  friend class ComponentIterator;
   friend class Entity;
 
   Entity* parent_{nullptr};

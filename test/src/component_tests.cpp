@@ -13,8 +13,11 @@ using namespace wut;
 
 namespace {
 struct TestComponent final : ComponentT<TestComponent> {
+  int startCount{0};
   int updateCount{0};
   int postUpdateCount{0};
+
+  void onStart() override { ++startCount; }
 
   void update() override { ++updateCount; }
 
@@ -39,24 +42,33 @@ TEST_CASE("Can add components to entity") {
   auto c = std::make_shared<TestComponent>();
   REQUIRE(c->enabled());
   REQUIRE(c->parent() == nullptr);
+  REQUIRE(c->startCount == 0);
   REQUIRE(c->updateCount == 0);
   REQUIRE(c->postUpdateCount == 0);
 
   go->addComponent(c);
   REQUIRE(c->parent() == go);
 
+  REQUIRE(c->startCount == 0);
   REQUIRE(c->updateCount == 0);
   REQUIRE(c->postUpdateCount == 0);
 
   REQUIRE(go->component<TestComponent>() == c);
 
   go->update();
+  REQUIRE(c->startCount == 1);
   REQUIRE(c->updateCount == 1);
   REQUIRE(c->postUpdateCount == 0);
 
   go->postUpdate();
+  REQUIRE(c->startCount == 1);
   REQUIRE(c->updateCount == 1);
   REQUIRE(c->postUpdateCount == 1);
+
+  go->update();
+  // Start should only be called once.
+  REQUIRE(c->startCount == 1);
+  REQUIRE(c->updateCount == 2);
 }
 
 TEST_CASE("Component added in update is not updated") {

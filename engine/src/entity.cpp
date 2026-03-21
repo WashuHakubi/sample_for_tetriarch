@@ -221,4 +221,61 @@ void Entity::updateEnabledRecurse(bool newState) {
     }
   }
 }
+ComponentIterator::ComponentIterator(std::shared_ptr<Entity const> entity, size_t index)
+    : entity_(std::move(entity))
+    , index_(index) {
+  // Find the next non-destroyed component if we're not already at the end of the set of components.
+  auto const& components = entity_->components_;
+  while (index_ < components.size() && components[index_]->flags_.test(detail::FLAG_DESTROY)) {
+    ++index_;
+  }
+}
+
+ComponentPtr const& ComponentIterator::operator*() const {
+  auto const& components = entity_->components_;
+  assert(index_ < components.size());
+
+  return components[index_];
+}
+
+ComponentIterator& ComponentIterator::operator++() {
+  auto const& components = entity_->components_;
+  ++index_;
+
+  // Skip over any components that are dead.
+  while (index_ < components.size() && components[index_]->flags_.test(detail::FLAG_DESTROY)) {
+    ++index_;
+  }
+
+  return *this;
+}
+
+EntityIterator::EntityIterator(std::shared_ptr<Entity const> entity, size_t index)
+    : entity_(std::move(entity))
+    , index_(index) {
+  auto const& entities = entity_->children_;
+  // Skip over any entities that are dead.
+  while (index_ < entities.size() && entities[index_]->flags_.test(detail::FLAG_DESTROY)) {
+    ++index_;
+  }
+}
+
+EntityPtr const& EntityIterator::operator*() const {
+  auto const& entities = entity_->children_;
+  assert(index_ < entities.size());
+
+  return entities[index_];
+}
+
+EntityIterator& EntityIterator::operator++() {
+  auto const& entities = entity_->children_;
+  ++index_;
+
+  // Skip over any entities that are dead.
+  while (index_ < entities.size() && entities[index_]->flags_.test(detail::FLAG_DESTROY)) {
+    ++index_;
+  }
+
+  return *this;
+}
 } // namespace wut
