@@ -193,4 +193,6 @@ include(ext/bgfx/cmake/bgfxToolUtils.cmake)
 
 add_subdirectory(ext)
 
+add_subdirectory(engine)
 add_subdirectory(game)
+add_subdirectory(test)

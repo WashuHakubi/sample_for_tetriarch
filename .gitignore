@@ -100,3 +100,5 @@ ext/*
 !ext/imgui
 !ext/CMakeLists.txt
 !ext/stb
+
+compile_commands.json
