@@ -67,6 +67,7 @@ auto Entity::component(std::type_index type) const -> ComponentPtr {
 }
 
 void Entity::destroy() {
+  assert(!flags_.test(detail::FLAG_ENTITY_IS_ROOT) && "Cannot destroy root object");
   // Mark this entity as destroyed
   flags_.set(detail::FLAG_DESTROY);
 
