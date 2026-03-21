@@ -113,4 +113,22 @@ TEST_CASE("Component destroy") {
 
   // Should be 3 references: ourself, go, and go by type.
   REQUIRE(c.use_count() == 3);
+
+  REQUIRE(go->component<TestComponent>() == c);
+
+  c->destroy();
+  // Should be 2 references, ourself, and go. It should no longer be referenced by type.
+  REQUIRE(c.use_count() == 2);
+
+  // Should not be able to lookup the component by type.
+  REQUIRE(go->component<TestComponent>() == nullptr);
+
+  go->update();
+  // Should not be updated
+  REQUIRE(c->updateCount == 1);
+
+  go->postUpdate();
+  // This should simply remove the component and not update it.
+  REQUIRE(c->postUpdateCount == 1);
+  REQUIRE(c.use_count() == 1);
 }

@@ -170,6 +170,13 @@ void Entity::postUpdate() {
     }
   }
 
+  // If components were added during the update then we need to reorder them.
+  if (componentCount_ != components_.size()) {
+    std::sort(components_.begin(), components_.end(), [](auto const& lhs, auto const& rhs) {
+      return lhs->updateOrder() < rhs->updateOrder();
+    });
+  }
+
   if (needsComponentRemoval) {
     std::erase_if(components_, [](auto const& c) { return c->flags_.test(detail::FLAG_DESTROY); });
   }
@@ -178,14 +185,7 @@ void Entity::postUpdate() {
     std::erase_if(children_, [](auto const& c) { return c->flags_.test(detail::FLAG_DESTROY); });
   }
 
-  if (componentCount_ != components_.size()) {
-    // Reorder the components by their update order and then set the count to the number of components.
-    std::sort(components_.begin(), components_.end(), [](auto const& lhs, auto const& rhs) {
-      return lhs->updateOrder() < rhs->updateOrder();
-    });
-    componentCount_ = components_.size();
-  }
-
+  componentCount_ = components_.size();
   flags_.set(detail::FLAG_ENTITY_IS_UPDATING, false);
 }
 
