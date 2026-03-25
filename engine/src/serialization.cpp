@@ -126,4 +126,71 @@ struct JsonWriter : IWriter {
 std::shared_ptr<IWriter> createJsonWriter() {
   return std::make_shared<JsonWriter>();
 }
+
+struct JsonReader : IReader {
+  JsonReader(std::string const& data) { root_ = nlohmann::json::parse(data); }
+
+  bool beginObject(std::string_view name, int* tag = nullptr) override {
+    if (nested_.empty()) {
+      assert(root_.is_object());
+      nested_.emplace(&root_, true, SIZE_MAX);
+      if (tag) {
+        *tag = -1;
+      }
+      return true;
+    }
+
+    auto& [cur, isObj, idx] = nested_.top();
+    nlohmann::json::value_type* jo;
+    if (isObj) {
+      jo = &cur->at(name);
+    } else {
+      jo = &cur->at(idx++);
+    }
+
+    if (jo->is_object()) {
+      nested_.emplace(jo, true, SIZE_MAX);
+      return true;
+    } else if (jo->is_string()) {
+      assert(tag);
+      auto id = jo->get<std::string>();
+      id = id.substr(1);
+      *tag = std::stoi(id);
+    } else {
+      assert(false && "Expected object");
+    }
+    return false;
+  }
+
+  void endObject() override {
+    assert(!nested_.empty());
+    nested_.pop();
+  }
+
+  void beginArray(std::string_view name, size_t& count) override {}
+  void endArray() override {}
+
+  void read(std::string_view name, bool& v) override {}
+
+  void read(std::string_view name, char& v) override {}
+
+  void read(std::string_view name, int8_t& v) override {}
+  void read(std::string_view name, int16_t& v) override {}
+  void read(std::string_view name, int32_t& v) override {}
+  void read(std::string_view name, int64_t& v) override {}
+
+  void read(std::string_view name, uint8_t& v) override {}
+  void read(std::string_view name, uint16_t& v) override {}
+  void read(std::string_view name, uint32_t& v) override {}
+  void read(std::string_view name, uint64_t& v) override {}
+
+  void read(std::string_view name, float& v) override {}
+  void read(std::string_view name, double& v) override {}
+
+  void read(std::string_view name, std::string& v) override {}
+
+ private:
+  nlohmann::json root_;
+  std::stack<std::tuple<nlohmann::json*, bool, size_t>> nested_;
+};
 } // namespace wut

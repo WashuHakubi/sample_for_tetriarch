@@ -7,12 +7,14 @@
 #pragma once
 
 #include <array>
+#include <cassert>
 #include <cstdint>
 #include <memory>
 #include <string>
 #include <string_view>
 #include <tuple>
 #include <type_traits>
+#include <unordered_map>
 #include <vector>
 
 namespace wut {
@@ -49,6 +51,35 @@ struct IWriter {
 
 std::shared_ptr<IWriter> createJsonWriter();
 
+struct IReader {
+  virtual ~IReader() = default;
+
+  virtual bool beginObject(std::string_view name, int* tag = nullptr) = 0;
+  virtual void endObject() = 0;
+
+  virtual void beginArray(std::string_view name, size_t& count) = 0;
+  virtual void endArray() = 0;
+
+  virtual void read(std::string_view name, bool& v) = 0;
+
+  virtual void read(std::string_view name, char& v) = 0;
+
+  virtual void read(std::string_view name, int8_t& v) = 0;
+  virtual void read(std::string_view name, int16_t& v) = 0;
+  virtual void read(std::string_view name, int32_t& v) = 0;
+  virtual void read(std::string_view name, int64_t& v) = 0;
+
+  virtual void read(std::string_view name, uint8_t& v) = 0;
+  virtual void read(std::string_view name, uint16_t& v) = 0;
+  virtual void read(std::string_view name, uint32_t& v) = 0;
+  virtual void read(std::string_view name, uint64_t& v) = 0;
+
+  virtual void read(std::string_view name, float& v) = 0;
+  virtual void read(std::string_view name, double& v) = 0;
+
+  virtual void read(std::string_view name, std::string& v) = 0;
+};
+
 /**
  * Specialize this class, deriving from std::true_type and implementing a static serializeMembers method to return the
  * tuple of member tuples.
@@ -71,11 +102,21 @@ struct isArray : std::false_type {};
 template <class T, class A>
 struct isArray<std::vector<T, A>> : std::true_type {
   static constexpr bool canResize = true;
+  static void reserve(std::vector<T, A>& v, size_t count) { v.reserve(count); }
+  template <class U>
+  static void push_back(std::vector<T, A>& v, size_t i, U&& val) {
+    v.push_back(std::forward<T>(val));
+  }
 };
 
 template <class T, size_t N>
 struct isArray<std::array<T, N>> : std::true_type {
   static constexpr bool canResize = false;
+  static void reserve(std::array<T, N>& v, size_t count) {}
+  template <class U>
+  static void push_back(std::array<T, N>& v, size_t i, U&& val) {
+    v[i] = std::forward<T>(val);
+  }
 };
 
 template <class T>
@@ -149,6 +190,63 @@ void writeObject(IWriter& writer, std::string_view name, C const& obj) {
   } else {
     // Don't know what this is, so we should add code to make it work.
     static_assert(false, "Failed to write object");
+  }
+}
+
+template <class C>
+void readObjectInternal(
+    IReader& reader,
+    std::string_view name,
+    C& obj,
+    std::unordered_map<int, std::shared_ptr<void>>& tagMap) {
+  if constexpr (std::is_fundamental_v<C> || std::is_convertible_v<C, std::string_view>) {
+    // If we have a fundamental type (int, char, float, etc.), or we have something we can convert to a string_view
+    // (std::string) then write it out.
+    reader.read(name, obj);
+  } else if constexpr (detail::isSharedPtr<C>::value) {
+    int tag;
+    if (reader.beginObject(name, &tag)) {
+      // Not encountered this object before, create it and map to that tag.
+      obj = std::make_shared<typename C::element_type>();
+      tagMap.emplace(tag, obj);
+
+      auto ptr = obj.get();
+      auto members = detail::getSerializeMembers<typename C::element_type>();
+      detail::forEachTupleItem(members, [&reader, ptr](auto const& memberTuple) {
+        auto const& val = ptr->*std::get<1>(memberTuple);
+        readObject(reader, std::get<0>(memberTuple), val);
+      });
+      reader.endObject();
+    } else {
+      // Found an existing tag, fetch shared pointer and set it.
+      auto it = tagMap.find(tag);
+      assert(it != tagMap.end());
+      obj = std::static_pointer_cast<C>(it->second);
+    }
+  } else if constexpr (detail::isArray<C>::value) {
+    // If we have an array type then read each element of the array.
+    size_t count;
+    reader.beginArray(name, count);
+    detail::isArray<C>::reserve(count);
+
+    for (size_t i = 0; i < count; ++i) {
+      typename C::value_type val;
+      readObject(reader, "", val);
+      detail::isArray<C>::push_back(obj, i, std::move(val));
+    }
+    reader.endArray();
+  } else if constexpr (std::is_class_v<C>) {
+    // If we have some class type then write out each member of the class.
+    reader.beginObject(name);
+    auto members = detail::getSerializeMembers<C>();
+    detail::forEachTupleItem(members, [&reader, &obj](auto const& memberTuple) {
+      auto& val = obj.*std::get<1>(memberTuple);
+      readObject(reader, std::get<0>(memberTuple), val);
+    });
+    reader.endObject();
+  } else {
+    // Don't know what this is, so we should add code to make it work.
+    static_assert(false, "Failed to read object, unknown type");
   }
 }
 } // namespace wut
