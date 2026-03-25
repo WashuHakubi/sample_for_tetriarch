@@ -60,12 +60,6 @@ struct TestWriter final : IWriter {
     buf += ",";
   }
 
-  void write(std::string_view name, char v) override {
-    buf += name;
-    buf += "=c:" + std::to_string(v);
-    buf += ",";
-  }
-
   void write(std::string_view name, int8_t v) override {
     buf += name;
     buf += "=i8:" + std::to_string(v);
@@ -134,7 +128,7 @@ struct TestWriter final : IWriter {
     buf += ",";
   }
 
-  void toBuffer(std::vector<char>& out) const override { out.insert(out.end(), buf.begin(), buf.end()); }
+  auto toBuffer() const -> std::string override { return buf; }
 
   int lastTag{0};
   std::unordered_map<void*, int> tags;
@@ -185,7 +179,11 @@ TEST_CASE("Json serialization") {
   auto writer = createJsonWriter();
   writeObject(*writer, "", s);
 
-  std::vector<char> buf;
-  writer->toBuffer(buf);
-  std::cout << std::string_view(buf.data(), buf.size()) << std::endl;
+  auto buf = writer->toBuffer();
+  std::cout << buf << std::endl;
+
+  auto reader = createJsonReader(buf);
+
+  S s2;
+  readObject(*reader, "", s2);
 }

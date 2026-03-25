@@ -10,8 +10,8 @@
 #include <nlohmann/json.hpp>
 
 namespace wut {
-struct JsonWriter : IWriter {
-  JsonWriter() {}
+struct JsonWriter final : IWriter {
+  JsonWriter() : root_() {}
 
   bool beginObject(std::string_view name, void* tag) override {
     assert(root_.is_null() || root_.is_object());
@@ -37,6 +37,11 @@ struct JsonWriter : IWriter {
       } else {
         cur->push_back(nlohmann::json::object());
         nested_.emplace(&cur->back(), true);
+      }
+
+      if (tag != nullptr) {
+        // Make sure we're aware of the ID of this object.
+        (*std::get<0>(nested_.top()))["$id"] = lastId_ - 1;
       }
       return true;
     } else {
@@ -75,8 +80,6 @@ struct JsonWriter : IWriter {
 
   void write(std::string_view name, bool v) override { writeEntry(name, v); }
 
-  void write(std::string_view name, char v) override { writeEntry(name, v); }
-
   void write(std::string_view name, int8_t v) override { writeEntry(name, v); }
 
   void write(std::string_view name, int16_t v) override { writeEntry(name, v); }
@@ -99,10 +102,7 @@ struct JsonWriter : IWriter {
 
   void write(std::string_view name, std::string_view v) override { writeEntry(name, v); }
 
-  void toBuffer(std::vector<char>& out) const override {
-    auto s = root_.dump(2);
-    out.insert(out.end(), s.begin(), s.end());
-  }
+  auto toBuffer() const -> std::string override { return root_.dump(2); }
 
  private:
   template <class T>
@@ -117,7 +117,7 @@ struct JsonWriter : IWriter {
     }
   }
 
-  nlohmann::json root_{nlohmann::json(nullptr)};
+  nlohmann::json root_;
   std::stack<std::tuple<nlohmann::json*, bool>> nested_;
   int lastId_{0};
   std::unordered_map<void*, int> tagToId_;
@@ -127,7 +127,7 @@ std::shared_ptr<IWriter> createJsonWriter() {
   return std::make_shared<JsonWriter>();
 }
 
-struct JsonReader : IReader {
+struct JsonReader final : IReader {
   JsonReader(std::string const& data) { root_ = nlohmann::json::parse(data); }
 
   bool beginObject(std::string_view name, int* tag = nullptr) override {
@@ -150,6 +150,9 @@ struct JsonReader : IReader {
 
     if (jo->is_object()) {
       nested_.emplace(jo, true, SIZE_MAX);
+      if (tag && jo->contains("$id")) {
+        *tag = jo->at("$id");
+      }
       return true;
     } else if (jo->is_string()) {
       assert(tag);
@@ -167,30 +170,52 @@ struct JsonReader : IReader {
     nested_.pop();
   }
 
-  void beginArray(std::string_view name, size_t& count) override {}
-  void endArray() override {}
+  void beginArray(std::string_view name, size_t& count) override {
+    assert(root_.is_object());
+    auto& [cur, isObj, idx] = nested_.top();
 
-  void read(std::string_view name, bool& v) override {}
+    // Nested arrays are not supported
+    assert(isObj);
 
-  void read(std::string_view name, char& v) override {}
+    auto& jo = (*cur)[name] = nlohmann::json::array();
+    nested_.emplace(&jo, false, 0);
+  }
+  void endArray() override { endObject(); }
 
-  void read(std::string_view name, int8_t& v) override {}
-  void read(std::string_view name, int16_t& v) override {}
-  void read(std::string_view name, int32_t& v) override {}
-  void read(std::string_view name, int64_t& v) override {}
+  void read(std::string_view name, bool& v) override { readInternal(name, v); }
 
-  void read(std::string_view name, uint8_t& v) override {}
-  void read(std::string_view name, uint16_t& v) override {}
-  void read(std::string_view name, uint32_t& v) override {}
-  void read(std::string_view name, uint64_t& v) override {}
+  void read(std::string_view name, int8_t& v) override { readInternal(name, v); }
+  void read(std::string_view name, int16_t& v) override { readInternal(name, v); }
+  void read(std::string_view name, int32_t& v) override { readInternal(name, v); }
+  void read(std::string_view name, int64_t& v) override { readInternal(name, v); }
 
-  void read(std::string_view name, float& v) override {}
-  void read(std::string_view name, double& v) override {}
+  void read(std::string_view name, uint8_t& v) override { readInternal(name, v); }
+  void read(std::string_view name, uint16_t& v) override { readInternal(name, v); }
+  void read(std::string_view name, uint32_t& v) override { readInternal(name, v); }
+  void read(std::string_view name, uint64_t& v) override { readInternal(name, v); }
 
-  void read(std::string_view name, std::string& v) override {}
+  void read(std::string_view name, float& v) override { readInternal(name, v); }
+  void read(std::string_view name, double& v) override { readInternal(name, v); }
+
+  void read(std::string_view name, std::string& v) override { readInternal(name, v); }
 
  private:
+  template <class T>
+  void readInternal(std::string_view name, T& v) {
+    auto& [cur, isObj, idx] = nested_.top();
+    assert(isObj || name.empty());
+
+    if (isObj) {
+      v = (*cur)[name];
+    } else {
+      v = cur->at(idx++);
+    }
+  }
   nlohmann::json root_;
   std::stack<std::tuple<nlohmann::json*, bool, size_t>> nested_;
 };
+
+std::shared_ptr<IReader> createJsonReader(std::string const& data) {
+  return std::make_shared<JsonReader>(data);
+}
 } // namespace wut
