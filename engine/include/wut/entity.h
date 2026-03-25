@@ -11,6 +11,7 @@
 #include <unordered_map>
 #include <vector>
 #include <wut/fwd.h>
+#include <wut/transform.h>
 
 namespace wut {
 class ComponentIterator {
@@ -156,6 +157,16 @@ class Entity : public std::enable_shared_from_this<Entity> {
    */
   auto root() const { return root_.lock(); }
 
+  /**
+   * Gets the transform for this entity.
+   */
+  auto transform() const -> Transform const& { return transform_; }
+
+  /**
+   * Gets the transform for this entity.
+   */
+  auto tansform() -> Transform& { return transform_; }
+
  public:
   /**
    * Adds a component to this entity. If this entity is enabled in the tree and the component is enabled then
@@ -202,6 +213,8 @@ class Entity : public std::enable_shared_from_this<Entity> {
 
   Entity* parent_{nullptr};
   EntityHandle root_{};
+  Transform transform_;
+  std::bitset<sizeof(uint32_t) * CHAR_BIT> flags_;
 
   std::vector<EntityPtr> children_;
 
@@ -209,7 +222,6 @@ class Entity : public std::enable_shared_from_this<Entity> {
   size_t componentCount_{0};
 
   std::unordered_map<std::type_index, ComponentPtr> typeToComponents_;
-  std::bitset<sizeof(uint32_t) * CHAR_BIT> flags_;
 };
 
 } // namespace wut
