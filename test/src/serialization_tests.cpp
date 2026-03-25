@@ -36,7 +36,10 @@ struct TestWriter final : IWriter {
       buf += "=";
     }
 
-    if (tags.emplace(tag, lastTag).second) {
+    if (tag == nullptr || tags.emplace(tag, lastTag).second) {
+      if (tag != nullptr) {
+        ++lastTag;
+      }
       buf += "{";
       return true;
     } else {
@@ -131,12 +134,13 @@ struct TestWriter final : IWriter {
     buf += ",";
   }
 
+  void toBuffer(std::vector<char>& out) const override { out.insert(out.end(), buf.begin(), buf.end()); }
+
   int lastTag{0};
   std::unordered_map<void*, int> tags;
   std::string buf;
 };
 } // namespace
-#include <iostream>
 
 TEST_CASE("Can serialize members type") {
   S s{
@@ -151,15 +155,13 @@ TEST_CASE("Can serialize members type") {
   REQUIRE(w.buf == "{i=i32:42,f=f32:3.140000,name=sv:\"stuff\",},");
 
   s.other = std::make_shared<S>(10, 1.24, "other", nullptr);
-  w.buf = "";
-  w.tags = {};
+  w = {};
 
   // Test nested object serialization works
   writeObject(w, "", s);
   REQUIRE(w.buf == "{i=i32:42,f=f32:3.140000,name=sv:\"stuff\",other={i=i32:10,f=f32:1.240000,name=sv:\"other\",},},");
 
-  w.buf = "";
-  w.tags = {};
+  w = {};
   s.other2 = s.other;
 
   // Ensure that serializing the same smart pointer twice results in a handle in the second case.
@@ -167,4 +169,23 @@ TEST_CASE("Can serialize members type") {
   REQUIRE(
       w.buf ==
       "{i=i32:42,f=f32:3.140000,name=sv:\"stuff\",other={i=i32:10,f=f32:1.240000,name=sv:\"other\",},other2=&0},");
+}
+
+#include <iostream>
+
+TEST_CASE("Json serialization") {
+  S s{
+      .i = 42,
+      .f = 3.14f,
+      .name = "stuff",
+      .other = std::make_shared<S>(10, 1.24f, "other", nullptr),
+  };
+  s.other2 = s.other;
+
+  auto writer = createJsonWriter();
+  writeObject(*writer, "", s);
+
+  std::vector<char> buf;
+  writer->toBuffer(buf);
+  std::cout << std::string_view(buf.data(), buf.size()) << std::endl;
 }

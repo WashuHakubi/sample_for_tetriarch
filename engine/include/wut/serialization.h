@@ -43,7 +43,11 @@ struct IWriter {
   virtual void write(std::string_view name, double v) = 0;
 
   virtual void write(std::string_view name, std::string_view v) = 0;
+
+  virtual void toBuffer(std::vector<char>& out) const = 0;
 };
+
+std::shared_ptr<IWriter> createJsonWriter();
 
 /**
  * Specialize this class, deriving from std::true_type and implementing a static serializeMembers method to return the
