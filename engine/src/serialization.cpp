@@ -135,7 +135,8 @@ struct JsonReader final : IReader {
       assert(root_.is_object());
       nested_.emplace(&root_, true, SIZE_MAX);
       if (tag) {
-        *tag = -1;
+        // INT_MAX to indicate tag is unused.
+        *tag = INT_MAX;
       }
       return true;
     }
@@ -143,8 +144,18 @@ struct JsonReader final : IReader {
     auto& [cur, isObj, idx] = nested_.top();
     nlohmann::json::value_type* jo;
     if (isObj) {
+      if (!cur->contains(name)) {
+        // -1 tag indicates missing object.
+        *tag = -1;
+        return false;
+      }
+
       jo = &cur->at(name);
     } else {
+      if (idx >= cur->size()) {
+        *tag = -1;
+        return false;
+      }
       jo = &cur->at(idx++);
     }
 

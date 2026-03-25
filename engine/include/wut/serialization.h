@@ -226,6 +226,12 @@ void readObjectInternal(
       });
       reader.endObject();
     } else {
+      if (tag == -1) {
+        // Object was not found, and neither was a tag, must be a nullptr.
+        obj = nullptr;
+        return;
+      }
+
       // Found an existing tag, fetch shared pointer and set it.
       auto it = tagMap.find(tag);
       assert(it != tagMap.end());

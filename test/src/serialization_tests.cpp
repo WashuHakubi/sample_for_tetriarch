@@ -165,8 +165,6 @@ TEST_CASE("Can serialize members type") {
       "{i=i32:42,f=f32:3.140000,name=sv:\"stuff\",other={i=i32:10,f=f32:1.240000,name=sv:\"other\",},other2=&0},");
 }
 
-#include <iostream>
-
 TEST_CASE("Json serialization") {
   S s{
       .i = 42,
@@ -180,10 +178,15 @@ TEST_CASE("Json serialization") {
   writeObject(*writer, "", s);
 
   auto buf = writer->toBuffer();
-  std::cout << buf << std::endl;
-
   auto reader = createJsonReader(buf);
 
   S s2;
   readObject(*reader, "", s2);
+
+  REQUIRE(s2.i == s.i);
+  REQUIRE(s2.f == s.f);
+  REQUIRE(s2.other != nullptr);
+  REQUIRE(s2.other->i == s.other->i);
+  REQUIRE(s2.other->f == s.other->f);
+  REQUIRE(s2.other2 == s2.other);
 }
