@@ -188,7 +188,9 @@ struct JsonReader final : IReader {
     // Nested arrays are not supported
     assert(isObj);
 
-    auto& jo = (*cur)[name] = nlohmann::json::array();
+    auto& jo = (*cur)[name];
+    assert(jo.is_array());
+    count = jo.size();
     nested_.emplace(&jo, false, 0);
   }
   void endArray() override { endObject(); }

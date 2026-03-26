@@ -109,7 +109,9 @@ struct isArray : std::false_type {};
 template <class T, class A>
 struct isArray<std::vector<T, A>> : std::true_type {
   static constexpr bool canResize = true;
+
   static void reserve(std::vector<T, A>& v, size_t count) { v.reserve(count); }
+
   template <class U>
   static void push_back(std::vector<T, A>& v, size_t i, U&& val) {
     v.push_back(std::forward<T>(val));
@@ -119,7 +121,9 @@ struct isArray<std::vector<T, A>> : std::true_type {
 template <class T, size_t N>
 struct isArray<std::array<T, N>> : std::true_type {
   static constexpr bool canResize = false;
+
   static void reserve(std::array<T, N>& v, size_t count) {}
+
   template <class U>
   static void push_back(std::array<T, N>& v, size_t i, U&& val) {
     v[i] = std::forward<T>(val);
@@ -241,11 +245,11 @@ void readObjectInternal(
     // If we have an array type then read each element of the array.
     size_t count;
     reader.beginArray(name, count);
-    detail::isArray<C>::reserve(count);
+    detail::isArray<C>::reserve(obj, count);
 
     for (size_t i = 0; i < count; ++i) {
       typename C::value_type val;
-      readObject(reader, "", val);
+      readObjectInternal(reader, "", val, tagMap);
       detail::isArray<C>::push_back(obj, i, std::move(val));
     }
     reader.endArray();
