@@ -13,45 +13,36 @@ namespace wut {
 struct JsonWriter final : IWriter {
   JsonWriter() : root_() {}
 
-  bool beginObject(std::string_view name, void* tag) override {
+  void writeHandle(std::string_view name, int tag) override {
+    if (tag == -1) {
+      return;
+    }
+
+    auto& [cur, isObj] = nested_.top();
+    if (isObj) {
+      (*cur)[name] = "&" + std::to_string(tag);
+    } else {
+      cur->push_back("&" + std::to_string(tag));
+    }
+  }
+
+  void beginObject(std::string_view name) override {
     assert(root_.is_null() || root_.is_object());
     if (root_.is_null()) {
       root_ = nlohmann::json::object();
       nested_.emplace(&root_, true);
       if (name.empty()) {
-        return true;
+        return;
       }
     }
 
     auto& [cur, isObj] = nested_.top();
-    // If we do not have a tag, or we have never seen this tag, map it to an ID
-    if (tag == nullptr || tagToId_.emplace(tag, lastId_).second) {
-      if (tag != nullptr) {
-        ++lastId_;
-      }
-
-      // Since we've never seen this object, create an object and return true.
-      if (cur->is_object()) {
-        auto& jo = (*cur)[name] = nlohmann::json::object();
-        nested_.emplace(&jo, true);
-      } else {
-        cur->push_back(nlohmann::json::object());
-        nested_.emplace(&cur->back(), true);
-      }
-
-      if (tag != nullptr) {
-        // Make sure we're aware of the ID of this object.
-        (*std::get<0>(nested_.top()))["$id"] = lastId_ - 1;
-      }
-      return true;
+    if (isObj) {
+      auto& jo = (*cur)[name] = nlohmann::json::object();
+      nested_.emplace(&jo, true);
     } else {
-      // We've seen this tag, so just use the tag.
-      if (isObj) {
-        (*cur)[name] = "&" + std::to_string(tagToId_[tag]);
-      } else {
-        cur->push_back("&" + std::to_string(tagToId_[tag]));
-      }
-      return false;
+      cur->push_back(nlohmann::json::object());
+      nested_.emplace(&cur->back(), true);
     }
   }
 
@@ -119,8 +110,6 @@ struct JsonWriter final : IWriter {
 
   nlohmann::json root_;
   std::stack<std::tuple<nlohmann::json*, bool>> nested_;
-  int lastId_{0};
-  std::unordered_map<void*, int> tagToId_;
 };
 
 std::shared_ptr<IWriter> createJsonWriter() {
@@ -130,15 +119,14 @@ std::shared_ptr<IWriter> createJsonWriter() {
 struct JsonReader final : IReader {
   JsonReader(std::string const& data) { root_ = nlohmann::json::parse(data); }
 
-  bool beginObject(std::string_view name, int* tag = nullptr) override {
+  bool readHandle(std::string_view name, int& tag) override {
     if (nested_.empty()) {
       assert(root_.is_object());
       nested_.emplace(&root_, true, SIZE_MAX);
-      if (tag) {
-        // INT_MAX to indicate tag is unused.
-        *tag = INT_MAX;
-      }
-      return true;
+
+      // INT_MAX to indicate tag is unused.
+      tag = INT_MAX;
+      return false;
     }
 
     auto& [cur, isObj, idx] = nested_.top();
@@ -146,34 +134,57 @@ struct JsonReader final : IReader {
     if (isObj) {
       if (!cur->contains(name)) {
         // -1 tag indicates missing object.
-        *tag = -1;
-        return false;
+        tag = -1;
+        return true;
       }
 
       jo = &cur->at(name);
     } else {
       if (idx >= cur->size()) {
-        *tag = -1;
-        return false;
+        tag = -1;
+        return true;
       }
-      jo = &cur->at(idx++);
+      jo = &cur->at(idx);
     }
 
     if (jo->is_object()) {
-      nested_.emplace(jo, true, SIZE_MAX);
       if (tag && jo->contains("$id")) {
-        *tag = jo->at("$id");
+        tag = jo->at("$id");
       }
-      return true;
+      return false;
     } else if (jo->is_string()) {
-      assert(tag);
       auto id = jo->get<std::string>();
       id = id.substr(1);
-      *tag = std::stoi(id);
+      tag = std::stoi(id);
     } else {
-      assert(false && "Expected object");
+      assert(false && "Expected object or string");
     }
-    return false;
+
+    if (!isObj) {
+      ++idx;
+    }
+
+    return true;
+  }
+
+  void beginObject(std::string_view name) override {
+    if (nested_.empty()) {
+      assert(root_.is_object());
+      nested_.emplace(&root_, true, SIZE_MAX);
+      return;
+    }
+
+    auto& [cur, isObj, idx] = nested_.top();
+    nlohmann::json::value_type* jo;
+    if (isObj) {
+      jo = &cur->at(name);
+    } else {
+      jo = &cur->at(idx++);
+    }
+
+    assert(jo->is_object());
+    nested_.emplace(jo, true, SIZE_MAX);
+    return;
   }
 
   void endObject() override {

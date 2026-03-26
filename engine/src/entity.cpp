@@ -19,8 +19,9 @@ auto Entity::createRoot() -> EntityPtr {
   return e;
 }
 
-auto Entity::create(std::shared_ptr<Entity> const& parent) -> EntityPtr {
+auto Entity::create(std::string name, std::shared_ptr<Entity> const& parent) -> EntityPtr {
   auto e = std::make_shared<Entity>(InternalOnly{});
+  e->name_ = std::move(name);
   // All entities are enabled by default.
   e->flags_.set(detail::FLAG_ENABLED);
 

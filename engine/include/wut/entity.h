@@ -11,6 +11,7 @@
 #include <unordered_map>
 #include <vector>
 #include <wut/fwd.h>
+#include <wut/serialization.h>
 #include <wut/transform.h>
 
 namespace wut {
@@ -96,8 +97,11 @@ class Entity : public std::enable_shared_from_this<Entity> {
  public:
   static auto createRoot() -> EntityPtr;
 
-  static auto create(std::shared_ptr<Entity> const& parent = nullptr) -> EntityPtr;
+  static auto create(std::string name, std::shared_ptr<Entity> const& parent = nullptr) -> EntityPtr;
 
+  static auto serializeMembers() {
+    return std::make_tuple(std::make_tuple("name", &Entity::name_), std::make_tuple("children", &Entity::children_));
+  }
   Entity(InternalOnly const&);
 
  public:
@@ -222,6 +226,7 @@ class Entity : public std::enable_shared_from_this<Entity> {
   size_t componentCount_{0};
 
   std::unordered_map<std::type_index, ComponentPtr> typeToComponents_;
+  std::string name_;
 };
 
 } // namespace wut

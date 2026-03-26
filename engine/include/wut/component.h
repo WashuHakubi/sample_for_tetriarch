@@ -9,6 +9,7 @@
 #include <bitset>
 #include <typeindex>
 #include <wut/fwd.h>
+#include <wut/serialization.h>
 
 namespace wut {
 class Component {
@@ -82,6 +83,10 @@ class Component {
    */
   virtual void postUpdate() {}
 
+  virtual void serialize(IWriter& writer, std::string_view name) const = 0;
+
+  virtual void deserialize(IReader& reader, std::string_view name) = 0;
+
  private:
   friend class ComponentIterator;
   friend class Entity;
@@ -89,6 +94,16 @@ class Component {
   Entity* parent_{nullptr};
   std::bitset<sizeof(uint32_t) * CHAR_BIT> flags_;
 };
+
+template <>
+inline void writeSpecialized(IWriter& writer, std::string_view name, const Component& obj) {
+  obj.serialize(writer, name);
+}
+
+template <>
+inline void readSpecialized(IReader& reader, std::string_view name, Component& obj) {
+  obj.deserialize(reader, name);
+}
 
 /**
  * Utility base class for components, allows specifying the component type and update order as template parameters.
@@ -98,12 +113,21 @@ class ComponentT : public Component, public std::enable_shared_from_this<T> {
  public:
   auto componentType() const -> std::type_index final {
     static_assert(
-        std::is_final_v<T> && std::is_base_of_v<ComponentT<T, UpdateOrder>, T>,
-        "T must derive from ComponentT<T> and must be final.");
+        std::is_final_v<T> && std::is_base_of_v<ComponentT<T, UpdateOrder>, T> && IsSerializableClass<T>,
+        "T must derive from ComponentT<T>, must implement IsSerializableCLass, and must be final.");
     return typeid(T);
   }
 
   auto updateOrder() const -> int final { return UpdateOrder; }
+
+ protected:
+  void serialize(IWriter& writer, std::string_view name) const override {
+    writeObject(writer, name, *static_cast<T const*>(this));
+  }
+
+  void deserialize(IReader& reader, std::string_view name) override {
+    readObject(reader, name, *static_cast<T*>(this));
+  }
 };
 
 } // namespace wut

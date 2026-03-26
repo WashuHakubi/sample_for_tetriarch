@@ -22,6 +22,13 @@ struct TestComponent final : ComponentT<TestComponent> {
   void update() override { ++updateCount; }
 
   void postUpdate() override { ++postUpdateCount; }
+
+  static auto serializeMembers() {
+    return std::make_tuple(
+        std::make_tuple("startCount", &TestComponent::startCount),
+        std::make_tuple("updateCount", &TestComponent::updateCount),
+        std::make_tuple("postUpdateCount", &TestComponent::postUpdateCount));
+  }
 };
 
 struct TestAddsComponentInUpdate final : ComponentT<TestAddsComponentInUpdate> {
@@ -33,11 +40,15 @@ struct TestAddsComponentInUpdate final : ComponentT<TestAddsComponentInUpdate> {
       added = true;
     }
   }
+
+  static auto serializeMembers() {
+    return std::make_tuple(std::make_tuple("added", &TestAddsComponentInUpdate::added));
+  }
 };
 } // namespace
 
 TEST_CASE("Can add components to entity") {
-  auto go = Entity::create();
+  auto go = Entity::create("go");
 
   auto c = std::make_shared<TestComponent>();
   REQUIRE(c->enabled());
@@ -72,7 +83,7 @@ TEST_CASE("Can add components to entity") {
 }
 
 TEST_CASE("Component added in update is not updated") {
-  auto go = Entity::create();
+  auto go = Entity::create("go");
   auto c = std::make_shared<TestAddsComponentInUpdate>();
 
   go->addComponent(c);
@@ -112,7 +123,7 @@ TEST_CASE("Component added in update is not updated") {
 }
 
 TEST_CASE("Component destroy") {
-  auto go = Entity::create();
+  auto go = Entity::create("go");
   auto c = std::make_shared<TestComponent>();
 
   go->addComponent(c);

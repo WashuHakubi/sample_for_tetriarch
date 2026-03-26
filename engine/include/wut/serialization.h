@@ -21,7 +21,8 @@ namespace wut {
 struct IWriter {
   virtual ~IWriter() = default;
 
-  virtual bool beginObject(std::string_view name, void* tag = nullptr) = 0;
+  virtual void writeHandle(std::string_view name, int tag) = 0;
+  virtual void beginObject(std::string_view name) = 0;
   virtual void endObject() = 0;
 
   virtual void beginArray(std::string_view name, size_t count) = 0;
@@ -52,7 +53,8 @@ std::shared_ptr<IWriter> createJsonWriter();
 struct IReader {
   virtual ~IReader() = default;
 
-  virtual bool beginObject(std::string_view name, int* tag = nullptr) = 0;
+  virtual bool readHandle(std::string_view name, int& tag) = 0;
+  virtual void beginObject(std::string_view name) = 0;
   virtual void endObject() = 0;
 
   virtual void beginArray(std::string_view name, size_t& count) = 0;
@@ -158,50 +160,64 @@ auto forEachTupleItem(T const& t, Fn&& fn) {
 }
 } // namespace detail
 
+template <class T>
+concept IsSerializableClass =
+    std::is_class_v<T> && (detail::hasSerializeMembersMethod<T> || SerializeMembers<T>::value);
+
+// Specialize this to provide custom serialization of types.
 template <class C>
-void writeObject(IWriter& writer, std::string_view name, C const& obj) {
+void writeSpecialized(IWriter& writer, std::string_view name, C const& obj);
+
+// Specialize this to provide custom deserialization of types.
+template <class C>
+void readSpecialized(IReader& reader, std::string_view name, C& obj);
+
+namespace detail {
+template <class C>
+void writeObjectInternal(
+    IWriter& writer,
+    std::string_view name,
+    C const& obj,
+    std::unordered_map<std::shared_ptr<void>, int>& tagMap) {
   if constexpr (std::is_fundamental_v<C> || std::is_convertible_v<C, std::string_view>) {
     // If we have a fundamental type (int, char, float, etc.), or we have something we can convert to a string_view
     // (std::string) then write it out.
     writer.write(name, obj);
   } else if constexpr (detail::isSharedPtr<C>::value) {
-    // If we have a pointer to an object then we attempt to write it out, if beginObject returns false then we can
-    // assume we have already written a copy of this object out, and that a tag has been written out instead.
-    // If true is returned then we should proceed to write out the object.
-    // TODO: Make this handled fundamental types like std::shared_ptr<int>?
-    auto ptr = obj.get();
-    if (!ptr) {
-      // If obj is a nullptr then don't write anything.
-      return;
-    }
-    if (writer.beginObject(name, ptr)) {
-      auto members = detail::getSerializeMembers<typename C::element_type>();
-      detail::forEachTupleItem(members, [&writer, ptr](auto const& memberTuple) {
-        auto& val = ptr->*std::get<1>(memberTuple);
-        writeObject(writer, std::get<0>(memberTuple), val);
-      });
-      writer.endObject();
+    // Check if we have already written out an object matching this shared pointer, if so write out that tag.
+    // Otherwise remember the tag and write out the object.
+    if (tagMap.contains(obj)) {
+      writer.writeHandle(name, tagMap[obj]);
+    } else {
+      tagMap.emplace(obj, static_cast<int>(tagMap.size()));
+      writeObjectInternal(writer, name, *obj, tagMap);
     }
   } else if constexpr (detail::isArray<C>::value) {
     // If we have an array type then write out each element of the array.
     writer.beginArray(name, obj.size());
     for (auto const& val : obj) {
-      writeObject(writer, "", val);
+      writeObjectInternal(writer, "", val, tagMap);
     }
     writer.endArray();
-  } else if constexpr (std::is_class_v<C>) {
+  } else if constexpr (IsSerializableClass<C>) {
     // If we have some class type then write out each member of the class.
     writer.beginObject(name);
     auto members = detail::getSerializeMembers<C>();
-    detail::forEachTupleItem(members, [&writer, &obj](auto const& memberTuple) {
+    detail::forEachTupleItem(members, [&writer, &obj, &tagMap](auto const& memberTuple) {
       auto& val = obj.*std::get<1>(memberTuple);
-      writeObject(writer, std::get<0>(memberTuple), val);
+      writeObjectInternal(writer, std::get<0>(memberTuple), val, tagMap);
     });
     writer.endObject();
   } else {
-    // Don't know what this is, so we should add code to make it work.
-    static_assert(false, "Failed to write object");
+    writeSpecialized(writer, name, obj);
   }
+}
+} // namespace detail
+
+template <class C>
+void writeObject(IWriter& writer, std::string_view name, C const& obj) {
+  auto tagMap = std::unordered_map<std::shared_ptr<void>, int>{{nullptr, -1}};
+  detail::writeObjectInternal(writer, name, obj, tagMap);
 }
 
 namespace detail {
@@ -211,25 +227,13 @@ void readObjectInternal(
     std::string_view name,
     C& obj,
     std::unordered_map<int, std::shared_ptr<void>>& tagMap) {
-  if constexpr (std::is_fundamental_v<C> || std::is_convertible_v<C, std::string_view>) {
-    // If we have a fundamental type (int, char, float, etc.), or we have something we can convert to a string_view
-    // (std::string) then write it out.
+  if constexpr (std::is_fundamental_v<C> || std::is_same_v<C, std::string>) {
+    // If we have a fundamental type (int, char, float, etc.), or we have a std::string then read it.
     reader.read(name, obj);
   } else if constexpr (isSharedPtr<C>::value) {
+    // If we have a pointer then it might be a tag to an existing pointer, check that. If not read in the object.
     int tag;
-    if (reader.beginObject(name, &tag)) {
-      // Not encountered this object before, create it and map to that tag.
-      obj = SerializeFactory<typename C::element_type>::create();
-      tagMap.emplace(tag, obj);
-
-      auto ptr = obj.get();
-      auto members = detail::getSerializeMembers<typename C::element_type>();
-      forEachTupleItem(members, [&reader, ptr, &tagMap](auto const& memberTuple) {
-        auto& val = ptr->*std::get<1>(memberTuple);
-        readObjectInternal(reader, std::get<0>(memberTuple), val, tagMap);
-      });
-      reader.endObject();
-    } else {
+    if (reader.readHandle(name, tag)) {
       if (tag == -1) {
         // Object was not found, and neither was a tag, must be a nullptr.
         obj = nullptr;
@@ -240,6 +244,11 @@ void readObjectInternal(
       auto it = tagMap.find(tag);
       assert(it != tagMap.end());
       obj = std::static_pointer_cast<typename C::element_type>(it->second);
+    } else {
+      // Not encountered this object before, create it and map to that tag.
+      obj = SerializeFactory<typename C::element_type>::create();
+      tagMap.emplace(tag, obj);
+      readObjectInternal(reader, name, *obj, tagMap);
     }
   } else if constexpr (isArray<C>::value) {
     // If we have an array type then read each element of the array.
@@ -253,7 +262,7 @@ void readObjectInternal(
       detail::isArray<C>::push_back(obj, i, std::move(val));
     }
     reader.endArray();
-  } else if constexpr (std::is_class_v<C>) {
+  } else if constexpr (IsSerializableClass<C>) {
     // If we have some class type then write out each member of the class.
     reader.beginObject(name);
     auto members = detail::getSerializeMembers<C>();
@@ -263,8 +272,7 @@ void readObjectInternal(
     });
     reader.endObject();
   } else {
-    // Don't know what this is, so we should add code to make it work.
-    static_assert(false, "Failed to read object, unknown type");
+    readSpecialized(reader, name, obj);
   }
 }
 } // namespace detail

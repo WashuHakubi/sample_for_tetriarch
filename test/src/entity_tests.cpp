@@ -26,9 +26,9 @@ TEST_CASE("Can create root object") {
 
 TEST_CASE("Only rooted objects can be enabled in tree") {
   auto root = Entity::createRoot();
-  auto go = Entity::create();
-  auto childGo = Entity::create(go);
-  auto disabledChildGo = Entity::create(go);
+  auto go = Entity::create("go");
+  auto childGo = Entity::create("childGo", go);
+  auto disabledChildGo = Entity::create("disabledChildGo", go);
   disabledChildGo->setEnabled(false);
 
   REQUIRE(go->enabledSelf());
@@ -71,9 +71,9 @@ TEST_CASE("Only rooted objects can be enabled in tree") {
 }
 
 TEST_CASE("Destroying entities") {
-  auto go = Entity::create();
-  auto childGo = Entity::create(go);
-  auto destroyChildGo = Entity::create(go);
+  auto go = Entity::create("go");
+  auto childGo = Entity::create("childGo", go);
+  auto destroyChildGo = Entity::create("destroyChildGo", go);
 
   REQUIRE(go->enabledSelf());
   REQUIRE(childGo->enabledSelf());
