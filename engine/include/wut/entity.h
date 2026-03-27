@@ -100,7 +100,11 @@ class Entity : public std::enable_shared_from_this<Entity> {
   static auto create(std::string name, std::shared_ptr<Entity> const& parent = nullptr) -> EntityPtr;
 
   static auto serializeMembers() {
-    return std::make_tuple(std::make_tuple("name", &Entity::name_), std::make_tuple("children", &Entity::children_));
+    return std::make_tuple(
+        std::make_tuple("name", &Entity::name_),
+        std::make_tuple("transform", &Entity::transform_),
+        std::make_tuple("children", &Entity::children_),
+        std::make_tuple("components", &Entity::components_));
   }
   Entity(InternalOnly const&);
 

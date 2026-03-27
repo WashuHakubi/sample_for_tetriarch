@@ -17,6 +17,11 @@
 #include <unordered_map>
 #include <vector>
 
+#include <glm/ext.hpp>
+#include <glm/vec2.hpp>
+#include <glm/vec3.hpp>
+#include <glm/vec4.hpp>
+
 namespace wut {
 struct IWriter {
   virtual ~IWriter() = default;
@@ -186,8 +191,8 @@ void writeObjectInternal(
   } else if constexpr (detail::isSharedPtr<C>::value) {
     // Check if we have already written out an object matching this shared pointer, if so write out that tag.
     // Otherwise remember the tag and write out the object.
-    if (tagMap.contains(obj)) {
-      writer.writeHandle(name, tagMap[obj]);
+    if (auto it = tagMap.find(obj); it != tagMap.end()) {
+      writer.writeHandle(name, it->second);
     } else {
       tagMap.emplace(obj, static_cast<int>(tagMap.size()));
       writeObjectInternal(writer, name, *obj, tagMap);
@@ -247,7 +252,7 @@ void readObjectInternal(
     } else {
       // Not encountered this object before, create it and map to that tag.
       obj = SerializeFactory<typename C::element_type>::create();
-      tagMap.emplace(tag, obj);
+      tagMap.emplace(tagMap.size(), obj);
       readObjectInternal(reader, name, *obj, tagMap);
     }
   } else if constexpr (isArray<C>::value) {
@@ -279,7 +284,44 @@ void readObjectInternal(
 
 template <class C>
 void readObject(IReader& reader, std::string_view name, C& obj) {
-  std::unordered_map<int, std::shared_ptr<void>> tagMap;
+  std::unordered_map<int, std::shared_ptr<void>> tagMap{{-1, nullptr}};
+
   detail::readObjectInternal(reader, name, obj, tagMap);
 }
+
+template <>
+struct SerializeMembers<glm::vec2> : std::true_type {
+  static auto serializeMembers() {
+    return std::make_tuple(std::make_tuple("x", &glm::vec2::x), std::make_tuple("y", &glm::vec2::y));
+  }
+};
+template <>
+struct SerializeMembers<glm::vec3> : std::true_type {
+  static auto serializeMembers() {
+    return std::make_tuple(
+        std::make_tuple("x", &glm::vec3::x),
+        std::make_tuple("y", &glm::vec3::y),
+        std::make_tuple("z", &glm::vec3::z));
+  }
+};
+template <>
+struct SerializeMembers<glm::vec4> : std::true_type {
+  static auto serializeMembers() {
+    return std::make_tuple(
+        std::make_tuple("x", &glm::vec4::x),
+        std::make_tuple("y", &glm::vec4::y),
+        std::make_tuple("z", &glm::vec4::z),
+        std::make_tuple("w", &glm::vec4::w));
+  }
+};
+template <>
+struct SerializeMembers<glm::quat> : std::true_type {
+  static auto serializeMembers() {
+    return std::make_tuple(
+        std::make_tuple("x", &glm::quat::x),
+        std::make_tuple("y", &glm::quat::y),
+        std::make_tuple("z", &glm::quat::z),
+        std::make_tuple("w", &glm::quat::w));
+  }
+};
 } // namespace wut

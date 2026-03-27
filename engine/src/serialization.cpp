@@ -148,9 +148,6 @@ struct JsonReader final : IReader {
     }
 
     if (jo->is_object()) {
-      if (tag && jo->contains("$id")) {
-        tag = jo->at("$id");
-      }
       return false;
     } else if (jo->is_string()) {
       auto id = jo->get<std::string>();

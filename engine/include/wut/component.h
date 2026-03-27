@@ -83,13 +83,16 @@ class Component {
    */
   virtual void postUpdate() {}
 
+ private:
+  friend void writeSpecialized<Component>(IWriter& writer, std::string_view name, const Component& obj);
+  friend void readSpecialized<Component>(IReader& reader, std::string_view name, Component& obj);
+
+  friend class ComponentIterator;
+  friend class Entity;
+
   virtual void serialize(IWriter& writer, std::string_view name) const = 0;
 
   virtual void deserialize(IReader& reader, std::string_view name) = 0;
-
- private:
-  friend class ComponentIterator;
-  friend class Entity;
 
   Entity* parent_{nullptr};
   std::bitset<sizeof(uint32_t) * CHAR_BIT> flags_;

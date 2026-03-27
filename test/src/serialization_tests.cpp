@@ -6,7 +6,6 @@
 
 #include <catch2/catch_all.hpp>
 
-#include <unordered_map>
 #include <wut/serialization.h>
 
 using namespace wut;
