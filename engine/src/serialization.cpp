@@ -93,6 +93,7 @@ struct JsonWriter final : IWriter {
 
   void write(std::string_view name, std::string_view v) override { writeEntry(name, v); }
 
+  void write(std::string_view name, std::nullptr_t v) override { writeEntry(name, nullptr); }
   auto toBuffer() const -> std::string override { return root_.dump(2); }
 
  private:
@@ -219,6 +220,24 @@ struct JsonReader final : IReader {
   void read(std::string_view name, double& v) override { readInternal(name, v); }
 
   void read(std::string_view name, std::string& v) override { readInternal(name, v); }
+
+  bool read(std::string_view name, std::nullptr_t) override {
+    auto& [cur, isObj, idx] = nested_.top();
+
+    nlohmann::json::value_type* v;
+    if (isObj) {
+      v = &cur->at(name);
+    } else {
+      v = &cur->at(idx);
+    }
+
+    if (v->is_null() && !isObj) {
+      // If we're an array, and the entry is null then we need to move to the next object.
+      ++idx;
+    }
+
+    return v->is_null();
+  }
 
  private:
   template <class T>

@@ -10,6 +10,7 @@
 #include <wut/component.h>
 
 namespace wut {
+
 auto Entity::createRoot() -> EntityPtr {
   auto e = std::make_shared<Entity>(InternalOnly{});
   e->flags_.set(detail::FLAG_ENTITY_IS_ROOT);
@@ -32,9 +33,13 @@ auto Entity::create(std::string name, std::shared_ptr<Entity> const& parent) -> 
   return e;
 }
 
+auto Entity::createEmtpy() -> EntityPtr {
+  return std::make_shared<Entity>(InternalOnly{});
+}
+
 Entity::Entity(InternalOnly const&) {}
 
-void Entity::addComponent(ComponentPtr const& component) {
+auto Entity::addComponent(ComponentPtr const& component) -> ComponentPtr {
   assert(component != nullptr);
   assert(component->parent_ == nullptr && "A component can only be added to one entity.");
 
@@ -56,6 +61,8 @@ void Entity::addComponent(ComponentPtr const& component) {
   if (flags_.test(detail::FLAG_ENTITY_ENABLED_IN_TREE) && component->enabled()) {
     component->onEnabled();
   }
+
+  return component;
 }
 
 auto Entity::component(std::type_index type) const -> ComponentPtr {
@@ -279,5 +286,12 @@ EntityIterator& EntityIterator::operator++() {
   }
 
   return *this;
+}
+void DeserializeObserver<Entity>::onDeserialized(Entity& obj) {
+  obj.componentCount_ = obj.components_.size();
+  for (auto&& comp : obj.components_) {
+    assert(comp);
+    obj.typeToComponents_.emplace(comp->componentType(), comp);
+  }
 }
 } // namespace wut

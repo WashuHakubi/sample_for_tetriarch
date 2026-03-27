@@ -13,6 +13,8 @@ using namespace wut;
 
 namespace {
 struct TestComponent final : ComponentT<TestComponent> {
+  static constexpr std::string_view typeName = "TestComponent";
+
   int startCount{0};
   int updateCount{0};
   int postUpdateCount{0};
@@ -32,6 +34,7 @@ struct TestComponent final : ComponentT<TestComponent> {
 };
 
 struct TestAddsComponentInUpdate final : ComponentT<TestAddsComponentInUpdate> {
+  static constexpr std::string_view typeName = "TestAddsComponentInUpdate";
   bool added{false};
 
   void update() override {

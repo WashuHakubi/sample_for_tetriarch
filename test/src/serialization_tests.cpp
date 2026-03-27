@@ -6,6 +6,7 @@
 
 #include <catch2/catch_all.hpp>
 
+#include <iostream>
 #include <wut/serialization.h>
 
 using namespace wut;
@@ -46,13 +47,15 @@ TEST_CASE("Json serialization") {
   s.others.push_back(std::make_shared<S>(1, 2.0f, "asdf"));
 
   auto writer = createJsonWriter();
-  writeObject(*writer, "", s);
+  write(*writer, s);
 
   auto buf = writer->toBuffer();
+  // std::cout << buf << std::endl;
+
   auto reader = createJsonReader(buf);
 
   S s2;
-  readObject(*reader, "", s2);
+  read(*reader, s2);
 
   REQUIRE(s2.i == s.i);
   REQUIRE(s2.f == s.f);

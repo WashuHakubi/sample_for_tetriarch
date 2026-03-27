@@ -7,9 +7,11 @@
 #pragma once
 
 #include <bitset>
+#include <span>
 #include <typeindex>
 #include <unordered_map>
 #include <vector>
+
 #include <wut/fwd.h>
 #include <wut/serialization.h>
 #include <wut/transform.h>
@@ -99,6 +101,8 @@ class Entity : public std::enable_shared_from_this<Entity> {
 
   static auto create(std::string name, std::shared_ptr<Entity> const& parent = nullptr) -> EntityPtr;
 
+  static auto createEmtpy() -> EntityPtr;
+
   static auto serializeMembers() {
     return std::make_tuple(
         std::make_tuple("name", &Entity::name_),
@@ -109,6 +113,8 @@ class Entity : public std::enable_shared_from_this<Entity> {
   Entity(InternalOnly const&);
 
  public:
+  auto children() const -> std::span<EntityPtr const> { return children_; }
+
   template <class T>
   auto component() const -> std::shared_ptr<T> {
     return std::static_pointer_cast<T>(component(typeid(T)));
@@ -156,6 +162,11 @@ class Entity : public std::enable_shared_from_this<Entity> {
   auto enabledSelf() const { return flags_.test(detail::FLAG_ENABLED); }
 
   /**
+   * Name of this object
+   */
+  auto name() const -> std::string_view { return name_; }
+
+  /**
    * Returns a strong reference to the parent of this entity, or nullptr if the entity does not have a parent.
    */
   auto parent() const { return parent_ ? parent_->shared_from_this() : nullptr; }
@@ -176,11 +187,17 @@ class Entity : public std::enable_shared_from_this<Entity> {
   auto tansform() -> Transform& { return transform_; }
 
  public:
+  template <class T>
+  auto addComponent(std::shared_ptr<T> const& component) -> std::shared_ptr<T> {
+    addComponent(std::static_pointer_cast<Component>(component));
+    return component;
+  }
+
   /**
    * Adds a component to this entity. If this entity is enabled in the tree and the component is enabled then
    * onEnabled() will be fired.
    */
-  void addComponent(ComponentPtr const& component);
+  auto addComponent(ComponentPtr const& component) -> ComponentPtr;
 
   /**
    * Schedules this entity to be destroyed by the end of the next update.
@@ -218,6 +235,7 @@ class Entity : public std::enable_shared_from_this<Entity> {
   friend class Component;
   friend class ComponentIterator;
   friend class EntityIterator;
+  friend struct DeserializeObserver<Entity>;
 
   Entity* parent_{nullptr};
   EntityHandle root_{};
@@ -233,4 +251,13 @@ class Entity : public std::enable_shared_from_this<Entity> {
   std::string name_;
 };
 
+template <>
+struct SerializeFactory<Entity> {
+  static auto create() { return Entity::createEmtpy(); }
+};
+
+template <>
+struct DeserializeObserver<Entity> {
+  static void onDeserialized(Entity& obj);
+};
 } // namespace wut

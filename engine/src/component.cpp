@@ -46,4 +46,20 @@ void Component::setEnabled(bool enabled) {
     onDisabled();
   }
 }
+
+std::unordered_map<std::string_view, std::function<ComponentPtr()>> ComponentFactories::typeToFactory_;
+
+void ComponentFactories::registerFactory(std::string_view name, std::function<ComponentPtr()> factory) {
+  [[maybe_unused]] auto [_, inserted] = typeToFactory_.emplace(name, std::move(factory));
+  assert(inserted);
+}
+
+ComponentPtr ComponentFactories::create(std::string_view name) {
+  if (auto it = typeToFactory_.find(name); it != typeToFactory_.end()) {
+    return it->second();
+  }
+
+  return nullptr;
+}
+
 } // namespace wut

@@ -50,6 +50,8 @@ struct IWriter {
 
   virtual void write(std::string_view name, std::string_view v) = 0;
 
+  virtual void write(std::string_view name, std::nullptr_t) = 0;
+
   virtual std::string toBuffer() const = 0;
 };
 
@@ -81,6 +83,8 @@ struct IReader {
   virtual void read(std::string_view name, double& v) = 0;
 
   virtual void read(std::string_view name, std::string& v) = 0;
+
+  virtual bool read(std::string_view name, std::nullptr_t) = 0;
 };
 
 std::shared_ptr<IReader> createJsonReader(std::string const& data);
@@ -102,6 +106,19 @@ template <class T>
 struct SerializeFactory {
   static std::shared_ptr<T> create() { return std::make_shared<T>(); }
 };
+
+template <class T>
+struct DeserializeObserver {
+  static void onDeserialized(T& obj) {}
+};
+
+// Specialize this to provide custom deserialization of types.
+template <class T>
+void readSpecialized(
+    IReader& reader,
+    std::string_view name,
+    T& obj,
+    std::unordered_map<int, std::shared_ptr<void>>& tagMap);
 
 namespace detail {
 template <class T>
@@ -163,130 +180,167 @@ auto forEachTupleItem(T const& t, Fn&& fn) {
     forEachTupleItem<T, Fn, I + 1>(t, std::forward<Fn>(fn));
   }
 }
-} // namespace detail
 
 template <class T>
 concept IsSerializableClass =
     std::is_class_v<T> && (detail::hasSerializeMembersMethod<T> || SerializeMembers<T>::value);
 
-// Specialize this to provide custom serialization of types.
-template <class C>
-void writeSpecialized(IWriter& writer, std::string_view name, C const& obj);
+template <class T>
+std::string name_of() {
+  std::string_view sv;
+#if defined(__clang__)
+  sv = __PRETTY_FUNCTION__;
+  auto tf = 40;
+  auto te = 1;
+#elif defined(__GNUC__)
+  sv = __PRETTY_FUNCTION__;
+  auto tf = 45;
+  auto te = 49;
+#elif defined(_MSC_VER)
+  sv = __FUNCSIG__;
+  auto tf = 117;
+  auto te = 7;
+#else
+#error Unknown compiler
+#endif
 
-// Specialize this to provide custom deserialization of types.
-template <class C>
-void readSpecialized(IReader& reader, std::string_view name, C& obj);
+  sv.remove_prefix(tf);
+  sv.remove_suffix(te);
 
-namespace detail {
-template <class C>
-void writeObjectInternal(
-    IWriter& writer,
-    std::string_view name,
-    C const& obj,
-    std::unordered_map<std::shared_ptr<void>, int>& tagMap) {
-  if constexpr (std::is_fundamental_v<C> || std::is_convertible_v<C, std::string_view>) {
-    // If we have a fundamental type (int, char, float, etc.), or we have something we can convert to a string_view
-    // (std::string) then write it out.
-    writer.write(name, obj);
-  } else if constexpr (detail::isSharedPtr<C>::value) {
-    // Check if we have already written out an object matching this shared pointer, if so write out that tag.
-    // Otherwise remember the tag and write out the object.
-    if (auto it = tagMap.find(obj); it != tagMap.end()) {
-      writer.writeHandle(name, it->second);
-    } else {
-      tagMap.emplace(obj, static_cast<int>(tagMap.size()));
-      writeObjectInternal(writer, name, *obj, tagMap);
-    }
-  } else if constexpr (detail::isArray<C>::value) {
-    // If we have an array type then write out each element of the array.
-    writer.beginArray(name, obj.size());
-    for (auto const& val : obj) {
-      writeObjectInternal(writer, "", val, tagMap);
-    }
-    writer.endArray();
-  } else if constexpr (IsSerializableClass<C>) {
-    // If we have some class type then write out each member of the class.
-    writer.beginObject(name);
-    auto members = detail::getSerializeMembers<C>();
-    detail::forEachTupleItem(members, [&writer, &obj, &tagMap](auto const& memberTuple) {
-      auto& val = obj.*std::get<1>(memberTuple);
-      writeObjectInternal(writer, std::get<0>(memberTuple), val, tagMap);
-    });
-    writer.endObject();
-  } else {
-    writeSpecialized(writer, name, obj);
+#if defined(_MSC_VER)
+  if (sv.starts_with('c')) {
+    sv.remove_prefix(6);
+  } else if (sv.starts_with('s')) {
+    sv.remove_prefix(7);
+  } else if (sv.starts_with('e')) {
+    sv.remove_prefix(5);
   }
+#endif
+
+  return std::string(sv.begin(), sv.end());
 }
 } // namespace detail
 
-template <class C>
-void writeObject(IWriter& writer, std::string_view name, C const& obj) {
-  auto tagMap = std::unordered_map<std::shared_ptr<void>, int>{{nullptr, -1}};
-  detail::writeObjectInternal(writer, name, obj, tagMap);
+using WriteTags = std::unordered_map<std::shared_ptr<void>, int>;
+using ReadTags = std::unordered_map<int, std::shared_ptr<void>>;
+
+template <class T>
+void readObject(IReader& reader, std::string_view name, T& obj, ReadTags& tags);
+
+template <class T>
+void read(IReader& reader, T& obj) {
+  ReadTags tags;
+  return readObject(reader, "", obj, tags);
 }
 
-namespace detail {
-template <class C>
-void readObjectInternal(
-    IReader& reader,
-    std::string_view name,
-    C& obj,
-    std::unordered_map<int, std::shared_ptr<void>>& tagMap) {
-  if constexpr (std::is_fundamental_v<C> || std::is_same_v<C, std::string>) {
-    // If we have a fundamental type (int, char, float, etc.), or we have a std::string then read it.
-    reader.read(name, obj);
-  } else if constexpr (isSharedPtr<C>::value) {
-    // If we have a pointer then it might be a tag to an existing pointer, check that. If not read in the object.
-    int tag;
-    if (reader.readHandle(name, tag)) {
-      if (tag == -1) {
-        // Object was not found, and neither was a tag, must be a nullptr.
-        obj = nullptr;
-        return;
-      }
+template <class T>
+  requires((std::is_fundamental_v<T> || std::is_same_v<std::string, T>))
+void readObject(IReader& reader, std::string_view name, T& obj, ReadTags& tags) {
+  return reader.read(name, obj);
+}
 
-      // Found an existing tag, fetch shared pointer and set it.
-      auto it = tagMap.find(tag);
-      assert(it != tagMap.end());
-      obj = std::static_pointer_cast<typename C::element_type>(it->second);
-    } else {
-      // Not encountered this object before, create it and map to that tag.
-      obj = SerializeFactory<typename C::element_type>::create();
-      tagMap.emplace(tagMap.size(), obj);
-      readObjectInternal(reader, name, *obj, tagMap);
-    }
-  } else if constexpr (isArray<C>::value) {
-    // If we have an array type then read each element of the array.
-    size_t count;
-    reader.beginArray(name, count);
-    detail::isArray<C>::reserve(obj, count);
-
-    for (size_t i = 0; i < count; ++i) {
-      typename C::value_type val;
-      readObjectInternal(reader, "", val, tagMap);
-      detail::isArray<C>::push_back(obj, i, std::move(val));
-    }
-    reader.endArray();
-  } else if constexpr (IsSerializableClass<C>) {
-    // If we have some class type then write out each member of the class.
-    reader.beginObject(name);
-    auto members = detail::getSerializeMembers<C>();
-    forEachTupleItem(members, [&reader, &obj, &tagMap](auto const& memberTuple) {
-      auto& val = obj.*std::get<1>(memberTuple);
-      readObjectInternal(reader, std::get<0>(memberTuple), val, tagMap);
-    });
-    reader.endObject();
-  } else {
-    readSpecialized(reader, name, obj);
+template <class T>
+  requires(detail::isSharedPtr<T>::value)
+void readObject(IReader& reader, std::string_view name, T& obj, ReadTags& tags) {
+  if (reader.read(name, nullptr)) {
+    obj = nullptr;
+    return;
   }
+
+  int tag;
+  if (reader.readHandle(name, tag)) {
+    auto it = tags.find(tag);
+    assert(it != tags.end());
+    obj = std::static_pointer_cast<typename T::element_type>(it->second);
+    return;
+  }
+
+  obj = SerializeFactory<typename T::element_type>::create();
+  tags.emplace(tags.size(), obj);
+  readObject(reader, name, *obj, tags);
 }
-} // namespace detail
 
-template <class C>
-void readObject(IReader& reader, std::string_view name, C& obj) {
-  std::unordered_map<int, std::shared_ptr<void>> tagMap{{-1, nullptr}};
+template <class T>
+  requires(detail::isArray<T>::value)
+void readObject(IReader& reader, std::string_view name, T& obj, ReadTags& tags) {
+  size_t count;
+  reader.beginArray(name, count);
+  detail::isArray<T>::reserve(obj, count);
 
-  detail::readObjectInternal(reader, name, obj, tagMap);
+  for (size_t i = 0; i < count; ++i) {
+    typename T::value_type val;
+    readObject(reader, "", val, tags);
+    detail::isArray<T>::push_back(obj, i, std::move(val));
+  }
+  reader.endArray();
+}
+
+template <class T>
+  requires(detail::IsSerializableClass<T>)
+void readObject(IReader& reader, std::string_view name, T& obj, ReadTags& tags) {
+  reader.beginObject(name);
+  auto members = detail::getSerializeMembers<T>();
+  detail::forEachTupleItem(members, [&reader, &obj, &tags](auto const& memberTuple) {
+    auto& val = obj.*std::get<1>(memberTuple);
+    readObject(reader, std::get<0>(memberTuple), val, tags);
+  });
+  reader.endObject();
+
+  DeserializeObserver<T>::onDeserialized(obj);
+}
+
+template <class T>
+void writeObject(IWriter& writer, std::string_view name, T const& obj, WriteTags& tags);
+
+template <class T>
+void write(IWriter& writer, T const& obj) {
+  WriteTags tags;
+  return writeObject(writer, "", obj, tags);
+}
+
+template <class T>
+  requires((std::is_fundamental_v<T> || std::is_same_v<std::string, T>))
+void writeObject(IWriter& writer, std::string_view name, T const& obj, WriteTags& tags) {
+  return writer.write(name, obj);
+}
+
+template <class T>
+  requires(detail::isSharedPtr<T>::value)
+void writeObject(IWriter& writer, std::string_view name, T const& obj, WriteTags& tags) {
+  if (obj == nullptr) {
+    writer.write(name, nullptr);
+    return;
+  }
+
+  if (auto it = tags.find(obj); it != tags.end()) {
+    writer.writeHandle(name, it->second);
+    return;
+  }
+
+  tags.emplace(obj, tags.size());
+  return writeObject(writer, name, *obj, tags);
+}
+
+template <class T>
+  requires(detail::isArray<T>::value)
+void writeObject(IWriter& writer, std::string_view name, T const& obj, WriteTags& tags) {
+  writer.beginArray(name, obj.size());
+  for (auto&& elem : obj) {
+    writeObject(writer, "", elem, tags);
+  }
+  writer.endArray();
+}
+
+template <class T>
+  requires(detail::IsSerializableClass<T>)
+void writeObject(IWriter& writer, std::string_view name, T const& obj, WriteTags& tags) {
+  writer.beginObject(name);
+  auto members = detail::getSerializeMembers<T>();
+  detail::forEachTupleItem(members, [&writer, &obj, &tags](auto const& memberTuple) {
+    auto& val = obj.*std::get<1>(memberTuple);
+    writeObject(writer, std::get<0>(memberTuple), val, tags);
+  });
+  writer.endObject();
 }
 
 template <>
@@ -295,6 +349,7 @@ struct SerializeMembers<glm::vec2> : std::true_type {
     return std::make_tuple(std::make_tuple("x", &glm::vec2::x), std::make_tuple("y", &glm::vec2::y));
   }
 };
+
 template <>
 struct SerializeMembers<glm::vec3> : std::true_type {
   static auto serializeMembers() {
@@ -304,6 +359,7 @@ struct SerializeMembers<glm::vec3> : std::true_type {
         std::make_tuple("z", &glm::vec3::z));
   }
 };
+
 template <>
 struct SerializeMembers<glm::vec4> : std::true_type {
   static auto serializeMembers() {
@@ -314,6 +370,7 @@ struct SerializeMembers<glm::vec4> : std::true_type {
         std::make_tuple("w", &glm::vec4::w));
   }
 };
+
 template <>
 struct SerializeMembers<glm::quat> : std::true_type {
   static auto serializeMembers() {
