@@ -61,6 +61,7 @@ fetch_dependency(Catch2
         GIT_SOURCE https://github.com/catchorg/Catch2.git
         VERSION v3.8.0
         CONFIGURATION ${CMAKE_BUILD_TYPE}
+        CONFIGURE_OPTIONS -DCATCH_CONFIG_CPP17_STRING_VIEW=ON
         SOURCE_ROOT ${PROJECT_SOURCE_DIR}/ext
 )
 
