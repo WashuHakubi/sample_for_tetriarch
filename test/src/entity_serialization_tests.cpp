@@ -9,8 +9,6 @@
 #include <wut/component.h>
 #include <wut/entity.h>
 
-#include <iostream>
-
 using namespace wut;
 
 namespace {
