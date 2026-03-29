@@ -10,12 +10,12 @@
 
 namespace wut {
 Component::Component() {
-  flags_.set(detail::FLAG_ENABLED);
+  flags_.set(Flags::Enabled);
 }
 
 void Component::destroy() {
   // Mark this component for destruction
-  flags_.set(detail::FLAG_DESTROY);
+  flags_.set(Flags::Destroy);
 
   if (parent_) {
     // make sure we cannot be looked up by type in the parent.
@@ -32,11 +32,11 @@ auto Component::parent() const -> EntityPtr {
 }
 
 void Component::setEnabled(bool enabled) {
-  if (flags_.test(detail::FLAG_ENABLED) == enabled) {
+  if (flags_.test(Flags::Enabled) == enabled) {
     return;
   }
 
-  flags_.set(detail::FLAG_ENABLED, enabled);
+  flags_.set(Flags::Enabled, enabled);
 
   if (enabled && parent_->enabledInTree()) {
     onEnabled();
@@ -60,6 +60,43 @@ ComponentPtr ComponentFactories::create(std::string_view name) {
   }
 
   return nullptr;
+}
+
+void writeObject(IWriter& writer, std::string_view name, const ComponentPtr& obj, WriteTags& tags) {
+  writer.beginObject(name);
+  obj->serialize(writer, tags);
+  writer.endObject();
+}
+
+void readObject(IReader& reader, std::string_view name, ComponentPtr& obj, ReadTags& tags) {
+  reader.beginObject(name);
+  std::string typeName;
+  reader.read("$type", typeName);
+  obj = ComponentFactories::create(typeName);
+  if (!obj) {
+    // Failed to find a type matching the typename.
+    // TODO: Add warning/error.
+    reader.endObject();
+    return;
+  }
+
+  obj->deserialize(reader, tags);
+  reader.endObject();
+}
+
+void writeObject(IWriter& writer, std::string_view name, const Component::ComponentFlags& obj, WriteTags& tags) {
+  writer.beginObject(name);
+  writer.write("enabled", obj.test(Component::Flags::Enabled));
+  writer.endObject();
+}
+
+void readObject(IReader& reader, std::string_view name, Component::ComponentFlags& obj, ReadTags& tags) {
+  reader.beginObject(name);
+  bool v;
+  reader.read("enabled", v);
+  reader.endObject();
+
+  obj.set(Component::Flags::Enabled, v);
 }
 
 } // namespace wut

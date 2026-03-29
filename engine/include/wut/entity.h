@@ -6,12 +6,12 @@
 
 #pragma once
 
-#include <bitset>
 #include <span>
 #include <typeindex>
 #include <unordered_map>
 #include <vector>
 
+#include <wut/flags.h>
 #include <wut/fwd.h>
 #include <wut/serialization.h>
 #include <wut/transform.h>
@@ -97,18 +97,28 @@ class Entity : public std::enable_shared_from_this<Entity> {
   struct InternalOnly {};
 
  public:
+  enum class Flags {
+    Enabled = 0,
+    Destroy = 1,
+    EnabledInTree = 2,
+    IsRoot = 3,
+    IsUpdating = 4,
+  };
+  using EntityFlags = wut::Flags<Flags>;
+
   static auto createRoot() -> EntityPtr;
 
   static auto create(std::string name, std::shared_ptr<Entity> const& parent = nullptr) -> EntityPtr;
 
-  static auto createEmtpy() -> EntityPtr;
+  static auto createEmpty() -> EntityPtr;
 
   static auto serializeMembers() {
     return std::make_tuple(
         std::make_tuple("name", &Entity::name_),
         std::make_tuple("transform", &Entity::transform_),
         std::make_tuple("children", &Entity::children_),
-        std::make_tuple("components", &Entity::components_));
+        std::make_tuple("components", &Entity::components_),
+        std::make_tuple("flags", &Entity::flags_));
   }
   Entity(InternalOnly const&);
 
@@ -154,12 +164,12 @@ class Entity : public std::enable_shared_from_this<Entity> {
   /**
    * True if the entity is in the scene, the entity is enabled, and all ancestors are also enabled.
    */
-  auto enabledInTree() const { return flags_.test(detail::FLAG_ENTITY_ENABLED_IN_TREE); }
+  auto enabledInTree() const { return flags_.test(Flags::EnabledInTree); }
 
   /**
    * True if the entity is enabled locally.
    */
-  auto enabledSelf() const { return flags_.test(detail::FLAG_ENABLED); }
+  auto enabledSelf() const { return flags_.test(Flags::Enabled); }
 
   /**
    * Name of this object
@@ -240,7 +250,8 @@ class Entity : public std::enable_shared_from_this<Entity> {
   Entity* parent_{nullptr};
   EntityHandle root_{};
   Transform transform_;
-  std::bitset<sizeof(uint32_t) * CHAR_BIT> flags_;
+  EntityFlags flags_;
+  // std::bitset<sizeof(uint32_t) * CHAR_BIT> flags_;
 
   std::vector<EntityPtr> children_;
 
@@ -251,9 +262,13 @@ class Entity : public std::enable_shared_from_this<Entity> {
   std::string name_;
 };
 
+void writeObject(IWriter& writer, std::string_view name, const Entity::EntityFlags& obj, WriteTags& tags);
+
+void readObject(IReader& reader, std::string_view name, Entity::EntityFlags& obj, ReadTags& tags);
+
 template <>
 struct SerializeFactory<Entity> {
-  static auto create() { return Entity::createEmtpy(); }
+  static auto create() { return Entity::createEmpty(); }
 };
 
 template <>

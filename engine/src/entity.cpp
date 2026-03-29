@@ -13,9 +13,9 @@ namespace wut {
 
 auto Entity::createRoot() -> EntityPtr {
   auto e = std::make_shared<Entity>(InternalOnly{});
-  e->flags_.set(detail::FLAG_ENTITY_IS_ROOT);
-  e->flags_.set(detail::FLAG_ENTITY_ENABLED_IN_TREE);
-  e->flags_.set(detail::FLAG_ENABLED);
+  e->flags_.set(Flags::IsRoot);
+  e->flags_.set(Flags::Enabled);
+  e->flags_.set(Flags::EnabledInTree);
   e->root_ = e;
   return e;
 }
@@ -24,7 +24,7 @@ auto Entity::create(std::string name, std::shared_ptr<Entity> const& parent) -> 
   auto e = std::make_shared<Entity>(InternalOnly{});
   e->name_ = std::move(name);
   // All entities are enabled by default.
-  e->flags_.set(detail::FLAG_ENABLED);
+  e->flags_.set(Flags::Enabled);
 
   if (parent) {
     e->setParent(parent);
@@ -33,8 +33,8 @@ auto Entity::create(std::string name, std::shared_ptr<Entity> const& parent) -> 
   return e;
 }
 
-auto Entity::createEmtpy() -> EntityPtr {
-  return std::make_shared<Entity>(InternalOnly{});
+auto Entity::createEmpty() -> EntityPtr {
+  return create("");
 }
 
 Entity::Entity(InternalOnly const&) {}
@@ -44,7 +44,7 @@ auto Entity::addComponent(ComponentPtr const& component) -> ComponentPtr {
   assert(component->parent_ == nullptr && "A component can only be added to one entity.");
 
   components_.push_back(component);
-  if (!flags_.test(detail::FLAG_ENTITY_IS_UPDATING)) {
+  if (!flags_.test(Flags::IsUpdating)) {
     // If we're not updating this object then we can simply update the component order and count
     std::sort(components_.begin(), components_.end(), [](auto const& lhs, auto const& rhs) {
       return lhs->updateOrder() < rhs->updateOrder();
@@ -58,7 +58,7 @@ auto Entity::addComponent(ComponentPtr const& component) -> ComponentPtr {
   component->parent_ = this;
 
   component->onAttach();
-  if (flags_.test(detail::FLAG_ENTITY_ENABLED_IN_TREE) && component->enabled()) {
+  if (flags_.test(Flags::EnabledInTree) && component->enabled()) {
     component->onEnabled();
   }
 
@@ -75,9 +75,9 @@ auto Entity::component(std::type_index type) const -> ComponentPtr {
 }
 
 void Entity::destroy() {
-  assert(!flags_.test(detail::FLAG_ENTITY_IS_ROOT) && "Cannot destroy root object");
+  assert(!flags_.test(Flags::IsRoot) && "Cannot destroy root object");
   // Mark this entity as destroyed
-  flags_.set(detail::FLAG_DESTROY);
+  flags_.set(Flags::Destroy);
 
   // Disable us and any children, firing onDisabled events if we were enabled in the tree.
   setEnabled(false);
@@ -85,11 +85,11 @@ void Entity::destroy() {
 
 void Entity::setEnabled(bool enabled) {
   // If enabled is the same or we're the root object (in which case we cannot change the enabled state), just return.
-  if (flags_.test(detail::FLAG_ENTITY_IS_ROOT) || flags_.test(detail::FLAG_ENABLED) == enabled) {
+  if (flags_.test(Flags::IsRoot) || flags_.test(Flags::Enabled) == enabled) {
     return;
   }
 
-  flags_.set(detail::FLAG_ENABLED, enabled);
+  flags_.set(Flags::Enabled, enabled);
 
   updateEnabledRecurse(enabled);
 }
@@ -97,7 +97,7 @@ void Entity::setEnabled(bool enabled) {
 void Entity::setParent(EntityPtr const& parent) {
   assert(parent_ == nullptr && "An entity can only ever have one parent.");
   assert(parent != nullptr && "Parent must not be null");
-  assert(!flags_.test(detail::FLAG_ENTITY_IS_ROOT) && "Root object cannot have a parent.");
+  assert(!flags_.test(Flags::IsRoot) && "Root object cannot have a parent.");
 
   parent_ = parent.get();
   root_ = parent->root_;
@@ -110,7 +110,7 @@ void Entity::setParent(EntityPtr const& parent) {
 }
 
 void Entity::update() {
-  flags_.set(detail::FLAG_ENTITY_IS_UPDATING);
+  flags_.set(Flags::IsUpdating);
 
   // Iterate by index since components may be added while we are iterating, when a component is added update will be
   // fired on the the frame.
@@ -119,8 +119,8 @@ void Entity::update() {
 
     if (component->enabled()) {
       // onStart should be called exactly once during the lifetime of the component.
-      if (!component->flags_.test(detail::FLAG_COMP_STARTED)) {
-        component->flags_.set(detail::FLAG_COMP_STARTED);
+      if (!component->flags_.test(Component::Flags::Started)) {
+        component->flags_.set(Component::Flags::Started);
         component->onStart();
       }
 
@@ -137,11 +137,11 @@ void Entity::update() {
     }
   }
 
-  flags_.set(detail::FLAG_ENTITY_IS_UPDATING, false);
+  flags_.set(Flags::IsUpdating, false);
 }
 
 void Entity::postUpdate() {
-  flags_.set(detail::FLAG_ENTITY_IS_UPDATING);
+  flags_.set(Flags::IsUpdating);
 
   bool needsComponentRemoval{false};
   // Iterate by index since components may be added while we are iterating, when a component is added update will be
@@ -149,7 +149,7 @@ void Entity::postUpdate() {
   for (size_t i = 0; i < components_.size(); ++i) {
     auto&& component = components_[i];
 
-    if (component->flags_.test(detail::FLAG_DESTROY)) {
+    if (component->flags_.test(Component::Flags::Destroy)) {
       needsComponentRemoval = true;
       continue;
     }
@@ -168,7 +168,7 @@ void Entity::postUpdate() {
   // Iterate by index since children may be added while we are iterating.
   for (size_t i = 0; i < children_.size(); ++i) {
     auto&& child = children_[i];
-    if (child->flags_.test(detail::FLAG_DESTROY)) {
+    if (child->flags_.test(Flags::Destroy)) {
       // found a dead child, so we need to run some cleanup.
       needsChildRemoval = true;
       continue;
@@ -187,22 +187,22 @@ void Entity::postUpdate() {
   }
 
   if (needsComponentRemoval) {
-    std::erase_if(components_, [](auto const& c) { return c->flags_.test(detail::FLAG_DESTROY); });
+    std::erase_if(components_, [](auto const& c) { return c->flags_.test(Component::Flags::Destroy); });
   }
 
   if (needsChildRemoval) {
-    std::erase_if(children_, [](auto const& c) { return c->flags_.test(detail::FLAG_DESTROY); });
+    std::erase_if(children_, [](auto const& c) { return c->flags_.test(Flags::Destroy); });
   }
 
   componentCount_ = components_.size();
-  flags_.set(detail::FLAG_ENTITY_IS_UPDATING, false);
+  flags_.set(Flags::IsUpdating, false);
 }
 
 void Entity::updateEnabledRecurse(bool newState) {
   // If we are enabled, have a parent, and the parent is enabled in the tree then we are now active in the tree and
   // onEnabled should be fired.
-  if (newState && parent_ && parent_->flags_.test(detail::FLAG_ENTITY_ENABLED_IN_TREE)) {
-    flags_.set(detail::FLAG_ENTITY_ENABLED_IN_TREE);
+  if (newState && parent_ && parent_->enabledInTree()) {
+    flags_.set(Flags::EnabledInTree);
     for (auto&& comp : components_) {
       // Fire onEnabled for all enabled components.
       if (comp->enabled()) {
@@ -213,8 +213,8 @@ void Entity::updateEnabledRecurse(bool newState) {
 
   // If we are disabled, but we were active in the tree then we are no longer enabled in the tree and onDisabled should
   // be fired.
-  if (!newState && flags_.test(detail::FLAG_ENTITY_ENABLED_IN_TREE)) {
-    flags_.set(detail::FLAG_ENTITY_ENABLED_IN_TREE, false);
+  if (!newState && flags_.test(Flags::EnabledInTree)) {
+    flags_.set(Flags::EnabledInTree, false);
     // Fire onDisabled for all enabled components.
     for (auto&& comp : components_) {
       if (comp->enabled()) {
@@ -235,7 +235,7 @@ ComponentIterator::ComponentIterator(std::shared_ptr<Entity const> entity, size_
     , index_(index) {
   // Find the next non-destroyed component if we're not already at the end of the set of components.
   auto const& components = entity_->components_;
-  while (index_ < components.size() && components[index_]->flags_.test(detail::FLAG_DESTROY)) {
+  while (index_ < components.size() && components[index_]->flags_.test(Component::Flags::Destroy)) {
     ++index_;
   }
 }
@@ -252,7 +252,7 @@ ComponentIterator& ComponentIterator::operator++() {
   ++index_;
 
   // Skip over any components that are dead.
-  while (index_ < components.size() && components[index_]->flags_.test(detail::FLAG_DESTROY)) {
+  while (index_ < components.size() && components[index_]->flags_.test(Component::Flags::Destroy)) {
     ++index_;
   }
 
@@ -264,7 +264,7 @@ EntityIterator::EntityIterator(std::shared_ptr<Entity const> entity, size_t inde
     , index_(index) {
   auto const& entities = entity_->children_;
   // Skip over any entities that are dead.
-  while (index_ < entities.size() && entities[index_]->flags_.test(detail::FLAG_DESTROY)) {
+  while (index_ < entities.size() && entities[index_]->flags_.test(Entity::Flags::Destroy)) {
     ++index_;
   }
 }
@@ -281,7 +281,7 @@ EntityIterator& EntityIterator::operator++() {
   ++index_;
 
   // Skip over any entities that are dead.
-  while (index_ < entities.size() && entities[index_]->flags_.test(detail::FLAG_DESTROY)) {
+  while (index_ < entities.size() && entities[index_]->flags_.test(Entity::Flags::Destroy)) {
     ++index_;
   }
 
@@ -294,4 +294,20 @@ void DeserializeObserver<Entity>::onDeserialized(Entity& obj) {
     obj.typeToComponents_.emplace(comp->componentType(), comp);
   }
 }
+
+void writeObject(IWriter& writer, std::string_view name, const Entity::EntityFlags& obj, WriteTags& tags) {
+  writer.beginObject(name);
+  writer.write("enabled", obj.test(Entity::Flags::Enabled));
+  writer.endObject();
+}
+
+void readObject(IReader& reader, std::string_view name, Entity::EntityFlags& obj, ReadTags& tags) {
+  reader.beginObject(name);
+  bool v;
+  reader.read("enabled", v);
+  reader.endObject();
+
+  obj.set(Entity::Flags::Enabled, v);
+}
+
 } // namespace wut

@@ -38,7 +38,7 @@ TEST_CASE("Can serialize empty entity") {
 
   auto reader = createJsonReader(writer->toBuffer());
 
-  auto gor = Entity::createEmtpy();
+  auto gor = Entity::createEmpty();
   read(*reader, *gor);
 
   REQUIRE(gor->name() == go->name());
@@ -67,7 +67,7 @@ TEST_CASE("Can serialize entity with component") {
   auto reader = createJsonReader(writer->toBuffer());
   // std::cout << writer->toBuffer() << std::endl;
 
-  auto gor = Entity::createEmtpy();
+  auto gor = Entity::createEmpty();
   read(*reader, *gor);
 
   REQUIRE(gor->children().size() == go->children().size());

@@ -6,16 +6,24 @@
 
 #pragma once
 
-#include <bitset>
 #include <functional>
 #include <typeindex>
 
+#include <wut/flags.h>
 #include <wut/fwd.h>
 #include <wut/serialization.h>
 
 namespace wut {
 class Component {
  public:
+  enum class Flags {
+    Enabled = 0,
+    Destroy = 1,
+    Started = 2,
+  };
+
+  using ComponentFlags = wut::Flags<Flags>;
+
   Component();
 
  public:
@@ -27,7 +35,7 @@ class Component {
   /**
    * True if the component is enabled.
    */
-  auto enabled() const { return flags_.test(detail::FLAG_ENABLED); }
+  auto enabled() const { return flags_.test(Flags::Enabled); }
 
   /**
    * Returns a strong reference to the parent of this component, or nullptr if the component does not have a parent.
@@ -99,7 +107,7 @@ class Component {
   virtual void deserialize(IReader& reader, ReadTags& tags) = 0;
 
   Entity* parent_{nullptr};
-  std::bitset<sizeof(uint32_t) * CHAR_BIT> flags_;
+  ComponentFlags flags_;
 };
 
 class ComponentFactories {
@@ -114,27 +122,13 @@ class ComponentFactories {
   static std::unordered_map<std::string_view, std::function<ComponentPtr()>> typeToFactory_;
 };
 
-inline void writeObject(IWriter& writer, std::string_view name, const ComponentPtr& obj, WriteTags& tags) {
-  writer.beginObject(name);
-  obj->serialize(writer, tags);
-  writer.endObject();
-}
+void writeObject(IWriter& writer, std::string_view name, const ComponentPtr& obj, WriteTags& tags);
 
-inline void readObject(IReader& reader, std::string_view name, ComponentPtr& obj, ReadTags& tags) {
-  reader.beginObject(name);
-  std::string typeName;
-  reader.read("$type", typeName);
-  obj = ComponentFactories::create(typeName);
-  if (!obj) {
-    // Failed to find a type matching the typename.
-    // TODO: Add warning/error.
-    reader.endObject();
-    return;
-  }
+void readObject(IReader& reader, std::string_view name, ComponentPtr& obj, ReadTags& tags);
 
-  obj->deserialize(reader, tags);
-  reader.endObject();
-}
+void writeObject(IWriter& writer, std::string_view name, const Component::ComponentFlags& obj, WriteTags& tags);
+
+void readObject(IReader& reader, std::string_view name, Component::ComponentFlags& obj, ReadTags& tags);
 
 template <class T>
 concept IsComponent = requires {
@@ -161,6 +155,7 @@ class ComponentT : public Component, public std::enable_shared_from_this<T> {
   void serialize(IWriter& writer, WriteTags& tags) const final {
     auto self = static_cast<T const*>(this);
     writer.write("$type", T::typeName);
+    writeObject(writer, "flags", this->flags_, tags);
     auto members = detail::getSerializeMembers<T>();
     detail::forEachTupleItem(members, [&writer, self, &tags](auto const& memberTuple) {
       auto& val = self->*std::get<1>(memberTuple);
@@ -170,6 +165,7 @@ class ComponentT : public Component, public std::enable_shared_from_this<T> {
 
   void deserialize(IReader& reader, ReadTags& tags) final {
     auto self = static_cast<T*>(this);
+    readObject(reader, "flags", this->flags_, tags);
     auto members = detail::getSerializeMembers<T>();
     detail::forEachTupleItem(members, [&reader, self, &tags](auto const& memberTuple) {
       auto& val = self->*std::get<1>(memberTuple);
