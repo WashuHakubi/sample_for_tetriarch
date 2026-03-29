@@ -43,6 +43,7 @@ TEST_CASE("Can serialize empty entity") {
 
   REQUIRE(gor->name() == go->name());
   REQUIRE(gor->children().size() == go->children().size());
+  REQUIRE(gor->enabledSelf());
 
   auto writer2 = createJsonWriter();
   write(*writer2, gor);
@@ -77,6 +78,7 @@ TEST_CASE("Can serialize entity with component") {
   REQUIRE(compr->startCount == 1);
   REQUIRE(compr->updateCount == 2);
   REQUIRE(compr->postUpdateCount == 3);
+  REQUIRE(compr->enabled());
 
   auto writer2 = createJsonWriter();
   write(*writer2, gor);
