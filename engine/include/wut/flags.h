@@ -22,21 +22,39 @@ struct Flags {
    */
   Flags(Store value) : bits_(value) {}
 
+  /**
+   * Clears the bit at `position`
+   */
   constexpr auto& clear(T position) {
-    set(position, false);
+    auto mask = 1 << to_underlying(position);
+    bits_ &= ~mask;
     return *this;
   }
 
-  constexpr auto& set(T position, bool value = true) {
+  /**
+   * Sets the bit at `position`
+   */
+  constexpr auto& set(T position) {
     auto mask = 1 << to_underlying(position);
+    bits_ |= mask;
+    return *this;
+  }
+
+  /**
+   * Sets the bit at `position` if value is true. Clears the bit at `position` if value is false.
+   */
+  constexpr auto& set(T position, bool value) {
     if (value) {
-      bits_ |= mask;
+      set(position);
     } else {
-      bits_ &= ~mask;
+      clear(position);
     }
     return *this;
   }
 
+  /**
+   * True if the bit at `position` is set.
+   */
   constexpr bool test(T position) const {
     auto mask = 1 << to_underlying(position);
     return (bits_ & mask) != 0;
@@ -44,8 +62,14 @@ struct Flags {
 
   constexpr auto value() const { return bits_; }
 
+  /**
+   * True if any bit in `other` is set in this.
+   */
   constexpr bool any(Flags const& other) const { return (bits_ & other.bits_) != 0; }
 
+  /**
+   * True if all bits in `other` are set in this.
+   */
   constexpr bool all(Flags const& other) const { return (bits_ & other.bits_) == other.bits_; }
 
   template <T... Args>
