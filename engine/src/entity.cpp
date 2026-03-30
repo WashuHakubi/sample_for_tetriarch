@@ -8,14 +8,13 @@
 #include <algorithm>
 #include <cassert>
 #include <wut/component.h>
+#include <wut/scoped.h>
 
 namespace wut {
 
 auto Entity::createRoot() -> EntityPtr {
   auto e = std::make_shared<Entity>(InternalOnly{});
-  e->flags_.set(Flags::IsRoot);
-  e->flags_.set(Flags::Enabled);
-  e->flags_.set(Flags::EnabledInTree);
+  e->flags_ |= EntityFlags{Flags::IsRoot} | Flags::Enabled | Flags::EnabledInTree;
   e->root_ = e;
   return e;
 }
@@ -110,7 +109,9 @@ void Entity::setParent(EntityPtr const& parent) {
 }
 
 void Entity::update() {
+  // Mark us as updating. This prevents certain changes, such as component count updating
   flags_.set(Flags::IsUpdating);
+  Scoped s{[this]() { flags_.clear(Flags::IsUpdating); }};
 
   // Iterate by index since components may be added while we are iterating, when a component is added update will be
   // fired on the the frame.
@@ -136,12 +137,12 @@ void Entity::update() {
       child->update();
     }
   }
-
-  flags_.set(Flags::IsUpdating, false);
 }
 
 void Entity::postUpdate() {
+  // Mark us as updating. This prevents certain changes, such as component count updating
   flags_.set(Flags::IsUpdating);
+  Scoped s{[this]() { flags_.clear(Flags::IsUpdating); }};
 
   bool needsComponentRemoval{false};
   // Iterate by index since components may be added while we are iterating, when a component is added update will be
@@ -195,7 +196,6 @@ void Entity::postUpdate() {
   }
 
   componentCount_ = components_.size();
-  flags_.set(Flags::IsUpdating, false);
 }
 
 void Entity::updateEnabledRecurse(bool newState) {
