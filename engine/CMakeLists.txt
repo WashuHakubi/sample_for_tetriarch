@@ -6,4 +6,5 @@ target_link_libraries(wut_engine PUBLIC
   ng-log::ng-log
   nlohmann_json::nlohmann_json
   SDL3::SDL3
+  bgfx::bgfx
 )
