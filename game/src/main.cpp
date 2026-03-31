@@ -50,6 +50,8 @@ int main(int argc, char** argv) {
 #if BX_PLATFORM_OSX
   init.platformData.nwh = SDL_GetPointerProperty(wndProps, SDL_PROP_WINDOW_COCOA_WINDOW_POINTER, nullptr);
 #elif BX_PLATFORM_LINUX
+  LOG(INFO) << SDL_GetCurrentVideoDriver();
+
   if (SDL_GetCurrentVideoDriver() == "x11"sv) {
     init.platformData.ndt = SDL_GetPointerProperty(wndProps, SDL_PROP_WINDOW_X11_DISPLAY_POINTER, NULL);
     init.platformData.nwh =
@@ -58,6 +60,7 @@ int main(int argc, char** argv) {
     // must be wayland
     init.platformData.ndt = SDL_GetPointerProperty(wndProps, SDL_PROP_WINDOW_WAYLAND_DISPLAY_POINTER, NULL);
     init.platformData.nwh = SDL_GetPointerProperty(wndProps, SDL_PROP_WINDOW_WAYLAND_SURFACE_POINTER, NULL);
+    init.platformData.type = bgfx::NativeWindowHandleType::Wayland;
   }
 #elif BX_PLATFORM_WINDOWS
   init.platformData.nwh = SDL_GetPointerProperty(wndProps, SDL_PROP_WINDOW_WIN32_HWND_POINTER, NULL);
