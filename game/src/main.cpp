@@ -4,6 +4,8 @@
  * All rights reserved.
  */
 
+#include <string_view>
+
 #include <wut/component.h>
 #include <wut/entity.h>
 
@@ -14,6 +16,8 @@
 #include <bx/platform.h>
 
 #include <ng-log/logging.h>
+
+using namespace std::string_view_literals;
 
 int main(int argc, char** argv) {
   FLAGS_logtostdout = true;
@@ -46,7 +50,7 @@ int main(int argc, char** argv) {
 #if BX_PLATFORM_OSX
   init.platformData.nwh = SDL_GetPointerProperty(wndProps, SDL_PROP_WINDOW_COCOA_WINDOW_POINTER, nullptr);
 #elif BX_PLATFORM_LINUX
-  if (std::string_view{SDL_GetCurrentVideoDriver()} == "x11") {
+  if (SDL_GetCurrentVideoDriver() == "x11"sv) {
     init.platformData.ndt = SDL_GetPointerProperty(wndProps, SDL_PROP_WINDOW_X11_DISPLAY_POINTER, NULL);
     init.platformData.nwh =
         reinterpret_cast<void*>(SDL_GetNumberProperty(wndProps, SDL_PROP_WINDOW_X11_WINDOW_NUMBER, 0));
@@ -85,6 +89,11 @@ int main(int argc, char** argv) {
     bgfx::renderFrame();
   }
 
+  // destroy the entity tree before we shutdown BGFX and friends.
+  root = nullptr;
+
+  // Shutdown in the reverse order we created things.
+  bgfx::shutdown();
   SDL_DestroyWindow(window);
   SDL_Quit();
 }
