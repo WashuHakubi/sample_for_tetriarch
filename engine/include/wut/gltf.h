@@ -42,7 +42,7 @@ enum class AccessorType {
 
 void readObject(IReader& reader, std::string_view name, AccessorType& obj, ReadTags& tags);
 
-using MinMaxVar = std::variant<std::array<int, 16>, std::array<float, 16>>;
+using MinMaxVar = std::array<float, 16>;
 
 struct Accessor {
   struct Sparse {
@@ -79,9 +79,13 @@ struct Accessor {
         std::make_tuple("componentType", &Accessor::componentType),
         std::make_tuple("normalized", &Accessor::normalized, DefaultValue<bool>{false}),
         std::make_tuple("count", &Accessor::count),
-        std::make_tuple("type", &Accessor::type));
+        std::make_tuple("type", &Accessor::type),
+        std::make_tuple("max", &Accessor::max),
+        std::make_tuple("min", &Accessor::min));
   }
 };
+
+void readObject(IReader& reader, std::string_view name, MinMaxVar& obj, ReadTags& tags);
 
 struct Asset {
   struct Version {

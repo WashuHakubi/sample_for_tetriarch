@@ -31,6 +31,16 @@ void readObject(IReader& reader, std::string_view name, AccessorType& obj, ReadT
   obj = nameToAccessor.at(val);
 }
 
+void readObject(IReader& reader, std::string_view name, MinMaxVar& obj, ReadTags& tags) {
+  size_t count;
+  reader.beginArray(name, count);
+  assert(count <= obj.size());
+  for (size_t i = 0; i < count; ++i) {
+    float f;
+    obj[i] = (reader.read("", f), f);
+  }
+  reader.endArray();
+}
 void readObject(IReader& reader, std::string_view name, Asset::Version& obj, ReadTags& tags) {
   std::string versionStr;
   reader.read(name, versionStr);
