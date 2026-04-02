@@ -6,6 +6,7 @@
 
 #include <wut/component.h>
 
+#include <ng-log/logging.h>
 #include <wut/entity.h>
 
 namespace wut {
@@ -75,7 +76,7 @@ void readObject(IReader& reader, std::string_view name, ComponentPtr& obj, ReadT
   obj = ComponentFactories::create(typeName);
   if (!obj) {
     // Failed to find a type matching the typename.
-    // TODO: Add warning/error.
+    LOG(ERROR) << "Failed to create component with type name: " << typeName;
     reader.endObject();
     return;
   }
