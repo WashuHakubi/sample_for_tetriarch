@@ -138,6 +138,7 @@ struct isSharedPtr<std::shared_ptr<T>> : std::true_type {};
 template <class T>
 struct isArray : std::false_type {};
 
+// Specialization of isArray for std::vector<T, A>
 template <class T, class A>
 struct isArray<std::vector<T, A>> : std::true_type {
   static constexpr bool canResize = true;
@@ -150,6 +151,7 @@ struct isArray<std::vector<T, A>> : std::true_type {
   }
 };
 
+// Specialization of isArray for std::array<T, N>
 template <class T, size_t N>
 struct isArray<std::array<T, N>> : std::true_type {
   static constexpr bool canResize = false;
@@ -167,7 +169,14 @@ concept hasSerializeMembersMethod = requires {
   { T::serializeMembers() };
 };
 
+/**
+ * True if a type has a static serializeMembers() method, or if SerializeMembers<T> has been specialized.
+ */
 template <class T>
+concept IsSerializableClass =
+    std::is_class_v<T> && (detail::hasSerializeMembersMethod<T> || SerializeMembers<T>::value);
+
+template <IsSerializableClass T>
 auto getSerializeMembers() {
   if constexpr (hasSerializeMembersMethod<T>) {
     return T::serializeMembers();
@@ -189,10 +198,9 @@ auto forEachTupleItem(T const& t, Fn&& fn) {
   }
 }
 
-template <class T>
-concept IsSerializableClass =
-    std::is_class_v<T> && (detail::hasSerializeMembersMethod<T> || SerializeMembers<T>::value);
-
+/**
+ * Checks if a tuple contains a type.
+ */
 template <typename T, typename Tuple>
 struct HasType;
 
@@ -205,6 +213,9 @@ struct HasType<T, std::tuple<U, Ts...>> : HasType<T, std::tuple<Ts...>> {};
 template <typename T, typename... Ts>
 struct HasType<T, std::tuple<T, Ts...>> : std::true_type {};
 
+/**
+ * Checks if the passed tuple contains a DefaultValue<T>
+ */
 template <class T, class... TArgs>
 constexpr bool hasDefaultValue(std::tuple<TArgs...> const& tuple) {
   return HasType<DefaultValue<T>, std::tuple<TArgs...>>::value;
@@ -249,21 +260,34 @@ std::string name_of() {
 using WriteTags = std::unordered_map<std::shared_ptr<void>, int>;
 using ReadTags = std::unordered_map<int, std::shared_ptr<void>>;
 
+/**
+ * Reader declaration. This can be overriden to perform specific deserialization of types.
+ */
 template <class T>
 void readObject(IReader& reader, std::string_view name, T& obj, ReadTags& tags);
 
+/**
+ * Utility method to make an reading object a bit easier.
+ */
 template <class T>
 void read(IReader& reader, T& obj) {
   ReadTags tags;
   return readObject(reader, "", obj, tags);
 }
 
+/**
+ * Supports reading fundmanetal and string types.
+ */
 template <class T>
   requires((std::is_fundamental_v<T> || std::is_same_v<std::string, T>))
 void readObject(IReader& reader, std::string_view name, T& obj, ReadTags& tags) {
   return reader.read(name, obj);
 }
 
+/**
+ * Supports reading shared pointer types. If the pointer is null it will initialize obj to a null. If the pointer has
+ * already been read then it will read the tag pointing to the object and initialize the pointer to that value.
+ */
 template <class T>
   requires(detail::isSharedPtr<T>::value)
 void readObject(IReader& reader, std::string_view name, T& obj, ReadTags& tags) {
@@ -285,6 +309,9 @@ void readObject(IReader& reader, std::string_view name, T& obj, ReadTags& tags) 
   readObject(reader, name, *obj, tags);
 }
 
+/**
+ * Supports reading types that have an isArray specialization.
+ */
 template <class T>
   requires(detail::isArray<T>::value)
 void readObject(IReader& reader, std::string_view name, T& obj, ReadTags& tags) {
@@ -300,6 +327,9 @@ void readObject(IReader& reader, std::string_view name, T& obj, ReadTags& tags) 
   reader.endArray();
 }
 
+/**
+ * Supports reading types that have a static serializeMembers() method, or SerializeMembers<T> specialization
+ */
 template <class T>
   requires(detail::IsSerializableClass<T>)
 void readObject(IReader& reader, std::string_view name, T& obj, ReadTags& tags) {
@@ -322,6 +352,10 @@ void readObject(IReader& reader, std::string_view name, T& obj, ReadTags& tags) 
   DeserializeObserver<T>::onDeserialized(obj);
 }
 
+/**
+ * Supports reading an optional value. If name exists in the reader then the value will be read. Otherwise the optional
+ * is left at the default value it was constructed with.
+ */
 template <class T>
 void readObject(IReader& reader, std::string_view name, std::optional<T>& obj, ReadTags& tags) {
   if (reader.has(name)) {
@@ -330,21 +364,34 @@ void readObject(IReader& reader, std::string_view name, std::optional<T>& obj, R
   }
 }
 
+/**
+ * Writer declaration. This can be overriden to specialize serialization of types.
+ */
 template <class T>
 void writeObject(IWriter& writer, std::string_view name, T const& obj, WriteTags& tags);
 
+/**
+ * Utility method to make writing an object a bit easier.
+ */
 template <class T>
 void write(IWriter& writer, T const& obj) {
   WriteTags tags;
   return writeObject(writer, "", obj, tags);
 }
 
+/**
+ * Supports writing out fundmanetal and string types that are convertible to a string_view.
+ */
 template <class T>
-  requires((std::is_fundamental_v<T> || std::is_same_v<std::string, T>))
+  requires((std::is_fundamental_v<T> || std::is_convertible_v<T, std::string_view>))
 void writeObject(IWriter& writer, std::string_view name, T const& obj, WriteTags& tags) {
   return writer.write(name, obj);
 }
 
+/**
+ * Supports writing shared pointer types. If the pointer is null it will write a null. If the pointer has already been
+ * written then a tag pointing to the written object is written instead.
+ */
 template <class T>
   requires(detail::isSharedPtr<T>::value)
 void writeObject(IWriter& writer, std::string_view name, T const& obj, WriteTags& tags) {
@@ -362,6 +409,9 @@ void writeObject(IWriter& writer, std::string_view name, T const& obj, WriteTags
   return writeObject(writer, name, *obj, tags);
 }
 
+/**
+ * Supports writing types that have an isArray specialization.
+ */
 template <class T>
   requires(detail::isArray<T>::value)
 void writeObject(IWriter& writer, std::string_view name, T const& obj, WriteTags& tags) {
@@ -372,6 +422,9 @@ void writeObject(IWriter& writer, std::string_view name, T const& obj, WriteTags
   writer.endArray();
 }
 
+/**
+ * Supports writing types that have a static serializeMembers() method, or SerializeMembers<T> specialization.
+ */
 template <class T>
   requires(detail::IsSerializableClass<T>)
 void writeObject(IWriter& writer, std::string_view name, T const& obj, WriteTags& tags) {
@@ -382,6 +435,16 @@ void writeObject(IWriter& writer, std::string_view name, T const& obj, WriteTags
     writeObject(writer, std::get<0>(memberTuple), val, tags);
   });
   writer.endObject();
+}
+
+/**
+ * Supports writing optional fields. The field will not be written if it does not have a value.
+ */
+template <class T>
+void writeObject(IWriter& writer, std::string_view name, std::optional<T> const& obj, WriteTags& tags) {
+  if (obj.has_value()) {
+    writeObject(writer, name, obj.value(), tags);
+  }
 }
 
 template <>
