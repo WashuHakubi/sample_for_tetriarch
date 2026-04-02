@@ -19,6 +19,7 @@
 
 namespace wut::gltf {
 enum class ComponentType {
+  Unknown = 0,
   Byte = 5120,
   UnsignedByte = 5121,
   Short = 5122,
@@ -26,6 +27,8 @@ enum class ComponentType {
   UnsignedInt = 5125,
   Float = 5126,
 };
+
+void readObject(IReader& reader, std::string_view name, ComponentType& obj, ReadTags& tags);
 
 enum class AccessorType {
   Scalar,
@@ -35,8 +38,9 @@ enum class AccessorType {
   Mat2,
   Mat3,
   Mat4,
-  String,
 };
+
+void readObject(IReader& reader, std::string_view name, AccessorType& obj, ReadTags& tags);
 
 using MinMaxVar = std::variant<std::array<int, 16>, std::array<float, 16>>;
 
@@ -66,7 +70,17 @@ struct Accessor {
   AccessorType type;
   MinMaxVar max;
   MinMaxVar min;
-  Sparse sparse;
+  std::optional<Sparse> sparse;
+
+  static auto serializeMembers() {
+    return std::make_tuple(
+        std::make_tuple("bufferView", &Accessor::bufferView, DefaultValue<uint32_t>{INT_MAX}),
+        std::make_tuple("byteOffset", &Accessor::byteOffset, DefaultValue<uint32_t>{0}),
+        std::make_tuple("componentType", &Accessor::componentType),
+        std::make_tuple("normalized", &Accessor::normalized, DefaultValue<bool>{false}),
+        std::make_tuple("count", &Accessor::count),
+        std::make_tuple("type", &Accessor::type));
+  }
 };
 
 struct Asset {
@@ -132,6 +146,7 @@ struct GLTF {
 
   static auto serializeMembers() {
     return std::make_tuple(
+        std::make_tuple("accessors", &GLTF::accessors),
         std::make_tuple("asset", &GLTF::asset),
         std::make_tuple("buffers", &GLTF::buffers),
         std::make_tuple("bufferViews", &GLTF::bufferViews));

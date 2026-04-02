@@ -10,36 +10,26 @@
 #include <nlohmann/json.hpp>
 
 namespace wut::gltf {
-namespace {
-void loadAccessor(Accessor& accessor, nlohmann::json& jo) {
-  accessor.bufferView = jo.contains("bufferView") ? jo["bufferView"].get<uint32_t>() : 0;
-  accessor.byteOffset = jo.contains("byteOffset") ? jo["byteOffset"].get<uint32_t>() : 0;
-  accessor.componentType = static_cast<ComponentType>(jo["componentType"].get<uint32_t>());
-  accessor.normalized = jo.contains("normalized") ? jo["normalized"].get<bool>() : false;
-  accessor.count = jo["count"];
-
-  if (jo.contains("sparse")) {
-    auto& joSparse = jo["sparse"];
-    auto& sparse = accessor.sparse;
-    sparse.count = joSparse["count"];
-
-    for (auto&& joIndices : joSparse["indices"]) {
-      sparse.indices.push_back({});
-      auto& index = sparse.indices.back();
-      index.bufferView = joIndices["bufferView"];
-      index.byteOffset = joIndices.contains("byteOffset") ? joIndices["byteOffset"].get<uint32_t>() : 0u;
-      index.componentType = static_cast<ComponentType>(jo["componentType"].get<uint32_t>());
-    }
-
-    for (auto&& joValues : joSparse["values"]) {
-      sparse.values.push_back({});
-      auto& value = sparse.values.back();
-      value.bufferView = joValues["bufferView"];
-      value.byteOffset = joValues.contains("byteOffset") ? joValues["byteOffset"].get<uint32_t>() : 0u;
-    }
-  }
+void readObject(IReader& reader, std::string_view name, ComponentType& obj, ReadTags& tags) {
+  int val;
+  reader.read(name, val);
+  obj = static_cast<ComponentType>(val);
 }
-} // namespace
+void readObject(IReader& reader, std::string_view name, AccessorType& obj, ReadTags& tags) {
+  static std::unordered_map<std::string, AccessorType> nameToAccessor = {
+      {"SCALAR", AccessorType::Scalar},
+      {"VEC2", AccessorType::Vec2},
+      {"VEC3", AccessorType::Vec3},
+      {"VEC4", AccessorType::Vec4},
+      {"MAT2", AccessorType::Mat2},
+      {"MAT3", AccessorType::Mat3},
+      {"MAT4", AccessorType::Mat4},
+  };
+
+  std::string val;
+  reader.read(name, val);
+  obj = nameToAccessor.at(val);
+}
 
 void readObject(IReader& reader, std::string_view name, Asset::Version& obj, ReadTags& tags) {
   std::string versionStr;
@@ -55,6 +45,7 @@ void readObject(IReader& reader, std::string_view name, BufferView::TargetType& 
   reader.read(name, val);
   obj = static_cast<BufferView::TargetType>(val);
 }
+
 std::shared_ptr<GLTF> load(std::string_view jsonStr) {
   // auto json = nlohmann::json::parse(jsonStr);
   auto result = std::make_shared<GLTF>();

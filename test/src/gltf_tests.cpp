@@ -117,4 +117,23 @@ TEST_CASE("Can load GLTF json") {
   REQUIRE(result->bufferViews[1].byteLength == 72);
   REQUIRE(result->bufferViews[1].byteStride == 12);
   REQUIRE(result->bufferViews[1].target == BufferView::TargetType::ArrayBuffer);
+
+  REQUIRE(result->accessors.size() == 3);
+  REQUIRE(result->accessors[0].bufferView == 0);
+  REQUIRE(result->accessors[0].byteOffset == 0);
+  REQUIRE(result->accessors[0].componentType == ComponentType::UnsignedShort);
+  REQUIRE(result->accessors[0].count == 3);
+  REQUIRE(result->accessors[0].type == AccessorType::Scalar);
+
+  REQUIRE(result->accessors[1].bufferView == 1);
+  REQUIRE(result->accessors[1].byteOffset == 0);
+  REQUIRE(result->accessors[1].componentType == ComponentType::Float);
+  REQUIRE(result->accessors[1].count == 3);
+  REQUIRE(result->accessors[1].type == AccessorType::Vec3);
+
+  REQUIRE(result->accessors[2].bufferView == 1);
+  REQUIRE(result->accessors[2].byteOffset == 36);
+  REQUIRE(result->accessors[2].componentType == ComponentType::Float);
+  REQUIRE(result->accessors[2].count == 3);
+  REQUIRE(result->accessors[2].type == AccessorType::Vec3);
 }
