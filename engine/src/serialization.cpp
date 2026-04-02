@@ -118,7 +118,18 @@ std::shared_ptr<IWriter> createJsonWriter() {
 }
 
 struct JsonReader final : IReader {
-  JsonReader(std::string const& data) { root_ = nlohmann::json::parse(data); }
+  JsonReader(std::string_view data) { root_ = nlohmann::json::parse(data); }
+
+  bool has(std::string_view name) override {
+    assert(root_.is_object());
+    if (nested_.empty()) {
+      return root_.contains(name);
+    }
+
+    // must be an object.
+    assert(std::get<1>(nested_.top()));
+    return std::get<0>(nested_.top())->contains(name);
+  }
 
   bool readHandle(std::string_view name, int& tag) override {
     if (nested_.empty()) {
@@ -255,7 +266,7 @@ struct JsonReader final : IReader {
   std::stack<std::tuple<nlohmann::json*, bool, size_t>> nested_;
 };
 
-std::shared_ptr<IReader> createJsonReader(std::string const& data) {
+std::shared_ptr<IReader> createJsonReader(std::string_view data) {
   return std::make_shared<JsonReader>(data);
 }
 } // namespace wut

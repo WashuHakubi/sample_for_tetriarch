@@ -101,7 +101,7 @@ struct Flags {
  private:
   constexpr auto to_underlying(T val) const { return static_cast<std::underlying_type_t<T>>(val); }
 
-  Store bits_;
+  Store bits_{0};
 };
 
 template <class T, class Store>

@@ -10,6 +10,7 @@
 #include <cassert>
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <tuple>
@@ -60,6 +61,8 @@ std::shared_ptr<IWriter> createJsonWriter();
 struct IReader {
   virtual ~IReader() = default;
 
+  virtual bool has(std::string_view name) = 0;
+
   virtual bool readHandle(std::string_view name, int& tag) = 0;
   virtual void beginObject(std::string_view name) = 0;
   virtual void endObject() = 0;
@@ -87,7 +90,7 @@ struct IReader {
   virtual bool read(std::string_view name, std::nullptr_t) = 0;
 };
 
-std::shared_ptr<IReader> createJsonReader(std::string const& data);
+std::shared_ptr<IReader> createJsonReader(std::string_view data);
 
 /**
  * Specialize this class, deriving from std::true_type and implementing a static serializeMembers method to return the
@@ -119,6 +122,11 @@ void readSpecialized(
     std::string_view name,
     T& obj,
     std::unordered_map<int, std::shared_ptr<void>>& tagMap);
+
+template <class T>
+struct DefaultValue {
+  T value;
+};
 
 namespace detail {
 template <class T>
@@ -184,6 +192,23 @@ auto forEachTupleItem(T const& t, Fn&& fn) {
 template <class T>
 concept IsSerializableClass =
     std::is_class_v<T> && (detail::hasSerializeMembersMethod<T> || SerializeMembers<T>::value);
+
+template <typename T, typename Tuple>
+struct HasType;
+
+template <typename T>
+struct HasType<T, std::tuple<>> : std::false_type {};
+
+template <typename T, typename U, typename... Ts>
+struct HasType<T, std::tuple<U, Ts...>> : HasType<T, std::tuple<Ts...>> {};
+
+template <typename T, typename... Ts>
+struct HasType<T, std::tuple<T, Ts...>> : std::true_type {};
+
+template <class T, class... TArgs>
+constexpr bool hasDefaultValue(std::tuple<TArgs...> const& tuple) {
+  return HasType<DefaultValue<T>, std::tuple<TArgs...>>::value;
+}
 
 template <class T>
 std::string name_of() {
@@ -282,11 +307,27 @@ void readObject(IReader& reader, std::string_view name, T& obj, ReadTags& tags) 
   auto members = detail::getSerializeMembers<T>();
   detail::forEachTupleItem(members, [&reader, &obj, &tags](auto const& memberTuple) {
     auto& val = obj.*std::get<1>(memberTuple);
+    using ValType = std::decay_t<decltype(val)>;
+
+    if constexpr (detail::hasDefaultValue<ValType>(memberTuple)) {
+      if (!reader.has(std::get<0>(memberTuple))) {
+        val = std::get<DefaultValue<ValType>>(memberTuple).value;
+        return;
+      }
+    }
     readObject(reader, std::get<0>(memberTuple), val, tags);
   });
   reader.endObject();
 
   DeserializeObserver<T>::onDeserialized(obj);
+}
+
+template <class T>
+void readObject(IReader& reader, std::string_view name, std::optional<T>& obj, ReadTags& tags) {
+  if (reader.has(name)) {
+    obj = T{};
+    readObject(reader, name, obj.value(), tags);
+  }
 }
 
 template <class T>

@@ -1,0 +1,120 @@
+/*
+ * ------
+ * Copyright (c) 2026 Sean Kent
+ * All rights reserved.
+ */
+
+#include <catch2/catch_all.hpp>
+
+#include <wut/gltf.h>
+
+using namespace wut::gltf;
+
+TEST_CASE("Can load GLTF json") {
+  std::string data = R"({
+  "scene" : 0,
+  "scenes" : [
+    {
+      "nodes" : [ 0, 1]
+    }
+  ],
+  "nodes" : [
+    {
+      "mesh" : 0
+    },
+    {
+      "mesh" : 0,
+      "translation" : [ 1.0, 0.0, 0.0 ]
+    }
+  ],
+  
+  "meshes" : [
+    {
+      "primitives" : [ {
+        "attributes" : {
+          "POSITION" : 1,
+          "NORMAL" : 2
+        },
+        "indices" : 0
+      } ]
+    }
+  ],
+
+  "buffers" : [
+    {
+      "uri" : "SimpleMeshes.bin",
+      "byteLength" : 80
+    }
+  ],
+  "bufferViews" : [
+    {
+      "buffer" : 0,
+      "byteOffset" : 0,
+      "byteLength" : 6,
+      "target" : 34963
+    },
+    {
+      "buffer" : 0,
+      "byteOffset" : 8,
+      "byteLength" : 72,
+      "byteStride" : 12,
+      "target" : 34962
+    }
+  ],
+  "accessors" : [
+    {
+      "bufferView" : 0,
+      "byteOffset" : 0,
+      "componentType" : 5123,
+      "count" : 3,
+      "type" : "SCALAR",
+      "max" : [ 2 ],
+      "min" : [ 0 ]
+    },
+    {
+      "bufferView" : 1,
+      "byteOffset" : 0,
+      "componentType" : 5126,
+      "count" : 3,
+      "type" : "VEC3",
+      "max" : [ 1.0, 1.0, 0.0 ],
+      "min" : [ 0.0, 0.0, 0.0 ]
+    },
+    {
+      "bufferView" : 1,
+      "byteOffset" : 36,
+      "componentType" : 5126,
+      "count" : 3,
+      "type" : "VEC3",
+      "max" : [ 0.0, 0.0, 1.0 ],
+      "min" : [ 0.0, 0.0, 1.0 ]
+    }
+  ],
+  
+  "asset" : {
+    "version" : "2.0"
+  }
+})";
+
+  auto result = load(data);
+
+  REQUIRE(result->asset.version.major == 2);
+  REQUIRE(result->asset.version.minor == 0);
+
+  REQUIRE(result->buffers.size() == 1);
+  REQUIRE(result->buffers[0].uri == "SimpleMeshes.bin");
+  REQUIRE(result->buffers[0].byteLength == 80);
+
+  REQUIRE(result->bufferViews.size() == 2);
+  REQUIRE(result->bufferViews[0].buffer == 0);
+  REQUIRE(result->bufferViews[0].byteOffset == 0);
+  REQUIRE(result->bufferViews[0].byteLength == 6);
+  REQUIRE(result->bufferViews[0].byteStride == 0);
+  REQUIRE(result->bufferViews[0].target == BufferView::TargetType::ElementArrayBuffer);
+
+  REQUIRE(result->bufferViews[1].buffer == 0);
+  REQUIRE(result->bufferViews[1].byteOffset == 8);
+  REQUIRE(result->bufferViews[1].byteLength == 72);
+  REQUIRE(result->bufferViews[1].byteStride == 12);
+  REQUIRE(result->bufferViews[1].target == BufferView::TargetType::ArrayBuffer);
+}
