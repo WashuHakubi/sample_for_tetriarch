@@ -15,6 +15,7 @@ void readObject(IReader& reader, std::string_view name, ComponentType& obj, Read
   reader.read(name, val);
   obj = static_cast<ComponentType>(val);
 }
+
 void readObject(IReader& reader, std::string_view name, AccessorType& obj, ReadTags& tags) {
   static std::unordered_map<std::string, AccessorType> nameToAccessor = {
       {"SCALAR", AccessorType::Scalar},
@@ -41,6 +42,7 @@ void readObject(IReader& reader, std::string_view name, MinMaxVar& obj, ReadTags
   }
   reader.endArray();
 }
+
 void readObject(IReader& reader, std::string_view name, Asset::Version& obj, ReadTags& tags) {
   std::string versionStr;
   reader.read(name, versionStr);
@@ -54,6 +56,16 @@ void readObject(IReader& reader, std::string_view name, BufferView::TargetType& 
   int val;
   reader.read(name, val);
   obj = static_cast<BufferView::TargetType>(val);
+}
+
+void readObject(IReader& reader, std::string_view name, Camera::Type& obj, ReadTags& tags) {
+  static std::unordered_map<std::string, Camera::Type> nameToValue = {
+      {"orthographic", Camera::Type::Orthographic},
+      {"perspective", Camera::Type::Perspective},
+  };
+  std::string val;
+  reader.read(name, val);
+  obj = nameToValue.at(val);
 }
 
 std::shared_ptr<GLTF> load(std::string_view jsonStr) {

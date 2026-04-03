@@ -16,6 +16,8 @@
 
 #include <wut/serialization.h>
 
+using namespace std::string_view_literals;
+
 namespace wut::gltf {
 enum class ComponentType {
   Unknown = 0,
@@ -49,16 +51,43 @@ struct Accessor {
       uint32_t bufferView;
       uint32_t byteOffset;
       ComponentType componentType;
+
+      static auto serializeMembers() {
+        using Type = Indices;
+        return std::tuple{
+            SERIALIZE_MEMBER(bufferView),
+            SERIALIZE_MEMBER(byteOffset),
+            SERIALIZE_MEMBER(componentType),
+        };
+      }
     };
 
     struct Values {
       uint32_t bufferView;
       uint32_t byteOffset;
+
+      static auto serializeMembers() {
+        using Type = Values;
+
+        return std::tuple{
+            SERIALIZE_MEMBER(bufferView),
+            SERIALIZE_MEMBER(byteOffset),
+        };
+      }
     };
 
     uint32_t count;
     std::vector<Indices> indices;
     std::vector<Values> values;
+
+    static auto serializeMembers() {
+      using Type = Sparse;
+      return std::tuple{
+          SERIALIZE_MEMBER(count),
+          SERIALIZE_MEMBER(indices),
+          SERIALIZE_MEMBER(values),
+      };
+    }
   };
 
   uint32_t bufferView{0};
@@ -72,15 +101,18 @@ struct Accessor {
   std::optional<Sparse> sparse;
 
   static auto serializeMembers() {
-    return std::make_tuple(
-        std::make_tuple("bufferView", &Accessor::bufferView, DefaultValue<uint32_t>{INT_MAX}),
-        std::make_tuple("byteOffset", &Accessor::byteOffset, DefaultValue<uint32_t>{0}),
-        std::make_tuple("componentType", &Accessor::componentType),
-        std::make_tuple("normalized", &Accessor::normalized, DefaultValue<bool>{false}),
-        std::make_tuple("count", &Accessor::count),
-        std::make_tuple("type", &Accessor::type),
-        std::make_tuple("max", &Accessor::max),
-        std::make_tuple("min", &Accessor::min));
+    using Type = Accessor;
+    return std::tuple{
+        SERIALIZE_MEMBER(bufferView, DefaultValue<uint32_t>{INT_MAX}),
+        SERIALIZE_MEMBER(byteOffset, DefaultValue<uint32_t>{0}),
+        SERIALIZE_MEMBER(componentType),
+        SERIALIZE_MEMBER(normalized, DefaultValue<bool>{false}),
+        SERIALIZE_MEMBER(count),
+        SERIALIZE_MEMBER(type),
+        SERIALIZE_MEMBER(max),
+        SERIALIZE_MEMBER(min),
+        SERIALIZE_MEMBER(sparse),
+    };
   }
 };
 
@@ -98,10 +130,12 @@ struct Asset {
   std::optional<std::string> copyright;
 
   static auto serializeMembers() {
-    return std::make_tuple(
-        std::make_tuple("version", &Asset::version),
-        std::make_tuple("generator", &Asset::generator),
-        std::make_tuple("copyright", &Asset::copyright));
+    using Type = Asset;
+    return std::tuple{
+        SERIALIZE_MEMBER(version),
+        SERIALIZE_MEMBER(generator),
+        SERIALIZE_MEMBER(copyright),
+    };
   }
 };
 
@@ -112,7 +146,11 @@ struct Buffer {
   uint32_t byteLength;
 
   static auto serializeMembers() {
-    return std::make_tuple(std::make_tuple("uri", &Buffer::uri), std::make_tuple("byteLength", &Buffer::byteLength));
+    using Type = Buffer;
+    return std::tuple{
+        SERIALIZE_MEMBER(uri),
+        SERIALIZE_MEMBER(byteLength),
+    };
   }
 };
 
@@ -130,27 +168,136 @@ struct BufferView {
   TargetType target{TargetType::Unknown};
 
   static auto serializeMembers() {
-    return std::make_tuple(
-        std::make_tuple("buffer", &BufferView::buffer),
-        std::make_tuple("byteLength", &BufferView::byteLength),
-        std::make_tuple("byteOffset", &BufferView::byteOffset, DefaultValue<uint32_t>{0}),
-        std::make_tuple("byteStride", &BufferView::byteStride, DefaultValue<uint32_t>{0}),
-        std::make_tuple("target", &BufferView::target, DefaultValue<TargetType>{TargetType::Unknown}));
+    using Type = BufferView;
+
+    return std::tuple{
+        SERIALIZE_MEMBER(buffer),
+        SERIALIZE_MEMBER(byteLength),
+        SERIALIZE_MEMBER(byteOffset, DefaultValue<uint32_t>{0}),
+        SERIALIZE_MEMBER(byteStride, DefaultValue<uint32_t>{0}),
+        SERIALIZE_MEMBER(target, DefaultValue<TargetType>{TargetType::Unknown}),
+    };
   }
 };
 
 void readObject(IReader& reader, std::string_view name, BufferView::TargetType& obj, ReadTags& tags);
 
-struct Material {};
+struct Camera {
+  enum class Type {
+    Orthographic,
+    Perspective,
+  };
 
-struct Mesh {};
+  struct Orthographic {
+    float xMag;
+    float yMag;
+    float zFar;
+    float zNear;
 
-struct Node {};
+    static auto serializeMembers() {
+      using Type = Orthographic;
+      return std::tuple{
+          SERIALIZE_MEMBER(xMag),
+          SERIALIZE_MEMBER(yMag),
+          SERIALIZE_MEMBER(zFar),
+          SERIALIZE_MEMBER(zNear),
+      };
+    }
+  };
+
+  struct Perspective {
+    float aspectRatio;
+    float yFov;
+    float zFar;
+    float zNear;
+
+    static auto serializeMembers() {
+      using Type = Perspective;
+      return std::tuple{
+          SERIALIZE_MEMBER(aspectRatio),
+          SERIALIZE_MEMBER(yFov),
+          SERIALIZE_MEMBER(zFar),
+          SERIALIZE_MEMBER(zNear),
+      };
+    }
+  };
+
+  std::optional<Orthographic> orthographic;
+  std::optional<Perspective> perspective;
+  Type type;
+
+  static auto serializeMembers() {
+    using Type = Camera;
+    return std::tuple{
+        SERIALIZE_MEMBER(orthographic),
+        SERIALIZE_MEMBER(perspective),
+        SERIALIZE_MEMBER(type),
+    };
+  }
+};
+
+void readObject(IReader& reader, std::string_view name, Camera::Type& obj, ReadTags& tags);
+
+// TODO:
+struct Image {};
+
+// TODO:
+struct Material {
+  struct NormalTextureInfo {};
+  struct OcclusionTextureInfo {};
+  struct PBRMetallicRoughness {};
+};
+
+// TODO:
+struct Mesh {
+  struct Primitive {};
+};
+
+struct Node {
+  std::optional<uint32_t> camera;
+  std::optional<std::vector<uint32_t>> children;
+
+  glm::mat4 matrix;
+
+  std::optional<uint32_t> mesh;
+
+  glm::quat rotation = {0, 0, 0, 1};
+
+  glm::vec3 scale = {1, 1, 1};
+
+  glm::vec3 translation = {0, 0, 0};
+
+  static auto serializeMembers() {
+    using Type = Node;
+    return std::tuple{
+        SERIALIZE_MEMBER(camera),
+        SERIALIZE_MEMBER(children),
+        SERIALIZE_MEMBER(matrix, DefaultValue<glm::mat4>{glm::identity<glm::mat4>()}),
+        SERIALIZE_MEMBER(mesh),
+        SERIALIZE_MEMBER(rotation, DefaultValue<glm::quat>{{0, 0, 0, 1}}),
+        SERIALIZE_MEMBER(scale, DefaultValue<glm::vec3>{{1, 1, 1}}),
+        SERIALIZE_MEMBER(translation, DefaultValue<glm::vec3>{{0, 0, 0}}),
+    };
+  }
+};
+
+// TODO:
+struct Sampler {};
 
 struct Scene {
   std::vector<uint32_t> nodes;
 
-  static auto serializeMembers() { return std::make_tuple(std::make_tuple("nodes", &Scene::nodes)); }
+  static auto serializeMembers() {
+    using Type = Scene;
+    // Need to use make_tuple here because we have 1 member that is a tuple. Otherwise it will attempt to return copy of
+    // the member tuple.
+    return std::make_tuple(SERIALIZE_MEMBER(nodes));
+  }
+};
+
+// TODO:
+struct Texture {
+  struct Info {};
 };
 
 struct GLTF {
@@ -158,17 +305,23 @@ struct GLTF {
   Asset asset;
   std::vector<Buffer> buffers;
   std::vector<BufferView> bufferViews;
+  std::optional<std::vector<Camera>> cameras;
+  std::optional<std::vector<Node>> nodes;
   std::optional<uint32_t> scene;
-  std::optional<Scene> scenes;
+  std::optional<std::vector<Scene>> scenes;
 
   static auto serializeMembers() {
-    return std::make_tuple(
-        std::make_tuple("accessors", &GLTF::accessors),
-        std::make_tuple("asset", &GLTF::asset),
-        std::make_tuple("buffers", &GLTF::buffers),
-        std::make_tuple("bufferViews", &GLTF::bufferViews),
-        std::make_tuple("scene", &GLTF::scene),
-        std::make_tuple("scenes", &GLTF::scenes));
+    using Type = GLTF;
+    return std::tuple{
+        SERIALIZE_MEMBER(accessors),
+        SERIALIZE_MEMBER(asset),
+        SERIALIZE_MEMBER(buffers),
+        SERIALIZE_MEMBER(bufferViews),
+        SERIALIZE_MEMBER(cameras),
+        SERIALIZE_MEMBER(nodes),
+        SERIALIZE_MEMBER(scene),
+        SERIALIZE_MEMBER(scenes),
+    };
   }
 };
 

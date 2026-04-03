@@ -269,4 +269,106 @@ struct JsonReader final : IReader {
 std::shared_ptr<IReader> createJsonReader(std::string_view data) {
   return std::make_shared<JsonReader>(data);
 }
+
+void readObject(IReader& reader, std::string_view name, glm::vec2& obj, ReadTags& tags) {
+  size_t count;
+  reader.beginArray(name, count);
+  assert(count == 2);
+
+  reader.read("", obj.x);
+  reader.read("", obj.y);
+  reader.endArray();
+}
+
+void writeObject(IWriter& writer, std::string_view name, const glm::vec2& obj, WriteTags& tags) {
+  writer.beginArray(name, 2);
+  writer.write("", obj.x);
+  writer.write("", obj.y);
+  writer.endArray();
+}
+
+void readObject(IReader& reader, std::string_view name, glm::vec3& obj, ReadTags& tags) {
+  size_t count;
+  reader.beginArray(name, count);
+  assert(count == 3);
+
+  reader.read("", obj.x);
+  reader.read("", obj.y);
+  reader.read("", obj.z);
+  reader.endArray();
+}
+
+void writeObject(IWriter& writer, std::string_view name, const glm::vec3& obj, WriteTags& tags) {
+  writer.beginArray(name, 3);
+  writer.write("", obj.x);
+  writer.write("", obj.y);
+  writer.write("", obj.z);
+  writer.endArray();
+}
+
+void readObject(IReader& reader, std::string_view name, glm::vec4& obj, ReadTags& tags) {
+  size_t count;
+  reader.beginArray(name, count);
+  assert(count == 4);
+
+  reader.read("", obj.x);
+  reader.read("", obj.y);
+  reader.read("", obj.z);
+  reader.read("", obj.w);
+  reader.endArray();
+}
+
+void writeObject(IWriter& writer, std::string_view name, const glm::vec4& obj, WriteTags& tags) {
+  writer.beginArray(name, 4);
+  writer.write("", obj.x);
+  writer.write("", obj.y);
+  writer.write("", obj.z);
+  writer.write("", obj.w);
+  writer.endArray();
+}
+
+void readObject(IReader& reader, std::string_view name, glm::quat& obj, ReadTags& tags) {
+  size_t count;
+  reader.beginArray(name, count);
+  assert(count == 4);
+
+  reader.read("", obj.x);
+  reader.read("", obj.y);
+  reader.read("", obj.z);
+  reader.read("", obj.w);
+  reader.endArray();
+}
+
+void writeObject(IWriter& writer, std::string_view name, const glm::quat& obj, WriteTags& tags) {
+  writer.beginArray(name, 4);
+  writer.write("", obj.x);
+  writer.write("", obj.y);
+  writer.write("", obj.z);
+  writer.write("", obj.w);
+  writer.endArray();
+}
+
+void readObject(IReader& reader, std::string_view name, glm::mat4x4& obj, ReadTags& tags) {
+  size_t count;
+  reader.beginArray(name, count);
+  assert(count == 16);
+  // We store matricies in column major order (that is, [C0R0, C0R1, C0R2, C0R3, C1R0, ...])
+  for (auto col = 0u; col < 4; ++col) {
+    for (auto row = 0u; row < 4; ++row) {
+      reader.read("", obj[col][row]);
+    }
+  }
+  reader.endArray();
+}
+
+void writeObject(IWriter& writer, std::string_view name, const glm::mat4x4& obj, WriteTags& tags) {
+  writer.beginArray(name, 16);
+  for (auto col = 0u; col < 4; ++col) {
+    for (auto row = 0u; row < 4; ++row) {
+      writer.write("", obj[col][row]);
+    }
+  }
+  writer.endArray();
+}
+
 } // namespace wut

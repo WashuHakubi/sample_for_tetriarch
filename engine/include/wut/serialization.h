@@ -447,42 +447,25 @@ void writeObject(IWriter& writer, std::string_view name, std::optional<T> const&
   }
 }
 
-template <>
-struct SerializeMembers<glm::vec2> : std::true_type {
-  static auto serializeMembers() {
-    return std::make_tuple(std::make_tuple("x", &glm::vec2::x), std::make_tuple("y", &glm::vec2::y));
-  }
-};
+void readObject(IReader& reader, std::string_view name, glm::vec2& obj, ReadTags& tags);
 
-template <>
-struct SerializeMembers<glm::vec3> : std::true_type {
-  static auto serializeMembers() {
-    return std::make_tuple(
-        std::make_tuple("x", &glm::vec3::x),
-        std::make_tuple("y", &glm::vec3::y),
-        std::make_tuple("z", &glm::vec3::z));
-  }
-};
+void writeObject(IWriter& writer, std::string_view name, const glm::vec2& obj, WriteTags& tags);
 
-template <>
-struct SerializeMembers<glm::vec4> : std::true_type {
-  static auto serializeMembers() {
-    return std::make_tuple(
-        std::make_tuple("x", &glm::vec4::x),
-        std::make_tuple("y", &glm::vec4::y),
-        std::make_tuple("z", &glm::vec4::z),
-        std::make_tuple("w", &glm::vec4::w));
-  }
-};
+void readObject(IReader& reader, std::string_view name, glm::vec3& obj, ReadTags& tags);
 
-template <>
-struct SerializeMembers<glm::quat> : std::true_type {
-  static auto serializeMembers() {
-    return std::make_tuple(
-        std::make_tuple("x", &glm::quat::x),
-        std::make_tuple("y", &glm::quat::y),
-        std::make_tuple("z", &glm::quat::z),
-        std::make_tuple("w", &glm::quat::w));
-  }
-};
+void writeObject(IWriter& writer, std::string_view name, const glm::vec3& obj, WriteTags& tags);
+
+void readObject(IReader& reader, std::string_view name, glm::vec4& obj, ReadTags& tags);
+
+void writeObject(IWriter& writer, std::string_view name, const glm::vec4& obj, WriteTags& tags);
+
+void readObject(IReader& reader, std::string_view name, glm::quat& obj, ReadTags& tags);
+
+void writeObject(IWriter& writer, std::string_view name, const glm::quat& obj, WriteTags& tags);
+
+void readObject(IReader& reader, std::string_view name, glm::mat4x4& obj, ReadTags& tags);
+
+void writeObject(IWriter& writer, std::string_view name, const glm::mat4x4& obj, WriteTags& tags);
 } // namespace wut
+
+#define SERIALIZE_MEMBER(N, ...) std::make_tuple(#N, &Type::N, ##__VA_ARGS__)

@@ -150,4 +150,22 @@ TEST_CASE("Can load GLTF json") {
   REQUIRE(result->accessors[2].min[0] == 0);
   REQUIRE(result->accessors[2].min[1] == 0);
   REQUIRE(result->accessors[2].min[2] == 1);
+
+  REQUIRE(result->scene == 0);
+  REQUIRE(result->scenes->size() == 1);
+  REQUIRE(result->scenes->at(0).nodes.size() == 2);
+  REQUIRE(result->scenes->at(0).nodes == std::vector<uint32_t>{0, 1});
+
+  REQUIRE(result->nodes->size() == 2);
+  REQUIRE(result->nodes->at(0).mesh == 0);
+  REQUIRE(result->nodes->at(0).matrix == glm::identity<glm::mat4>());
+  REQUIRE(result->nodes->at(0).rotation == glm::quat{0, 0, 0, 1});
+  REQUIRE(result->nodes->at(0).scale == glm::vec3{1, 1, 1});
+  REQUIRE(result->nodes->at(0).translation == glm::vec3{0, 0, 0});
+
+  REQUIRE(result->nodes->at(1).mesh == 0);
+  REQUIRE(result->nodes->at(1).matrix == glm::identity<glm::mat4>());
+  REQUIRE(result->nodes->at(1).rotation == glm::quat{0, 0, 0, 1});
+  REQUIRE(result->nodes->at(1).scale == glm::vec3{1, 1, 1});
+  REQUIRE(result->nodes->at(1).translation == glm::vec3{1, 0, 0});
 }
