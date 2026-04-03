@@ -12,7 +12,6 @@
 #include <optional>
 #include <string>
 #include <string_view>
-#include <variant>
 #include <vector>
 
 #include <wut/serialization.h>
@@ -142,18 +141,34 @@ struct BufferView {
 
 void readObject(IReader& reader, std::string_view name, BufferView::TargetType& obj, ReadTags& tags);
 
+struct Material {};
+
+struct Mesh {};
+
+struct Node {};
+
+struct Scene {
+  std::vector<uint32_t> nodes;
+
+  static auto serializeMembers() { return std::make_tuple(std::make_tuple("nodes", &Scene::nodes)); }
+};
+
 struct GLTF {
   std::vector<Accessor> accessors;
   Asset asset;
   std::vector<Buffer> buffers;
   std::vector<BufferView> bufferViews;
+  std::optional<uint32_t> scene;
+  std::optional<Scene> scenes;
 
   static auto serializeMembers() {
     return std::make_tuple(
         std::make_tuple("accessors", &GLTF::accessors),
         std::make_tuple("asset", &GLTF::asset),
         std::make_tuple("buffers", &GLTF::buffers),
-        std::make_tuple("bufferViews", &GLTF::bufferViews));
+        std::make_tuple("bufferViews", &GLTF::bufferViews),
+        std::make_tuple("scene", &GLTF::scene),
+        std::make_tuple("scenes", &GLTF::scenes));
   }
 };
 
