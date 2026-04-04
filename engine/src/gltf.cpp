@@ -79,6 +79,12 @@ void readObject(IReader& reader, std::string_view name, Image::MimeType& obj, Re
   obj = nameToValue.at(val);
 }
 
+void readObject(IReader& reader, std::string_view name, Mesh::Primitive::Mode& obj, ReadTags& tags) {
+  uint32_t val;
+  reader.read(name, val);
+  obj = static_cast<Mesh::Primitive::Mode>(val);
+}
+
 void readObject(IReader& reader, std::string_view name, Sampler::Filter& obj, ReadTags& tags) {
   static std::unordered_map<std::string, Sampler::Filter> nameToValue = {
       {"NEAREST", Sampler::Filter::Nearest},

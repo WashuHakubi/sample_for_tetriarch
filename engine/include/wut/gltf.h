@@ -279,9 +279,20 @@ struct Material {
 
 struct Mesh {
   struct Primitive {
+    enum class Mode {
+      Points = 0,
+      Lines = 1,
+      LineLoop = 2,
+      LineStrip = 3,
+      Triangles = 4,
+      TriangleStrip = 5,
+      TriangleFan = 6,
+    };
+
     std::unordered_map<std::string, uint32_t> attributes;
     uint32_t indices;
     std::optional<uint32_t> material;
+    Mode mode{Mode::Triangles};
     std::optional<std::vector<std::unordered_map<std::string, uint32_t>>> targets;
 
     static auto serializeMembers() {
@@ -290,6 +301,7 @@ struct Mesh {
           SERIALIZE_MEMBER(attributes),
           SERIALIZE_MEMBER(indices),
           SERIALIZE_MEMBER(material),
+          SERIALIZE_MEMBER(mode, DefaultValue<Mode>{Mode::Triangles}),
           SERIALIZE_MEMBER(targets),
       };
     }
@@ -308,6 +320,8 @@ struct Mesh {
     };
   }
 };
+
+void readObject(IReader& reader, std::string_view name, Mesh::Primitive::Mode& obj, ReadTags& tags);
 
 struct Node {
   std::optional<std::string> name;
@@ -388,6 +402,9 @@ struct Scene {
     };
   }
 };
+
+// TODO:
+struct Skin {};
 
 struct Texture {
   std::optional<std::string> name;
