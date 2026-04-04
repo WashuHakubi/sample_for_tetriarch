@@ -217,28 +217,29 @@ struct HasType<T, std::tuple<U, Ts...>> : HasType<T, std::tuple<Ts...>> {};
 template <typename T, typename... Ts>
 struct HasType<T, std::tuple<T, Ts...>> : std::true_type {};
 
-/**
- * Checks if the passed tuple contains a DefaultValue<T>
- */
-template <class T, class... TArgs>
-constexpr bool hasDefaultValue(std::tuple<TArgs...> const& tuple) {
-  return HasType<DefaultValue<T>, std::tuple<TArgs...>>::value;
-}
-
 template <class T>
-std::string name_of() {
+std::string nameOf() {
   std::string_view sv;
 #if defined(__clang__)
+  // clang-format off
+  // std::string wut::detail::nameOf() [T = int]
+  // clang-format on
   sv = __PRETTY_FUNCTION__;
-  auto tf = 40;
+  auto tf = 39;
   auto te = 1;
 #elif defined(__GNUC__)
+  // clang-format off
+  // std::string wut::detail::nameOf() [with T = int; std::string = std::__cxx11::basic_string<char>]
+  // clang-format on
   sv = __PRETTY_FUNCTION__;
-  auto tf = 45;
+  auto tf = 44;
   auto te = 49;
 #elif defined(_MSC_VER)
+  // clang-format off
+  // class std::basic_string<char,struct std::char_traits<char>,class std::allocator<char> > __cdecl wut::detail::nameOf<int>(void)
+  // clang-format on
   sv = __FUNCSIG__;
-  auto tf = 117;
+  auto tf = 116;
   auto te = 7;
 #else
 #error Unknown compiler
@@ -343,7 +344,7 @@ void readObject(IReader& reader, std::string_view name, T& obj, ReadTags& tags) 
     auto& val = obj.*std::get<1>(memberTuple);
     using ValType = std::decay_t<decltype(val)>;
 
-    if constexpr (detail::hasDefaultValue<ValType>(memberTuple)) {
+    if constexpr (detail::HasType<DefaultValue<ValType>, std::decay_t<decltype(memberTuple)>>::value) {
       if (!reader.has(std::get<0>(memberTuple))) {
         val = std::get<DefaultValue<ValType>>(memberTuple).value;
         return;
