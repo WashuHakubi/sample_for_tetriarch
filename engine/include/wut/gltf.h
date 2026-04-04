@@ -120,6 +120,15 @@ struct Accessor {
 
 void readObject(IReader& reader, std::string_view name, MinMaxVar& obj, ReadTags& tags);
 
+// TODO:
+struct Animation {
+  struct Channel {
+    struct Target {};
+  };
+
+  struct Sampler {};
+};
+
 struct Asset {
   struct Version {
     int major;
