@@ -68,6 +68,44 @@ void readObject(IReader& reader, std::string_view name, Camera::Type& obj, ReadT
   obj = nameToValue.at(val);
 }
 
+void readObject(IReader& reader, std::string_view name, Image::MimeType& obj, ReadTags& tags) {
+  static std::unordered_map<std::string, Image::MimeType> nameToValue = {
+      {"image/jpeg", Image::MimeType::Jpeg},
+      {"image/png", Image::MimeType::Png},
+  };
+
+  std::string val;
+  reader.read(name, val);
+  obj = nameToValue.at(val);
+}
+
+void readObject(IReader& reader, std::string_view name, Sampler::Filter& obj, ReadTags& tags) {
+  static std::unordered_map<std::string, Sampler::Filter> nameToValue = {
+      {"NEAREST", Sampler::Filter::Nearest},
+      {"LINEAR", Sampler::Filter::Linear},
+      {"NEAREST_MIPMAP_NEAREST", Sampler::Filter::NearestMipmapNearest},
+      {"LINEAR_MIPMAP_NEAREST", Sampler::Filter::LinearMipmapNearest},
+      {"NEAREST_MIPMAP_LINEAR", Sampler::Filter::NearestMipmapLinear},
+      {"LINEAR_MIPMAP_LINEAR", Sampler::Filter::LinearMipmapLinear},
+  };
+
+  std::string val;
+  reader.read(name, val);
+  obj = nameToValue.at(val);
+}
+
+void readObject(IReader& reader, std::string_view name, Sampler::Wrap& obj, ReadTags& tags) {
+  static std::unordered_map<std::string, Sampler::Wrap> nameToValue = {
+      {"CLAMP_TO_EDGE", Sampler::Wrap::ClampToEdge},
+      {"MIRRORED_REPEAT", Sampler::Wrap::MirroedRepeat},
+      {"REPEAT", Sampler::Wrap::Repeat},
+  };
+
+  std::string val;
+  reader.read(name, val);
+  obj = nameToValue.at(val);
+}
+
 std::shared_ptr<GLTF> load(std::string_view jsonStr) {
   // auto json = nlohmann::json::parse(jsonStr);
   auto result = std::make_shared<GLTF>();

@@ -90,6 +90,7 @@ struct Accessor {
     }
   };
 
+  std::optional<std::string> name;
   uint32_t bufferView{0};
   uint32_t byteOffset{0};
   ComponentType componentType;
@@ -103,6 +104,7 @@ struct Accessor {
   static auto serializeMembers() {
     using Type = Accessor;
     return std::tuple{
+        SERIALIZE_MEMBER(name),
         SERIALIZE_MEMBER(bufferView, DefaultValue<uint32_t>{INT_MAX}),
         SERIALIZE_MEMBER(byteOffset, DefaultValue<uint32_t>{0}),
         SERIALIZE_MEMBER(componentType),
@@ -142,12 +144,14 @@ struct Asset {
 void readObject(IReader& reader, std::string_view name, Asset::Version& obj, ReadTags& tags);
 
 struct Buffer {
+  std::optional<std::string> name;
   std::string uri;
   uint32_t byteLength;
 
   static auto serializeMembers() {
     using Type = Buffer;
     return std::tuple{
+        SERIALIZE_MEMBER(name),
         SERIALIZE_MEMBER(uri),
         SERIALIZE_MEMBER(byteLength),
     };
@@ -161,6 +165,7 @@ struct BufferView {
     ElementArrayBuffer = 34963,
   };
 
+  std::optional<std::string> name;
   uint32_t buffer;
   uint32_t byteOffset{0};
   uint32_t byteLength;
@@ -171,6 +176,7 @@ struct BufferView {
     using Type = BufferView;
 
     return std::tuple{
+        SERIALIZE_MEMBER(name),
         SERIALIZE_MEMBER(buffer),
         SERIALIZE_MEMBER(byteLength),
         SERIALIZE_MEMBER(byteOffset, DefaultValue<uint32_t>{0}),
@@ -222,6 +228,7 @@ struct Camera {
     }
   };
 
+  std::optional<std::string> name;
   std::optional<Orthographic> orthographic;
   std::optional<Perspective> perspective;
   Type type;
@@ -229,6 +236,7 @@ struct Camera {
   static auto serializeMembers() {
     using Type = Camera;
     return std::tuple{
+        SERIALIZE_MEMBER(name),
         SERIALIZE_MEMBER(orthographic),
         SERIALIZE_MEMBER(perspective),
         SERIALIZE_MEMBER(type),
@@ -238,8 +246,29 @@ struct Camera {
 
 void readObject(IReader& reader, std::string_view name, Camera::Type& obj, ReadTags& tags);
 
-// TODO:
-struct Image {};
+struct Image {
+  enum class MimeType {
+    Jpeg,
+    Png,
+  };
+
+  std::optional<std::string> name;
+  std::optional<std::string> uri;
+  std::optional<MimeType> mimeType;
+  std::optional<uint32_t> bufferView;
+
+  static auto serializeMembers() {
+    using Type = Image;
+    return std::tuple{
+        SERIALIZE_MEMBER(name),
+        SERIALIZE_MEMBER(uri),
+        SERIALIZE_MEMBER(mimeType),
+        SERIALIZE_MEMBER(bufferView),
+    };
+  }
+};
+
+void readObject(IReader& reader, std::string_view name, Image::MimeType& obj, ReadTags& tags);
 
 // TODO:
 struct Material {
@@ -251,9 +280,11 @@ struct Material {
 // TODO:
 struct Mesh {
   struct Primitive {};
+  std::optional<std::string> name;
 };
 
 struct Node {
+  std::optional<std::string> name;
   std::optional<uint32_t> camera;
   std::optional<std::vector<uint32_t>> children;
 
@@ -270,6 +301,7 @@ struct Node {
   static auto serializeMembers() {
     using Type = Node;
     return std::tuple{
+        SERIALIZE_MEMBER(name),
         SERIALIZE_MEMBER(camera),
         SERIALIZE_MEMBER(children),
         SERIALIZE_MEMBER(matrix, DefaultValue<glm::mat4>{glm::identity<glm::mat4>()}),
@@ -281,23 +313,82 @@ struct Node {
   }
 };
 
-// TODO:
-struct Sampler {};
+struct Sampler {
+  enum class Filter {
+    Nearest = 9728,
+    Linear = 9729,
+    NearestMipmapNearest = 9984,
+    LinearMipmapNearest = 9985,
+    NearestMipmapLinear = 9986,
+    LinearMipmapLinear = 9987
+  };
+
+  enum class Wrap {
+    ClampToEdge = 33071,
+    MirroedRepeat = 33648,
+    Repeat = 10497,
+  };
+
+  std::optional<std::string> name;
+  Filter magFilter;
+  Filter minFilter;
+  Wrap wrapS{Wrap::Repeat};
+  Wrap wrapT{Wrap::Repeat};
+
+  static auto serializeMembers() {
+    using Type = Sampler;
+    return std::tuple{
+        SERIALIZE_MEMBER(name),
+        SERIALIZE_MEMBER(magFilter),
+        SERIALIZE_MEMBER(minFilter),
+        SERIALIZE_MEMBER(wrapS, DefaultValue<Wrap>{Wrap::Repeat}),
+        SERIALIZE_MEMBER(wrapT, DefaultValue<Wrap>{Wrap::Repeat})};
+  }
+};
+
+void readObject(IReader& reader, std::string_view name, Sampler::Filter& obj, ReadTags& tags);
+
+void readObject(IReader& reader, std::string_view name, Sampler::Wrap& obj, ReadTags& tags);
 
 struct Scene {
+  std::optional<std::string> name;
   std::vector<uint32_t> nodes;
 
   static auto serializeMembers() {
     using Type = Scene;
-    // Need to use make_tuple here because we have 1 member that is a tuple. Otherwise it will attempt to return copy of
-    // the member tuple.
-    return std::make_tuple(SERIALIZE_MEMBER(nodes));
+    return std::tuple{
+        SERIALIZE_MEMBER(name),
+        SERIALIZE_MEMBER(nodes),
+    };
   }
 };
 
-// TODO:
 struct Texture {
-  struct Info {};
+  std::optional<std::string> name;
+  std::optional<uint32_t> sampler;
+  std::optional<uint32_t> source;
+
+  static auto serializeMembers() {
+    using Type = Texture;
+    return std::tuple{
+        SERIALIZE_MEMBER(name),
+        SERIALIZE_MEMBER(sampler),
+        SERIALIZE_MEMBER(source),
+    };
+  }
+};
+
+struct TextureInfo {
+  uint32_t index;
+  uint32_t texCoord{0};
+
+  static auto serializeMembers() {
+    using Type = TextureInfo;
+    return std::tuple{
+        SERIALIZE_MEMBER(index),
+        SERIALIZE_MEMBER(texCoord, DefaultValue<uint32_t>{0}),
+    };
+  }
 };
 
 struct GLTF {
