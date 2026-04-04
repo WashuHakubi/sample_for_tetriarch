@@ -176,6 +176,16 @@ struct JsonReader final : IReader {
     return true;
   }
 
+  void enumerate(std::function<void(IReader& reader, std::string_view name)> const& fn) override {
+    assert(!nested_.empty());
+    auto [cur, isObj, id] = nested_.top();
+    assert(isObj);
+
+    for (auto&& [k, _] : cur->items()) {
+      fn(*this, k);
+    }
+  }
+
   void beginObject(std::string_view name) override {
     if (nested_.empty()) {
       assert(root_.is_object());

@@ -9,6 +9,7 @@
 #include <array>
 #include <cassert>
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <optional>
 #include <string>
@@ -64,6 +65,9 @@ struct IReader {
   virtual bool has(std::string_view name) = 0;
 
   virtual bool readHandle(std::string_view name, int& tag) = 0;
+
+  virtual void enumerate(std::function<void(IReader& reader, std::string_view name)> const& fn) = 0;
+
   virtual void beginObject(std::string_view name) = 0;
   virtual void endObject() = 0;
 
@@ -364,6 +368,15 @@ void readObject(IReader& reader, std::string_view name, std::optional<T>& obj, R
   }
 }
 
+template <class K, class V, class H, class P, class A>
+void readObject(IReader& reader, std::string_view name, std::unordered_map<K, V, H, P, A>& obj, ReadTags& tags) {
+  reader.beginObject(name);
+  reader.enumerate([&obj, &tags](IReader& reader, std::string_view key) {
+    readObject(reader, (K)key, obj[(K)key], tags);
+  });
+  reader.endObject();
+}
+
 /**
  * Writer declaration. This can be overriden to specialize serialization of types.
  */
@@ -445,6 +458,19 @@ void writeObject(IWriter& writer, std::string_view name, std::optional<T> const&
   if (obj.has_value()) {
     writeObject(writer, name, obj.value(), tags);
   }
+}
+
+template <class K, class V, class H, class P, class A>
+void writeObject(
+    IWriter& writer,
+    std::string_view name,
+    const std::unordered_map<K, V, H, P, A>& obj,
+    WriteTags& tags) {
+  writer.beginObject(name);
+  for (auto&& [k, v] : obj) {
+    writeObject(writer, k, v, tags);
+  }
+  writer.endObject();
 }
 
 void readObject(IReader& reader, std::string_view name, glm::vec2& obj, ReadTags& tags);

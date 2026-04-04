@@ -277,10 +277,36 @@ struct Material {
   struct PBRMetallicRoughness {};
 };
 
-// TODO:
 struct Mesh {
-  struct Primitive {};
+  struct Primitive {
+    std::unordered_map<std::string, uint32_t> attributes;
+    uint32_t indices;
+    std::optional<uint32_t> material;
+    std::optional<std::vector<std::unordered_map<std::string, uint32_t>>> targets;
+
+    static auto serializeMembers() {
+      using Type = Mesh::Primitive;
+      return std::tuple{
+          SERIALIZE_MEMBER(attributes),
+          SERIALIZE_MEMBER(indices),
+          SERIALIZE_MEMBER(material),
+          SERIALIZE_MEMBER(targets),
+      };
+    }
+  };
+
   std::optional<std::string> name;
+  std::vector<Primitive> primitives;
+  std::optional<std::vector<float>> weights;
+
+  static auto serializeMembers() {
+    using Type = Mesh;
+    return std::tuple{
+        SERIALIZE_MEMBER(name),
+        SERIALIZE_MEMBER(primitives),
+        SERIALIZE_MEMBER(weights),
+    };
+  }
 };
 
 struct Node {
@@ -397,6 +423,7 @@ struct GLTF {
   std::vector<Buffer> buffers;
   std::vector<BufferView> bufferViews;
   std::optional<std::vector<Camera>> cameras;
+  std::optional<std::vector<Mesh>> meshes;
   std::optional<std::vector<Node>> nodes;
   std::optional<uint32_t> scene;
   std::optional<std::vector<Scene>> scenes;
@@ -409,6 +436,7 @@ struct GLTF {
         SERIALIZE_MEMBER(buffers),
         SERIALIZE_MEMBER(bufferViews),
         SERIALIZE_MEMBER(cameras),
+        SERIALIZE_MEMBER(meshes),
         SERIALIZE_MEMBER(nodes),
         SERIALIZE_MEMBER(scene),
         SERIALIZE_MEMBER(scenes),
