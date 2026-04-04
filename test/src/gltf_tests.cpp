@@ -168,4 +168,10 @@ TEST_CASE("Can load GLTF json") {
   REQUIRE(result->nodes->at(1).rotation == glm::quat{0, 0, 0, 1});
   REQUIRE(result->nodes->at(1).scale == glm::vec3{1, 1, 1});
   REQUIRE(result->nodes->at(1).translation == glm::vec3{1, 0, 0});
+
+  REQUIRE(result->meshes->size() == 1);
+  REQUIRE(result->meshes->at(0).primitives.size() == 1);
+  REQUIRE(result->meshes->at(0).primitives[0].attributes.size() == 2);
+  REQUIRE(result->meshes->at(0).primitives[0].attributes["POSITION"] == 1);
+  REQUIRE(result->meshes->at(0).primitives[0].attributes["NORMAL"] == 2);
 }
