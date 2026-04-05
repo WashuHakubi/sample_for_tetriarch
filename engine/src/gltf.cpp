@@ -112,6 +112,17 @@ void readObject(IReader& reader, std::string_view name, Sampler::Wrap& obj, Read
   obj = nameToValue.at(val);
 }
 
+void readObject(IReader& reader, std::string_view name, Material::AlphaMode& obj, ReadTags& tags) {
+  static std::unordered_map<std::string, Material::AlphaMode> nameToValue = {
+      {"OPAQUE", Material::AlphaMode::Opaque},
+      {"MASK", Material::AlphaMode::Mask},
+      {"BLEND", Material::AlphaMode::Blend},
+  };
+  std::string val;
+  reader.read(name, val);
+  obj = nameToValue.at(val);
+}
+
 std::shared_ptr<GLTF> load(std::string_view jsonStr) {
   // auto json = nlohmann::json::parse(jsonStr);
   auto result = std::make_shared<GLTF>();

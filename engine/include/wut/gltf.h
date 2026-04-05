@@ -279,12 +279,91 @@ struct Image {
 
 void readObject(IReader& reader, std::string_view name, Image::MimeType& obj, ReadTags& tags);
 
-// TODO:
 struct Material {
-  struct NormalTextureInfo {};
-  struct OcclusionTextureInfo {};
-  struct PBRMetallicRoughness {};
+  enum class AlphaMode {
+    Opaque,
+    Mask,
+    Blend,
+  };
+
+  struct TextureInfo {
+    uint32_t index;
+    uint32_t texCoord{0};
+
+    static auto serializeMembers() {
+      using Type = TextureInfo;
+      return std::tuple{
+          SERIALIZE_MEMBER(index),
+          SERIALIZE_MEMBER(texCoord, DefaultValue<uint32_t>{0}),
+      };
+    }
+  };
+
+  struct NormalTextureInfo : TextureInfo {
+    float scale{1};
+
+    static auto serializeMembers() {
+      using Type = NormalTextureInfo;
+      return detail::catMembers(TextureInfo::serializeMembers(), SERIALIZE_MEMBER(scale, DefaultValue<float>{1}));
+    }
+  };
+
+  struct OcclusionTextureInfo : TextureInfo {
+    float strength{1};
+
+    static auto serializeMembers() {
+      using Type = OcclusionTextureInfo;
+      return detail::catMembers(TextureInfo::serializeMembers(), SERIALIZE_MEMBER(strength, DefaultValue<float>{1}));
+    }
+  };
+
+  struct PBRMetallicRoughness {
+    glm::vec4 baseColorFactor{1, 1, 1, 1};
+    std::optional<TextureInfo> baseColorTexture;
+    float metallicFactor{1};
+    float roughnessFactor{1};
+    std::optional<TextureInfo> metallicRoughnessTexture;
+
+    static auto serializeMembers() {
+      using Type = PBRMetallicRoughness;
+      return std::tuple{
+          SERIALIZE_MEMBER(baseColorFactor, DefaultValue<glm::vec4>{{1, 1, 1, 1}}),
+          SERIALIZE_MEMBER(baseColorTexture),
+          SERIALIZE_MEMBER(metallicFactor, DefaultValue<float>{1}),
+          SERIALIZE_MEMBER(roughnessFactor, DefaultValue<float>{1}),
+          SERIALIZE_MEMBER(metallicRoughnessTexture),
+      };
+    }
+  };
+
+  std::optional<std::string> name;
+  std::optional<PBRMetallicRoughness> pbrMetallicRoughness;
+  std::optional<NormalTextureInfo> normalTexture;
+  std::optional<OcclusionTextureInfo> occlusionTexture;
+  std::optional<TextureInfo> emissiveTexture;
+
+  glm::vec3 emissiveFactor{0, 0, 0};
+  float alphaCutoff{0.5f};
+  AlphaMode alphaMode{AlphaMode::Opaque};
+  bool doubleSided{false};
+
+  static auto serializeMembers() {
+    using Type = Material;
+    return std::tuple{
+        SERIALIZE_MEMBER(name),
+        SERIALIZE_MEMBER(pbrMetallicRoughness),
+        SERIALIZE_MEMBER(normalTexture),
+        SERIALIZE_MEMBER(occlusionTexture),
+        SERIALIZE_MEMBER(emissiveTexture),
+        SERIALIZE_MEMBER(emissiveFactor, DefaultValue<glm::vec3>{{0, 0, 0}}),
+        SERIALIZE_MEMBER(alphaCutoff, DefaultValue<float>{0.5f}),
+        SERIALIZE_MEMBER(alphaMode, DefaultValue<AlphaMode>{AlphaMode::Opaque}),
+        SERIALIZE_MEMBER(doubleSided, DefaultValue<bool>{false}),
+    };
+  }
 };
+
+void readObject(IReader& reader, std::string_view name, Material::AlphaMode& obj, ReadTags& tags);
 
 struct Mesh {
   struct Primitive {
@@ -430,25 +509,13 @@ struct Texture {
   }
 };
 
-struct TextureInfo {
-  uint32_t index;
-  uint32_t texCoord{0};
-
-  static auto serializeMembers() {
-    using Type = TextureInfo;
-    return std::tuple{
-        SERIALIZE_MEMBER(index),
-        SERIALIZE_MEMBER(texCoord, DefaultValue<uint32_t>{0}),
-    };
-  }
-};
-
 struct GLTF {
   std::optional<std::vector<Accessor>> accessors;
   Asset asset;
   std::optional<std::vector<Buffer>> buffers;
   std::optional<std::vector<BufferView>> bufferViews;
   std::optional<std::vector<Camera>> cameras;
+  std::optional<std::vector<Material>> materials;
   std::optional<std::vector<Mesh>> meshes;
   std::optional<std::vector<Node>> nodes;
   std::optional<uint32_t> scene;
@@ -462,6 +529,7 @@ struct GLTF {
         SERIALIZE_MEMBER(buffers),
         SERIALIZE_MEMBER(bufferViews),
         SERIALIZE_MEMBER(cameras),
+        SERIALIZE_MEMBER(materials),
         SERIALIZE_MEMBER(meshes),
         SERIALIZE_MEMBER(nodes),
         SERIALIZE_MEMBER(scene),

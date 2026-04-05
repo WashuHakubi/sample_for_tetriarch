@@ -217,6 +217,14 @@ struct HasType<T, std::tuple<U, Ts...>> : HasType<T, std::tuple<Ts...>> {};
 template <typename T, typename... Ts>
 struct HasType<T, std::tuple<T, Ts...>> : std::true_type {};
 
+/**
+ * Appends members to a tuple of members.
+ */
+template <class Tuple, class... MemberTuples>
+auto catMembers(Tuple&& tuple, MemberTuples&&... memberTuples) {
+  return std::tuple_cat(std::forward<Tuple>(tuple), std::make_tuple(std::forward<MemberTuples>(memberTuples)...));
+}
+
 template <class T>
 std::string nameOf() {
   std::string_view sv;
