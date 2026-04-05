@@ -444,10 +444,10 @@ struct TextureInfo {
 };
 
 struct GLTF {
-  std::vector<Accessor> accessors;
+  std::optional<std::vector<Accessor>> accessors;
   Asset asset;
-  std::vector<Buffer> buffers;
-  std::vector<BufferView> bufferViews;
+  std::optional<std::vector<Buffer>> buffers;
+  std::optional<std::vector<BufferView>> bufferViews;
   std::optional<std::vector<Camera>> cameras;
   std::optional<std::vector<Mesh>> meshes;
   std::optional<std::vector<Node>> nodes;

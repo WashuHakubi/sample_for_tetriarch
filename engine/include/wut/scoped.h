@@ -6,13 +6,15 @@
 
 #pragma once
 
+#include <utility>
+
 namespace wut {
 /**
  * Runs the passed lambda when this class goes out of scope.
  */
 template <class Fn>
 struct Scoped {
-  Scoped(Fn fn) : fn_(std::forward<Fn>(fn)) {}
+  Scoped(Fn&& fn) : fn_(std::forward<Fn>(fn)) {}
 
   ~Scoped() { fn_(); }
 
