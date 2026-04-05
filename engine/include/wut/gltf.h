@@ -91,21 +91,21 @@ struct Accessor {
   };
 
   std::optional<std::string> name;
-  uint32_t bufferView{0};
+  std::optional<uint32_t> bufferView;
   uint32_t byteOffset{0};
   ComponentType componentType;
   bool normalized{false};
   uint32_t count;
   AccessorType type;
-  MinMaxVar max;
-  MinMaxVar min;
+  std::optional<MinMaxVar> max;
+  std::optional<MinMaxVar> min;
   std::optional<Sparse> sparse;
 
   static auto serializeMembers() {
     using Type = Accessor;
     return std::tuple{
         SERIALIZE_MEMBER(name),
-        SERIALIZE_MEMBER(bufferView, DefaultValue<uint32_t>{INT_MAX}),
+        SERIALIZE_MEMBER(bufferView),
         SERIALIZE_MEMBER(byteOffset, DefaultValue<uint32_t>{0}),
         SERIALIZE_MEMBER(componentType),
         SERIALIZE_MEMBER(normalized, DefaultValue<bool>{false}),
@@ -154,7 +154,7 @@ void readObject(IReader& reader, std::string_view name, Asset::Version& obj, Rea
 
 struct Buffer {
   std::optional<std::string> name;
-  std::string uri;
+  std::optional<std::string> uri;
   uint32_t byteLength;
 
   static auto serializeMembers() {
@@ -221,9 +221,9 @@ struct Camera {
   };
 
   struct Perspective {
-    float aspectRatio;
+    std::optional<float> aspectRatio;
     float yFov;
-    float zFar;
+    std::optional<float> zFar;
     float zNear;
 
     static auto serializeMembers() {
@@ -299,7 +299,7 @@ struct Mesh {
     };
 
     std::unordered_map<std::string, uint32_t> attributes;
-    uint32_t indices;
+    std::optional<uint32_t> indices;
     std::optional<uint32_t> material;
     Mode mode{Mode::Triangles};
     std::optional<std::vector<std::unordered_map<std::string, uint32_t>>> targets;
@@ -379,8 +379,8 @@ struct Sampler {
   };
 
   std::optional<std::string> name;
-  Filter magFilter;
-  Filter minFilter;
+  std::optional<Filter> magFilter;
+  std::optional<Filter> minFilter;
   Wrap wrapS{Wrap::Repeat};
   Wrap wrapT{Wrap::Repeat};
 

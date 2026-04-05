@@ -124,32 +124,32 @@ TEST_CASE("Can load GLTF json") {
   REQUIRE(result->accessors->at(0).componentType == ComponentType::UnsignedShort);
   REQUIRE(result->accessors->at(0).count == 3);
   REQUIRE(result->accessors->at(0).type == AccessorType::Scalar);
-  REQUIRE(result->accessors->at(0).max[0] == 2);
-  REQUIRE(result->accessors->at(0).min[0] == 0);
+  REQUIRE(result->accessors->at(0).max->at(0) == 2);
+  REQUIRE(result->accessors->at(0).min->at(0) == 0);
 
   REQUIRE(result->accessors->at(1).bufferView == 1);
   REQUIRE(result->accessors->at(1).byteOffset == 0);
   REQUIRE(result->accessors->at(1).componentType == ComponentType::Float);
   REQUIRE(result->accessors->at(1).count == 3);
   REQUIRE(result->accessors->at(1).type == AccessorType::Vec3);
-  REQUIRE(result->accessors->at(1).max[0] == 1);
-  REQUIRE(result->accessors->at(1).max[1] == 1);
-  REQUIRE(result->accessors->at(1).max[2] == 0);
-  REQUIRE(result->accessors->at(1).min[0] == 0);
-  REQUIRE(result->accessors->at(1).min[1] == 0);
-  REQUIRE(result->accessors->at(1).min[2] == 0);
+  REQUIRE(result->accessors->at(1).max->at(0) == 1);
+  REQUIRE(result->accessors->at(1).max->at(1) == 1);
+  REQUIRE(result->accessors->at(1).max->at(2) == 0);
+  REQUIRE(result->accessors->at(1).min->at(0) == 0);
+  REQUIRE(result->accessors->at(1).min->at(1) == 0);
+  REQUIRE(result->accessors->at(1).min->at(2) == 0);
 
   REQUIRE(result->accessors->at(2).bufferView == 1);
   REQUIRE(result->accessors->at(2).byteOffset == 36);
   REQUIRE(result->accessors->at(2).componentType == ComponentType::Float);
   REQUIRE(result->accessors->at(2).count == 3);
   REQUIRE(result->accessors->at(2).type == AccessorType::Vec3);
-  REQUIRE(result->accessors->at(2).max[0] == 0);
-  REQUIRE(result->accessors->at(2).max[1] == 0);
-  REQUIRE(result->accessors->at(2).max[2] == 1);
-  REQUIRE(result->accessors->at(2).min[0] == 0);
-  REQUIRE(result->accessors->at(2).min[1] == 0);
-  REQUIRE(result->accessors->at(2).min[2] == 1);
+  REQUIRE(result->accessors->at(2).max->at(0) == 0);
+  REQUIRE(result->accessors->at(2).max->at(1) == 0);
+  REQUIRE(result->accessors->at(2).max->at(2) == 1);
+  REQUIRE(result->accessors->at(2).min->at(0) == 0);
+  REQUIRE(result->accessors->at(2).min->at(1) == 0);
+  REQUIRE(result->accessors->at(2).min->at(2) == 1);
 
   REQUIRE(result->scene == 0);
   REQUIRE(result->scenes->size() == 1);
