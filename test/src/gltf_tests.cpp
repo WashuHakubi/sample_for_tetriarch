@@ -96,7 +96,7 @@ TEST_CASE("Can load GLTF json") {
   }
 })";
 
-  auto result = load(data);
+  auto result = parseGLTF(data);
 
   REQUIRE(result->asset.version.major == 2);
   REQUIRE(result->asset.version.minor == 0);
@@ -2012,7 +2012,7 @@ TEST_CASE("Loading a more complex scene") {
     ]
 })";
 
-  auto result = load(data);
+  auto result = parseGLTF(data);
 
   REQUIRE(result);
 }

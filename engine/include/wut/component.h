@@ -26,6 +26,8 @@ class Component {
 
   Component();
 
+  virtual ~Component() = default;
+
  public:
   /**
    * Gets the final type of this component.

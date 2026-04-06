@@ -194,7 +194,7 @@ class Entity : public std::enable_shared_from_this<Entity> {
   /**
    * Gets the transform for this entity.
    */
-  auto tansform() -> Transform& { return transform_; }
+  auto transform() -> Transform& { return transform_; }
 
  public:
   template <class T>

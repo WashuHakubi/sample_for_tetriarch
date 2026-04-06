@@ -538,5 +538,5 @@ struct GLTF {
   }
 };
 
-std::shared_ptr<GLTF> load(std::string_view json);
+std::shared_ptr<GLTF> parseGLTF(std::string_view json);
 } // namespace wut::gltf

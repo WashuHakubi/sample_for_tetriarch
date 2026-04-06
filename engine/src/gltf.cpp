@@ -4,6 +4,8 @@
  * All rights reserved.
  */
 
+#include <wut/component.h>
+#include <wut/entity.h>
 #include <wut/gltf.h>
 
 #include <cassert>
@@ -123,7 +125,7 @@ void readObject(IReader& reader, std::string_view name, Material::AlphaMode& obj
   obj = nameToValue.at(val);
 }
 
-std::shared_ptr<GLTF> load(std::string_view jsonStr) {
+std::shared_ptr<GLTF> parseGLTF(std::string_view jsonStr) {
   // auto json = nlohmann::json::parse(jsonStr);
   auto result = std::make_shared<GLTF>();
 
@@ -133,4 +135,5 @@ std::shared_ptr<GLTF> load(std::string_view jsonStr) {
 
   return result;
 }
+
 } // namespace wut::gltf
