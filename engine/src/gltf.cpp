@@ -70,17 +70,6 @@ void readObject(IReader& reader, std::string_view name, Camera::Type& obj, ReadT
   obj = nameToValue.at(val);
 }
 
-void readObject(IReader& reader, std::string_view name, Image::MimeType& obj, ReadTags& tags) {
-  static std::unordered_map<std::string, Image::MimeType> nameToValue = {
-      {"image/jpeg", Image::MimeType::Jpeg},
-      {"image/png", Image::MimeType::Png},
-  };
-
-  std::string val;
-  reader.read(name, val);
-  obj = nameToValue.at(val);
-}
-
 void readObject(IReader& reader, std::string_view name, Mesh::Primitive::Mode& obj, ReadTags& tags) {
   uint32_t val;
   reader.read(name, val);

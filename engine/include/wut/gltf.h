@@ -256,14 +256,9 @@ struct Camera {
 void readObject(IReader& reader, std::string_view name, Camera::Type& obj, ReadTags& tags);
 
 struct Image {
-  enum class MimeType {
-    Jpeg,
-    Png,
-  };
-
   std::optional<std::string> name;
   std::optional<std::string> uri;
-  std::optional<MimeType> mimeType;
+  std::optional<std::string> mimeType;
   std::optional<uint32_t> bufferView;
 
   static auto serializeMembers() {
@@ -276,8 +271,6 @@ struct Image {
     };
   }
 };
-
-void readObject(IReader& reader, std::string_view name, Image::MimeType& obj, ReadTags& tags);
 
 struct Material {
   enum class AlphaMode {
