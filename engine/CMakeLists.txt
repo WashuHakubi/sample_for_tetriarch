@@ -6,5 +6,18 @@ target_link_libraries(wut_engine PUBLIC
   ng-log::ng-log
   nlohmann_json::nlohmann_json
   SDL3::SDL3
-  bgfx::bgfx
+  bgfx
 )
+
+if(MSVC)
+  target_compile_options(wut_engine PUBLIC /W4 /WX /wd4100 /wd4996)
+else()
+  target_compile_options(wut_engine PUBLIC
+                -Wall
+                -Wextra
+                -Werror
+                -Wno-unused-parameter
+                -Wno-unused-function
+                -Wno-unused-private-field
+                -Wno-missing-field-initializers)
+endif()

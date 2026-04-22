@@ -95,10 +95,10 @@ fabric.properties
 .DS_store
 
 # Specific ignores
-ext/*
-!ext/.gitignore
-!ext/imgui
-!ext/CMakeLists.txt
-!ext/stb
+# ext/*
+# !ext/.gitignore
+# !ext/imgui
+# !ext/CMakeLists.txt
+# !ext/stb
 
 compile_commands.json

@@ -1,3 +1,24 @@
 [submodule "external/SDL_shadercross"]
 	path = external/SDL_shadercross
 	url = https://github.com/libsdl-org/SDL_shadercross.git
+[submodule "ext/ng-log"]
+	path = ext/ng-log
+	url = https://github.com/ng-log/ng-log.git
+[submodule "ext/gflags"]
+	path = ext/gflags
+	url = https://github.com/gflags/gflags.git
+[submodule "ext/bgfx.cmake"]
+	path = ext/bgfx.cmake
+	url = https://github.com/bkaradzic/bgfx.cmake.git
+[submodule "ext/SDL"]
+	path = ext/SDL
+	url = https://github.com/libsdl-org/SDL.git
+[submodule "ext/Catch2"]
+	path = ext/Catch2
+	url = https://github.com/catchorg/Catch2.git
+[submodule "ext/glm"]
+	path = ext/glm
+	url = https://github.com/g-truc/glm.git
+[submodule "ext/json"]
+	path = ext/json
+	url = https://github.com/nlohmann/json.git
