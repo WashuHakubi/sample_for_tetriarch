@@ -11,8 +11,25 @@
 #include <iostream>
 #include <thread>
 
+TEST_CASE("task starts executing immediately", "[task]") {
+  int stage = 0;
+  auto h = [](int& stage) -> wut::task<> {
+    stage = 1;
+    co_await std::suspend_always{};
+    stage = 2;
+    co_return;
+  }(stage);
+
+  REQUIRE(stage == 1);
+
+  h.resume();
+
+  REQUIRE(stage == 2);
+  REQUIRE(h.done());
+}
+
 TEST_CASE("task hello world", "[task]") {
-  using task_type = wut::task<std::string>;
+  using task_type = wut::lazy_task<std::string>;
 
   auto h = []() -> task_type { co_return "Hello"; }();
   auto w = []() -> task_type { co_return "World"; }();
@@ -35,7 +52,7 @@ TEST_CASE("task hello world", "[task]") {
 
 TEST_CASE("task void", "[task]") {
   using namespace std::chrono_literals;
-  using task_type = wut::task<>;
+  using task_type = wut::lazy_task<>;
 
   auto t = []() -> task_type {
     std::this_thread::sleep_for(10ms);
@@ -47,7 +64,7 @@ TEST_CASE("task void", "[task]") {
 }
 
 TEST_CASE("task exception thrown", "[task]") {
-  using task_type = wut::task<std::string>;
+  using task_type = wut::lazy_task<std::string>;
 
   std::string throw_msg = "I'll be reached";
 
@@ -72,8 +89,8 @@ TEST_CASE("task exception thrown", "[task]") {
 }
 
 TEST_CASE("task in a task", "[task]") {
-  auto outer_task = []() -> wut::task<> {
-    auto inner_task = []() -> wut::task<int> {
+  auto outer_task = []() -> wut::lazy_task<> {
+    auto inner_task = []() -> wut::lazy_task<int> {
       std::cerr << "inner_task start\n";
       std::cerr << "inner_task stop\n";
       co_return 42;
@@ -91,11 +108,11 @@ TEST_CASE("task in a task", "[task]") {
 }
 
 TEST_CASE("task in a task in a task", "[task]") {
-  auto task1 = []() -> wut::task<> {
+  auto task1 = []() -> wut::lazy_task<> {
     std::cerr << "task1 start\n";
-    auto task2 = []() -> wut::task<int> {
+    auto task2 = []() -> wut::lazy_task<int> {
       std::cerr << "\ttask2 start\n";
-      auto task3 = []() -> wut::task<int> {
+      auto task3 = []() -> wut::lazy_task<int> {
         std::cerr << "\t\ttask3 start\n";
         std::cerr << "\t\ttask3 stop\n";
         co_return 3;
@@ -120,7 +137,7 @@ TEST_CASE("task in a task in a task", "[task]") {
 }
 
 TEST_CASE("task multiple suspends return void", "[task]") {
-  auto task = []() -> wut::task<void> {
+  auto task = []() -> wut::lazy_task<void> {
     co_await std::suspend_always{};
     co_await std::suspend_never{};
     co_await std::suspend_always{};
@@ -142,7 +159,7 @@ TEST_CASE("task multiple suspends return void", "[task]") {
 }
 
 TEST_CASE("task multiple suspends return integer", "[task]") {
-  auto task = []() -> wut::task<int> {
+  auto task = []() -> wut::lazy_task<int> {
     co_await std::suspend_always{};
     co_await std::suspend_always{};
     co_await std::suspend_always{};
@@ -164,12 +181,12 @@ TEST_CASE("task multiple suspends return integer", "[task]") {
 }
 
 TEST_CASE("task resume from promise to coroutine handles of different types", "[task]") {
-  auto task1 = []() -> wut::task<int> {
+  auto task1 = []() -> wut::lazy_task<int> {
     std::cerr << "Task ran\n";
     co_return 42;
   }();
 
-  auto task2 = []() -> wut::task<void> {
+  auto task2 = []() -> wut::lazy_task<void> {
     std::cerr << "Task 2 ran\n";
     co_return;
   }();
@@ -178,8 +195,8 @@ TEST_CASE("task resume from promise to coroutine handles of different types", "[
 
   std::vector<std::coroutine_handle<>> handles;
 
-  handles.emplace_back(std::coroutine_handle<wut::task<int>::promise_type>::from_promise(task1.promise()));
-  handles.emplace_back(std::coroutine_handle<wut::task<void>::promise_type>::from_promise(task2.promise()));
+  handles.emplace_back(std::coroutine_handle<wut::lazy_task<int>::promise_type>::from_promise(task1.promise()));
+  handles.emplace_back(std::coroutine_handle<wut::lazy_task<void>::promise_type>::from_promise(task2.promise()));
 
   auto& coro_handle1 = handles[0];
   coro_handle1.resume();
@@ -195,7 +212,7 @@ TEST_CASE("task resume from promise to coroutine handles of different types", "[
 }
 
 TEST_CASE("task throws void", "[task]") {
-  auto task = []() -> wut::task<void> {
+  auto task = []() -> wut::lazy_task<void> {
     throw std::runtime_error{"I always throw."};
     co_return;
   }();
@@ -206,7 +223,7 @@ TEST_CASE("task throws void", "[task]") {
 }
 
 TEST_CASE("task throws non-void l-value", "[task]") {
-  auto task = []() -> wut::task<int> {
+  auto task = []() -> wut::lazy_task<int> {
     throw std::runtime_error{"I always throw."};
     co_return 42;
   }();
@@ -221,7 +238,7 @@ TEST_CASE("task throws non-void r-value", "[task]") {
     int m_value;
   };
 
-  auto task = []() -> wut::task<type> {
+  auto task = []() -> wut::lazy_task<type> {
     type return_value{42};
 
     throw std::runtime_error{"I always throw."};
