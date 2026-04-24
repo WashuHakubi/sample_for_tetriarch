@@ -13,7 +13,7 @@
 #include <SDL3/SDL_main.h>
 #include <bgfx/bgfx.h>
 #include <bgfx/platform.h>
-#include <bx/platform.h>
+// #include <bx/platform.h>
 
 #include <ng-log/logging.h>
 
@@ -47,9 +47,9 @@ int main(int argc, char** argv) {
   init.resolution.height = height;
   init.resolution.reset = BGFX_RESET_VSYNC;
 
-#if BX_PLATFORM_OSX
+#if WUT_PLATFORM_DARWIN
   init.platformData.nwh = SDL_GetPointerProperty(wndProps, SDL_PROP_WINDOW_COCOA_WINDOW_POINTER, nullptr);
-#elif BX_PLATFORM_LINUX
+#elif WUT_PLATFORM_LINUX
   LOG(INFO) << SDL_GetCurrentVideoDriver();
 
   if (SDL_GetCurrentVideoDriver() == "x11"sv) {
@@ -62,7 +62,7 @@ int main(int argc, char** argv) {
     init.platformData.nwh = SDL_GetPointerProperty(wndProps, SDL_PROP_WINDOW_WAYLAND_SURFACE_POINTER, NULL);
     init.platformData.type = bgfx::NativeWindowHandleType::Wayland;
   }
-#elif BX_PLATFORM_WINDOWS
+#elif WUT_PLATFORM_WINDOWS
   init.platformData.nwh = SDL_GetPointerProperty(wndProps, SDL_PROP_WINDOW_WIN32_HWND_POINTER, NULL);
 #else
 #error Unsupported platform

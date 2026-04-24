@@ -13,6 +13,9 @@
 #include <deque>
 #include <mutex>
 #include <thread>
+#include <utility>
+#include <variant>
+#include <vector>
 
 namespace wut {
 template <class T>
