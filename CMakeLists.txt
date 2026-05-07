@@ -13,7 +13,6 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/$<CONFIGURATION>")
 
 set(CMAKE_CXX_STANDARD 20)
 
-
 find_package(Git)
 message(STATUS ${PROJECT_SOURCE_DIR})
 execute_process(
