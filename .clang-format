@@ -97,6 +97,7 @@ PenaltyIndentedWhitespace: 10
 PenaltyReturnTypeOnItsOwnLine: 200000
 PointerAlignment: Left
 ReflowComments: true
+SeparateDefinitionBlocks: Always
 SortIncludes: true
 SortUsingDeclarations: true
 SpaceAfterCStyleCast: false

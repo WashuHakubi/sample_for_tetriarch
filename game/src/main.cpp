@@ -80,7 +80,7 @@ void load_hostfxr(string_t const& assembly_path) {
       assembly_path.empty() ? nullptr : assembly_path.c_str(),
       nullptr};
 
-  char_t buffer[1024];
+  char_t buffer[MAX_PATH];
   size_t buffer_size = sizeof(buffer) / sizeof(char_t);
   auto rc = get_hostfxr_path(buffer, &buffer_size, &params);
   if (rc) {
@@ -125,6 +125,7 @@ int main(int argc, char** argv) {
   load_hostfxr("");
   SPDLOG_INFO("Loaded hostfxr");
   char_t host_path[MAX_PATH];
+
 #if WINDOWS
   auto size = ::GetFullPathNameW(argv[0], sizeof(host_path) / sizeof(char_t), host_path, nullptr);
   assert(size != 0);
@@ -132,6 +133,7 @@ int main(int argc, char** argv) {
   auto resolved = realpath(argv[0], host_path);
   assert(resolved != nullptr);
 #endif
+
   string_t root_path = host_path;
   auto pos = root_path.find_last_of(DIR_SEPARATOR);
   assert(pos != string_t::npos);
@@ -158,4 +160,5 @@ int main(int argc, char** argv) {
   assert(gamemanager_initialize);
 
   gamemanager_initialize();
+  return 0;
 }

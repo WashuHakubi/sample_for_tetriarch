@@ -1,4 +1,4 @@
-file(GLOB_RECURSE GAME_SRCS CONFIGURE_DEPENDS "**.cpp")
+file(GLOB_RECURSE GAME_SRCS CONFIGURE_DEPENDS "src/**.cpp")
 
 add_executable(game ${GAME_SRCS})
 target_link_libraries(game PRIVATE
@@ -19,8 +19,13 @@ target_link_libraries(game PRIVATE nethost)
 add_custom_command(
   TARGET game POST_BUILD
   COMMAND ${CMAKE_COMMAND} -E copy_directory ${DOTNET_PATH} $<TARGET_FILE_DIR:game>
-  DEPENDS $<TARGET_FILE_DIR:game>/dotnet
   COMMENT "symbolic link resources folder from ${source} => ${destination}"
+)
+
+add_custom_command(
+  TARGET game POST_BUILD
+  COMMAND ${DOTNET_PATH}/dotnet build ${CMAKE_CURRENT_SOURCE_DIR}/csharp/WutGame.csproj
+  COMMENT "Build C# game project"
 )
 
 if(MSVC)
