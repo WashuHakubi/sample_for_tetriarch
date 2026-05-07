@@ -13,6 +13,15 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/$<CONFIGURATION>")
 
 set(CMAKE_CXX_STANDARD 20)
 
+
+find_package(Git)
+message(STATUS ${PROJECT_SOURCE_DIR})
+execute_process(
+    COMMAND ${GIT_EXECUTABLE} submodule update --init --recursive
+    COMMAND_ECHO STDOUT
+    WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
+    COMMAND_ERROR_IS_FATAL ANY)
+
 add_subdirectory(third-party)
 
 add_subdirectory(game)
