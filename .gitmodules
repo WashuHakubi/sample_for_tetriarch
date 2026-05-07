@@ -13,3 +13,6 @@
 [submodule "third-party/json"]
 	path = third-party/json
 	url = https://github.com/nlohmann/json.git
+[submodule "third-party/imgui.cmake"]
+	path = third-party/imgui.cmake
+	url = https://github.com/pr0g/imgui.cmake.git
