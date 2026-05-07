@@ -10,6 +10,19 @@ target_link_libraries(game PRIVATE
   glm
 )
 
+# Add dotnet to game
+target_link_directories(game PRIVATE ${DOTNET_HOST_PATH})
+target_include_directories(game PRIVATE ${DOTNET_HOST_PATH})
+target_link_libraries(game PRIVATE nethost)
+
+# Copy dotnet binaries to the game folder. This is where we'll look for them when running.
+add_custom_command(
+  TARGET game POST_BUILD
+  COMMAND ${CMAKE_COMMAND} -E copy_directory ${DOTNET_PATH} $<TARGET_FILE_DIR:game>
+  DEPENDS $<TARGET_FILE_DIR:game>/dotnet
+  COMMENT "symbolic link resources folder from ${source} => ${destination}"
+)
+
 if(MSVC)
   target_compile_options(game PUBLIC /W4 /WX /wd4100 /wd4996)
 else()
@@ -22,3 +35,4 @@ else()
                 -Wno-unused-private-field
                 -Wno-missing-field-initializers)
 endif()
+

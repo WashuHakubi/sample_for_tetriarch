@@ -38,9 +38,21 @@ else()
 endif()
 
 set(DOTNET_VERSION "10.0.203")
-set(DOTNET_FILE_NAME "dotnet-sdk-${DOTNET_VERSION}-${DOTNET_SYSTEM_NAME}-${DOTNET_OS_ARCH}.${DOTNET_FILE_EXT}")
-set(DOTNET_URL "https://builds.dotnet.microsoft.com/dotnet/Sdk/${DOTNET_VERSION}/${DOTNET_FILE_NAME}")
-file(DOWNLOAD ${DOTNET_URL} "${PROJECT_SOURCE_DIR}/third-party/${DOTNET_FILE_NAME}")
+set(DOTNET_FILE_NAME
+    "dotnet-sdk-${DOTNET_VERSION}-${DOTNET_SYSTEM_NAME}-${DOTNET_OS_ARCH}.${DOTNET_FILE_EXT}")
+set(DOTNET_FILE_PATH "${PROJECT_SOURCE_DIR}/third-party/${DOTNET_FILE_NAME}")
+set(DOTNET_PATH "${PROJECT_SOURCE_DIR}/third-party/dotnet")
+
+if(NOT EXISTS ${DOTNET_FILE_PATH})
+  set(DOTNET_URL
+      "https://builds.dotnet.microsoft.com/dotnet/Sdk/${DOTNET_VERSION}/${DOTNET_FILE_NAME}")
+  file(DOWNLOAD ${DOTNET_URL} ${DOTNET_FILE_PATH})
+
+  file(ARCHIVE_EXTRACT INPUT ${DOTNET_FILE_PATH} DESTINATION ${DOTNET_PATH})
+endif()
+
+set(DOTNET_HOST_PATH
+    "${DOTNET_PATH}/packs/Microsoft.NETCore.App.Host.${DOTNET_SYSTEM_NAME}-${DOTNET_OS_ARCH}/10.0.7/runtimes/${DOTNET_SYSTEM_NAME}-${DOTNET_OS_ARCH}/native")
 
 add_subdirectory(third-party)
 
