@@ -16,3 +16,6 @@
 [submodule "third-party/imgui.cmake"]
 	path = third-party/imgui.cmake
 	url = https://github.com/pr0g/imgui.cmake.git
+[submodule "third-party/glm"]
+	path = third-party/glm
+	url = https://github.com/g-truc/glm.git

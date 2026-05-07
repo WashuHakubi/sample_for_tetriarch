@@ -2,7 +2,12 @@ file(GLOB_RECURSE GAME_SRCS CONFIGURE_DEPENDS "**.cpp")
 
 add_executable(game ${GAME_SRCS})
 target_link_libraries(game PRIVATE
-  wut_engine
+  SDL3::SDL3
+  libcoro
+  spdlog
+  nlohmann_json
+  imgui.cmake
+  glm
 )
 
 if(MSVC)
