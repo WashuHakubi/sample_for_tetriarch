@@ -21,6 +21,27 @@ execute_process(
     WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
     COMMAND_ERROR_IS_FATAL ANY)
 
+if(CMAKE_HOST_SYSTEM_NAME STREQUAL "Linux")
+  set(DOTNET_SYSTEM_NAME "linux")
+  set(DOTNET_OS_ARCH "x64")
+  set(DOTNET_FILE_EXT "tar.gz")
+elseif(CMAKE_HOST_SYSTEM_NAME STREQUAL "Darwin")
+  set(DOTNET_SYSTEM_NAME "osx")
+  set(DOTNET_OS_ARCH "arm64")
+  set(DOTNET_FILE_EXT "tar.gz")
+elseif(CMAKE_HOST_SYSTEM_NAME STREQUAL "Windows")
+  set(DOTNET_SYSTEM_NAME "win")
+  set(DOTNET_OS_ARCH "x64")
+  set(DOTNET_FILE_EXT "zip")
+else()
+  message(FATAL_ERROR "Unknown host system ${CMAKE_HOST_SYSTEM_NAME}")
+endif()
+
+set(DOTNET_VERSION "10.0.203")
+set(DOTNET_FILE_NAME "dotnet-sdk-${DOTNET_VERSION}-${DOTNET_SYSTEM_NAME}-${DOTNET_OS_ARCH}.${DOTNET_FILE_EXT}")
+set(DOTNET_URL "https://builds.dotnet.microsoft.com/dotnet/Sdk/${DOTNET_VERSION}/${DOTNET_FILE_NAME}")
+file(DOWNLOAD ${DOTNET_URL} "${PROJECT_SOURCE_DIR}/third-party/${DOTNET_FILE_NAME}")
+
 add_subdirectory(third-party)
 
 add_subdirectory(game)
