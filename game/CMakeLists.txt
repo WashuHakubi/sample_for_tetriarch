@@ -15,19 +15,6 @@ target_link_directories(game PRIVATE ${DOTNET_HOST_PATH})
 target_include_directories(game PRIVATE ${DOTNET_HOST_PATH})
 target_link_libraries(game PRIVATE nethost)
 
-# Copy dotnet binaries to the game folder. This is where we'll look for them when running.
-add_custom_command(
-  TARGET game POST_BUILD
-  COMMAND ${CMAKE_COMMAND} -E copy_directory ${DOTNET_PATH} $<TARGET_FILE_DIR:game>
-  COMMENT "symbolic link resources folder from ${source} => ${destination}"
-)
-
-add_custom_command(
-  TARGET game POST_BUILD
-  COMMAND ${DOTNET_PATH}/dotnet build ${CMAKE_CURRENT_SOURCE_DIR}/csharp/WutGame.csproj
-  COMMENT "Build C# game project"
-)
-
 if(MSVC)
   target_compile_options(game PUBLIC /W4 /WX /wd4100 /wd4996)
 else()
@@ -40,4 +27,23 @@ else()
                 -Wno-unused-private-field
                 -Wno-missing-field-initializers)
 endif()
+
+# Copy dotnet binaries to the game folder. This is where we'll look for them when running.
+add_custom_command(
+  TARGET game POST_BUILD
+  COMMAND ${CMAKE_COMMAND} -E copy_directory ${DOTNET_PATH} $<TARGET_FILE_DIR:game>
+  COMMENT "symbolic link resources folder from ${source} => ${destination}"
+)
+
+# Build C# project
+file(GLOB_RECURSE GAME_CSHARP_SRCS CONFIGURE_DEPENDS "csharp/**.cs")
+
+add_custom_target(
+  game_csharp
+  COMMAND ${DOTNET_PATH}/dotnet build ${CMAKE_CURRENT_SOURCE_DIR}/csharp/WutGame.csproj
+  DEPENDS ${GAME_CSHARP_SRCS}
+)
+
+# Make sure we build the C# project when it changes.
+add_dependencies(game game_csharp)
 

@@ -7,6 +7,6 @@ public static class GameManager
     [UnmanagedCallersOnly]
     public static void Initialize()
     {
-        Console.WriteLine("Game manager initialize");
+        Console.WriteLine("C# Game manager initialized");
     }
 }

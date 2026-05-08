@@ -74,11 +74,8 @@ void* get_export(void* h, const char* name) {
 }
 #endif
 
-void load_hostfxr(string_t const& assembly_path) {
-  get_hostfxr_parameters params{
-      sizeof(get_hostfxr_parameters),
-      assembly_path.empty() ? nullptr : assembly_path.c_str(),
-      nullptr};
+void load_hostfxr(char_t const* assembly_path, char_t const* dotnet_root) {
+  get_hostfxr_parameters params{sizeof(get_hostfxr_parameters), assembly_path, dotnet_root};
 
   char_t buffer[MAX_PATH];
   size_t buffer_size = sizeof(buffer) / sizeof(char_t);
@@ -122,10 +119,7 @@ load_assembly_and_get_function_pointer_fn get_dotnet_load_assembly(char_t const*
 int main(int argc, char** argv) {
   spdlog::info("Starting...");
 
-  load_hostfxr("");
-  SPDLOG_INFO("Loaded hostfxr");
   char_t host_path[MAX_PATH];
-
 #if WINDOWS
   auto size = ::GetFullPathNameW(argv[0], sizeof(host_path) / sizeof(char_t), host_path, nullptr);
   assert(size != 0);
@@ -138,6 +132,9 @@ int main(int argc, char** argv) {
   auto pos = root_path.find_last_of(DIR_SEPARATOR);
   assert(pos != string_t::npos);
   root_path = root_path.substr(0, pos + 1);
+
+  load_hostfxr(nullptr, root_path.c_str());
+  SPDLOG_INFO("Loaded hostfxr");
 
   auto const config_path = root_path + STR("net10.0/WutGame.runtimeconfig.json");
   auto const assembly_path = root_path + STR("net10.0/WutGame.dll");
