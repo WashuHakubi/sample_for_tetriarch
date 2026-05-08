@@ -210,14 +210,13 @@ int main(int argc, char** argv) {
   assert(fns.has_value());
   auto [load_assembly_and_get_function_pointer, load_assembly, get_function_pointer] = fns.value();
 
-  typedef void (*gamemanager_initialize_fptr)(wutcs::GameInitializeOptions opts);
-  gamemanager_initialize_fptr gamemanager_initialize;
+  component_entry_point_fn gamemanager_initialize;
 
   load_assembly_and_get_function_pointer(
       assembly_path.c_str(),
       STR("WutGame.GameManager, WutGame"),
       STR("Initialize"),
-      UNMANAGEDCALLERSONLY_METHOD,
+      nullptr,
       nullptr,
       (void**)&gamemanager_initialize);
   assert(gamemanager_initialize);
@@ -230,6 +229,5 @@ int main(int argc, char** argv) {
       wutcs::game_object_name,
   };
 
-  gamemanager_initialize(opts);
-  return 0;
+  return gamemanager_initialize(&opts, sizeof(wutcs::GameInitializeOptions));
 }
