@@ -71,6 +71,7 @@ namespace {
 hostfxr_initialize_for_runtime_config_fn init_for_config_fptr;
 hostfxr_get_runtime_delegate_fn get_delegate_fptr;
 hostfxr_close_fn close_fptr;
+load_assembly_and_get_function_pointer_fn load_assembly_and_get_function_pointer;
 
 /**
  * Loads the hostfxr library, used for .net core hosting
@@ -104,47 +105,42 @@ void load_hostfxr(char_t const* assembly_path, char_t const* dotnet_root) {
   assert(init_for_config_fptr && get_delegate_fptr && close_fptr);
 }
 
-auto get_dotnet_load_assembly(char_t const* configFilePath)
-    -> std::optional<std::tuple<load_assembly_and_get_function_pointer_fn, load_assembly_fn, get_function_pointer_fn>> {
+bool get_dotnet_load_assembly(char_t const* configFilePath) {
   // Start .net core, this uses the runtime config we pass to figure out which .net version to load.
   hostfxr_handle ctx;
   auto rc = init_for_config_fptr(configFilePath, nullptr, &ctx);
   if (rc || ctx == nullptr) {
     SPDLOG_CRITICAL("Failed to initialize .net: {:x}", rc);
-    return std::nullopt;
+    return false;
   }
 
   // Get a method for loading assemblies and retrieving a function pointer from it.
-  void* load_assembly_and_get_function_pointer;
-  rc = get_delegate_fptr(ctx, hdt_load_assembly_and_get_function_pointer, &load_assembly_and_get_function_pointer);
+  rc = get_delegate_fptr(
+      ctx,
+      hdt_load_assembly_and_get_function_pointer,
+      (void**)&load_assembly_and_get_function_pointer);
   if (rc || load_assembly_and_get_function_pointer == nullptr) {
     SPDLOG_CRITICAL("Failed to get hdt_load_assembly_and_get_function_pointer: {:x}", rc);
     close_fptr(ctx);
-    return std::nullopt;
+    return false;
   }
 
-  void* load_assembly;
-  void* get_function_pointer;
-
-  rc = get_delegate_fptr(ctx, hdt_load_assembly, &load_assembly);
-  if (rc || load_assembly == nullptr) {
-    SPDLOG_CRITICAL("Failed to get hdt_load_assembly: {:x}", rc);
-    close_fptr(ctx);
-    return std::nullopt;
-  }
-
-  rc = get_delegate_fptr(ctx, hdt_get_function_pointer, &get_function_pointer);
-  if (rc || get_function_pointer == nullptr) {
-    SPDLOG_CRITICAL("Failed to get hdt_get_function_pointer: {:x}", rc);
-    close_fptr(ctx);
-    return std::nullopt;
-  }
   close_fptr(ctx);
+  return true;
+}
 
-  return std::tuple{
-      (load_assembly_and_get_function_pointer_fn)load_assembly_and_get_function_pointer,
-      (load_assembly_fn)load_assembly,
-      (get_function_pointer_fn)get_function_pointer};
+template <class Fn>
+Fn get_managed_function(string_t const& assembly_path, char_t const* type, char_t const* method) {
+  Fn ptr;
+  load_assembly_and_get_function_pointer(
+      assembly_path.c_str(),
+      type,
+      method,
+      UNMANAGEDCALLERSONLY_METHOD,
+      nullptr,
+      (void**)&ptr);
+  assert(ptr);
+  return ptr;
 }
 } // namespace
 
@@ -163,11 +159,15 @@ void log_message(LogLevel level, char const* msg) {
   spdlog::log((spdlog::level::level_enum)level, msg);
 }
 
-struct GameInitializeOptions {
+struct game_initialize_options {
+  uint64_t ticks_per_update;
+
   decltype(wutcs::log_message)* log_message;
 };
 
 } // namespace wutcs
+
+static constexpr uint64_t ticks_per_update = static_cast<uint64_t>(1 / 60.0 * 1000000000.0);
 
 int main(int argc, char** argv) {
   spdlog::log(spdlog::level::info, "");
@@ -196,45 +196,28 @@ int main(int argc, char** argv) {
   SPDLOG_INFO("Runtime config: {}", config_path);
 
   auto fns = get_dotnet_load_assembly(config_path.c_str());
-  assert(fns.has_value());
-  auto [load_assembly_and_get_function_pointer, load_assembly, get_function_pointer] = fns.value();
+  assert(fns);
 
-  typedef int(CORECLR_DELEGATE_CALLTYPE * gamemanager_initialize_fn)(wutcs::GameInitializeOptions * opts, int32_t size);
+  auto gamemanager_initialize =
+      get_managed_function<int(CORECLR_DELEGATE_CALLTYPE*)(wutcs::game_initialize_options*, int32_t)>(
+          assembly_path,
+          STR("WutGame.GameManager, WutGame"),
+          STR("Initialize"));
 
-  gamemanager_initialize_fn gamemanager_initialize;
-
-  load_assembly_and_get_function_pointer(
-      assembly_path.c_str(),
+  auto gamemanager_update = get_managed_function<void(CORECLR_DELEGATE_CALLTYPE*)(uint64_t)>(
+      assembly_path,
       STR("WutGame.GameManager, WutGame"),
-      STR("Initialize"),
-      UNMANAGEDCALLERSONLY_METHOD,
-      nullptr,
-      (void**)&gamemanager_initialize);
-  assert(gamemanager_initialize);
+      STR("Update"));
 
-  typedef void(CORECLR_DELEGATE_CALLTYPE * gamemanager_update_fn)(uint64_t delta_time);
-  gamemanager_update_fn gamemanager_update;
-
-  load_assembly_and_get_function_pointer(
-      assembly_path.c_str(),
+  auto gamemanager_render = get_managed_function<void(CORECLR_DELEGATE_CALLTYPE*)(uint64_t)>(
+      assembly_path,
       STR("WutGame.GameManager, WutGame"),
-      STR("Update"),
-      UNMANAGEDCALLERSONLY_METHOD,
-      nullptr,
-      (void**)&gamemanager_update);
-  assert(gamemanager_update);
+      STR("Update"));
 
-  typedef void(CORECLR_DELEGATE_CALLTYPE * gamemanager_render_fn)(uint64_t delta_time);
-  gamemanager_render_fn gamemanager_render;
-
-  load_assembly_and_get_function_pointer(
-      assembly_path.c_str(),
+  auto gamemanager_shutdown = get_managed_function<void(CORECLR_DELEGATE_CALLTYPE*)()>(
+      assembly_path,
       STR("WutGame.GameManager, WutGame"),
-      STR("Render"),
-      UNMANAGEDCALLERSONLY_METHOD,
-      nullptr,
-      (void**)&gamemanager_render);
-  assert(gamemanager_render);
+      STR("Shutdown"));
 
   SDL_InitSubSystem(SDL_INIT_VIDEO | SDL_INIT_EVENTS | SDL_INIT_AUDIO);
 
@@ -251,17 +234,16 @@ int main(int argc, char** argv) {
     return -1;
   }
 
-  wutcs::GameInitializeOptions opts = {
+  wutcs::game_initialize_options opts = {
+      ticks_per_update,
       wutcs::log_message,
   };
 
-  int rc = gamemanager_initialize(&opts, sizeof(wutcs::GameInitializeOptions));
+  int rc = gamemanager_initialize(&opts, sizeof(wutcs::game_initialize_options));
   if (rc) {
     SPDLOG_CRITICAL("GameManager::Initialize failed.");
     return -1;
   }
-
-  static constexpr uint64_t ticks_per_update = static_cast<uint64_t>(1 / 60.0 * 1000000000.0);
 
   auto last_time = SDL_GetTicksNS();
   auto delta_time = 0ull;
@@ -298,6 +280,8 @@ int main(int argc, char** argv) {
 
     SDL_RenderPresent(renderer);
   }
+
+  gamemanager_shutdown();
 
   SDL_DestroyWindow(window);
   SDL_Quit();

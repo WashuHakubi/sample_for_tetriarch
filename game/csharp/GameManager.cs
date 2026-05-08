@@ -6,10 +6,15 @@ public static class GameManager
 {
     /// Options and pointers to native methods. The layout of this must match the layout on the native side.
     [StructLayout(LayoutKind.Sequential)]
-    public struct GameInitializeOptions
+    private struct GameInitializeOptions
     {
+        public ulong ticksPerUpdate;
         public IntPtr logMessagePtr;
     };
+
+    private static ulong ticksPerUpdate;
+
+    public static ulong TicksPerUpdate => ticksPerUpdate;
 
     private static void Fix<T>(ref T fn, IntPtr handle)
     {
@@ -25,6 +30,8 @@ public static class GameManager
         }
 
         var opts = (GameInitializeOptions*)arg.ToPointer();
+
+        ticksPerUpdate = opts->ticksPerUpdate;
 
         Fix(ref NativeMethods.LogMessage, opts->logMessagePtr);
 
@@ -48,6 +55,6 @@ public static class GameManager
     [UnmanagedCallersOnly]
     private static void Shutdown()
     {
-
+        Log.Info($"C# {nameof(GameManager)}.{nameof(Shutdown)} called");
     }
 }
