@@ -21,8 +21,6 @@
 #include <optional>
 #include <tuple>
 
-#include "game_object.h"
-
 #ifdef WINDOWS
 #include <Windows.h>
 
@@ -32,7 +30,18 @@
 
 #define string_compare wcscmp
 
-#else
+static void* load_library(const char_t* path) {
+  HMODULE h = ::LoadLibraryW(path);
+  assert(h != nullptr);
+  return (void*)h;
+}
+
+static void* get_export(void* h, const char* name) {
+  void* f = ::GetProcAddress((HMODULE)h, name);
+  assert(f != nullptr);
+  return f;
+}
+#else //! defined(WINDOWS)
 #include <dlfcn.h>
 #include <limits.h>
 
@@ -43,6 +52,17 @@
 
 #define string_compare strcmp
 
+static void* load_library(const char_t* path) {
+  void* h = dlopen(path, RTLD_LAZY | RTLD_LOCAL);
+  assert(h != nullptr);
+  return h;
+}
+
+static void* get_export(void* h, const char* name) {
+  void* f = dlsym(h, name);
+  assert(f != nullptr);
+  return f;
+}
 #endif
 
 using string_t = std::basic_string<char_t>;
@@ -51,33 +71,6 @@ namespace {
 hostfxr_initialize_for_runtime_config_fn init_for_config_fptr;
 hostfxr_get_runtime_delegate_fn get_delegate_fptr;
 hostfxr_close_fn close_fptr;
-
-// Utility wrappers to load dynamic libraries and get methods exported from them.
-#ifdef WINDOWS
-void* load_library(const char_t* path) {
-  HMODULE h = ::LoadLibraryW(path);
-  assert(h != nullptr);
-  return (void*)h;
-}
-
-void* get_export(void* h, const char* name) {
-  void* f = ::GetProcAddress((HMODULE)h, name);
-  assert(f != nullptr);
-  return f;
-}
-#else
-void* load_library(const char_t* path) {
-  void* h = dlopen(path, RTLD_LAZY | RTLD_LOCAL);
-  assert(h != nullptr);
-  return h;
-}
-
-void* get_export(void* h, const char* name) {
-  void* f = dlsym(h, name);
-  assert(f != nullptr);
-  return f;
-}
-#endif
 
 /**
  * Loads the hostfxr library, used for .net core hosting
@@ -172,10 +165,6 @@ void log_message(LogLevel level, char const* msg) {
 
 struct GameInitializeOptions {
   decltype(wutcs::log_message)* log_message;
-  decltype(wutcs::create_game_object)* create_game_object;
-  decltype(wutcs::release_game_object)* release_game_object;
-  decltype(wutcs::acquire_game_object)* acquire_game_object;
-  decltype(wutcs::game_object_name)* game_object_name;
 };
 
 } // namespace wutcs
@@ -210,24 +199,106 @@ int main(int argc, char** argv) {
   assert(fns.has_value());
   auto [load_assembly_and_get_function_pointer, load_assembly, get_function_pointer] = fns.value();
 
-  component_entry_point_fn gamemanager_initialize;
+  typedef int(CORECLR_DELEGATE_CALLTYPE * gamemanager_initialize_fn)(wutcs::GameInitializeOptions * opts, int32_t size);
+
+  gamemanager_initialize_fn gamemanager_initialize;
 
   load_assembly_and_get_function_pointer(
       assembly_path.c_str(),
       STR("WutGame.GameManager, WutGame"),
       STR("Initialize"),
-      nullptr,
+      UNMANAGEDCALLERSONLY_METHOD,
       nullptr,
       (void**)&gamemanager_initialize);
   assert(gamemanager_initialize);
 
+  typedef void(CORECLR_DELEGATE_CALLTYPE * gamemanager_update_fn)(uint64_t delta_time);
+  gamemanager_update_fn gamemanager_update;
+
+  load_assembly_and_get_function_pointer(
+      assembly_path.c_str(),
+      STR("WutGame.GameManager, WutGame"),
+      STR("Update"),
+      UNMANAGEDCALLERSONLY_METHOD,
+      nullptr,
+      (void**)&gamemanager_update);
+  assert(gamemanager_update);
+
+  typedef void(CORECLR_DELEGATE_CALLTYPE * gamemanager_render_fn)(uint64_t delta_time);
+  gamemanager_render_fn gamemanager_render;
+
+  load_assembly_and_get_function_pointer(
+      assembly_path.c_str(),
+      STR("WutGame.GameManager, WutGame"),
+      STR("Render"),
+      UNMANAGEDCALLERSONLY_METHOD,
+      nullptr,
+      (void**)&gamemanager_render);
+  assert(gamemanager_render);
+
+  SDL_InitSubSystem(SDL_INIT_VIDEO | SDL_INIT_EVENTS | SDL_INIT_AUDIO);
+
+  SDL_Window* window;
+  SDL_Renderer* renderer;
+  if (!SDL_CreateWindowAndRenderer(
+          "wut game",
+          800,
+          600,
+          SDL_WINDOW_HIGH_PIXEL_DENSITY | SDL_WINDOW_RESIZABLE,
+          &window,
+          &renderer)) {
+    SPDLOG_CRITICAL("Failed to create window and renderer: {}", SDL_GetError());
+    return -1;
+  }
+
   wutcs::GameInitializeOptions opts = {
       wutcs::log_message,
-      wutcs::create_game_object,
-      wutcs::release_game_object,
-      wutcs::acquire_game_object,
-      wutcs::game_object_name,
   };
 
-  return gamemanager_initialize(&opts, sizeof(wutcs::GameInitializeOptions));
+  int rc = gamemanager_initialize(&opts, sizeof(wutcs::GameInitializeOptions));
+  if (rc) {
+    SPDLOG_CRITICAL("GameManager::Initialize failed.");
+    return -1;
+  }
+
+  static constexpr uint64_t ticks_per_update = static_cast<uint64_t>(1 / 60.0 * 1000000000.0);
+
+  auto last_time = SDL_GetTicksNS();
+  auto delta_time = 0ull;
+
+  bool run = true;
+  while (run) {
+    SDL_Event event;
+    while (SDL_PollEvent(&event)) {
+      switch (event.type) {
+        case SDL_EVENT_QUIT:
+          run = false;
+          break;
+        case SDL_EVENT_WINDOW_RESIZED:
+          break;
+      }
+    }
+
+    auto cur_time = SDL_GetTicksNS();
+    auto cur_delta_time = cur_time - last_time;
+    delta_time += cur_delta_time;
+
+    while (delta_time > ticks_per_update) {
+      delta_time -= ticks_per_update;
+
+      // Game Update
+      gamemanager_update(ticks_per_update);
+    }
+
+    SDL_SetRenderDrawColor(renderer, 0x80, 0x80, 0x80, 0xFF);
+    SDL_RenderClear(renderer);
+
+    // Render
+    gamemanager_render(cur_delta_time);
+
+    SDL_RenderPresent(renderer);
+  }
+
+  SDL_DestroyWindow(window);
+  SDL_Quit();
 }
