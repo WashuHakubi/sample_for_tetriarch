@@ -116,8 +116,29 @@ load_assembly_and_get_function_pointer_fn get_dotnet_load_assembly(char_t const*
 }
 } // namespace
 
+namespace wutcs {
+// Must match SPDLOG levels
+enum class LogLevel : uint32_t {
+  Trace = 0,
+  Debug = 1,
+  Info = 2,
+  Warn = 3,
+  Error = 4,
+  Critical = 5,
+};
+
+struct GameInitializeOptions {
+  void (*logMessage)(LogLevel level, char const* msg);
+};
+
+void logMessage(LogLevel level, char const* msg) {
+  spdlog::log((spdlog::level::level_enum)level, msg);
+}
+} // namespace wutcs
+
 int main(int argc, char** argv) {
-  spdlog::info("Starting...");
+  spdlog::log(spdlog::level::info, "");
+  SPDLOG_INFO("Starting...");
 
   char_t host_path[MAX_PATH];
 #if WINDOWS
@@ -144,7 +165,7 @@ int main(int argc, char** argv) {
   auto load_assembly_and_get_function_pointer = get_dotnet_load_assembly(config_path.c_str());
   assert(load_assembly_and_get_function_pointer);
 
-  typedef void (*gamemanager_initialize_fptr)();
+  typedef void (*gamemanager_initialize_fptr)(wutcs::GameInitializeOptions opts);
   gamemanager_initialize_fptr gamemanager_initialize;
 
   load_assembly_and_get_function_pointer(
@@ -156,6 +177,10 @@ int main(int argc, char** argv) {
       (void**)&gamemanager_initialize);
   assert(gamemanager_initialize);
 
-  gamemanager_initialize();
+  wutcs::GameInitializeOptions opts = {
+      &wutcs::logMessage,
+  };
+
+  gamemanager_initialize(opts);
   return 0;
 }
