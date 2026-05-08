@@ -18,39 +18,81 @@ internal static class NativeMethods
 
     internal static LogMessageFn LogMessage = null!;
 
-    internal delegate IntPtr CreateGameObjectFn([MarshalAs(UnmanagedType.LPStr)] string? name);
+    internal delegate IntPtr CreateGameObjectFn(IntPtr name);
 
-    internal static CreateGameObjectFn CreateGameObject = null!;
+    internal static CreateGameObjectFn CreateGameObjectInt = null!;
+
+    internal static IntPtr CreateGameObject(string? name)
+    {
+        IntPtr namePtr = IntPtr.Zero;
+        if (name != null)
+        {
+            namePtr = Marshal.StringToCoTaskMemUTF8(name);
+        }
+
+        var handle = CreateGameObjectInt(namePtr);
+        Marshal.ZeroFreeCoTaskMemUTF8(namePtr);
+        return handle;
+    }
 
     internal delegate IntPtr ReleaseGameObjectFn(IntPtr handle);
 
     internal static ReleaseGameObjectFn ReleaseGameObject = null!;
+
+    internal delegate void AcquireGameObjectFn(IntPtr handle);
+
+    internal static AcquireGameObjectFn AcquireGameObject = null!;
+
+    internal delegate IntPtr GameObjectNameFn(IntPtr handle);
+
+    internal static GameObjectNameFn GameObjectNameInt = null!;
+
+    internal static string? GameObjectName(IntPtr handle)
+    {
+        var namePtr = GameObjectNameInt(handle);
+        if (namePtr != IntPtr.Zero)
+        {
+            return Marshal.PtrToStringUTF8(namePtr);
+        }
+        return null;
+    }
 }
 
 public static class GameManager
 {
+    /// Options and pointers to native methods. The layout of this must match the layout on the native side.
     [StructLayout(LayoutKind.Sequential)]
     public struct GameInitializeOptions
     {
-        // void (*log_message) (LogLevel level, char_t const* msg);
         public IntPtr logMessagePtr;
 
-        // game_object_ptr* (*create_game_object) (char_t const* msg);
         public IntPtr createGameObjectPtr;
 
-        // void (*release_game_object)(game_object_ptr*);
         public IntPtr releaseGameObjectPtr;
+
+        public IntPtr acquireGameObjectPtr;
+
+        public IntPtr gameObjectNamePtr;
     };
+
+    private static void Fix<T>(ref T fn, IntPtr handle)
+    {
+        fn = Marshal.GetDelegateForFunctionPointer<T>(handle);
+    }
 
     [UnmanagedCallersOnly]
     public static void Initialize(GameInitializeOptions opts)
     {
-        NativeMethods.LogMessage = Marshal.GetDelegateForFunctionPointer<NativeMethods.LogMessageFn>(opts.logMessagePtr);
-        NativeMethods.CreateGameObject = Marshal.GetDelegateForFunctionPointer<NativeMethods.CreateGameObjectFn>(opts.createGameObjectPtr);
-        NativeMethods.ReleaseGameObject = Marshal.GetDelegateForFunctionPointer<NativeMethods.ReleaseGameObjectFn>(opts.releaseGameObjectPtr);
+        Fix(ref NativeMethods.LogMessage, opts.logMessagePtr);
+        Fix(ref NativeMethods.LogMessage, opts.logMessagePtr);
+        Fix(ref NativeMethods.CreateGameObjectInt, opts.createGameObjectPtr);
+        Fix(ref NativeMethods.ReleaseGameObject, opts.releaseGameObjectPtr);
+        Fix(ref NativeMethods.AcquireGameObject, opts.acquireGameObjectPtr);
+        Fix(ref NativeMethods.GameObjectNameInt, opts.gameObjectNamePtr);
 
         Log.Info($"C# {nameof(GameManager)}.{nameof(Initialize)} called");
 
         using var go = new GameObject("my game object");
+        Log.Warning($"C# access to: {go.Name}");
     }
 }

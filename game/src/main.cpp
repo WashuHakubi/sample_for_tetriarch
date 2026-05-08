@@ -166,15 +166,18 @@ enum class LogLevel : uint32_t {
   Critical = 5,
 };
 
-struct GameInitializeOptions {
-  void (*log_message)(LogLevel level, char const* msg);
-  wut::game_object_ptr* (*create_game_object)(char const* name);
-  void (*destroy_game_object)(wut::game_object_ptr*);
-};
-
-void logMessage(LogLevel level, char const* msg) {
+void log_message(LogLevel level, char const* msg) {
   spdlog::log((spdlog::level::level_enum)level, msg);
 }
+
+struct GameInitializeOptions {
+  decltype(wutcs::log_message)* log_message;
+  decltype(wutcs::create_game_object)* create_game_object;
+  decltype(wutcs::release_game_object)* release_game_object;
+  decltype(wutcs::acquire_game_object)* acquire_game_object;
+  decltype(wutcs::game_object_name)* game_object_name;
+};
+
 } // namespace wutcs
 
 int main(int argc, char** argv) {
@@ -220,9 +223,11 @@ int main(int argc, char** argv) {
   assert(gamemanager_initialize);
 
   wutcs::GameInitializeOptions opts = {
-      wutcs::logMessage,
+      wutcs::log_message,
       wutcs::create_game_object,
-      wutcs::destroy_game_object,
+      wutcs::release_game_object,
+      wutcs::acquire_game_object,
+      wutcs::game_object_name,
   };
 
   gamemanager_initialize(opts);

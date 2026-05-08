@@ -14,10 +14,18 @@ public class GameObject : IDisposable
         _handle = NativeMethods.CreateGameObject(name);
     }
 
+    internal GameObject(IntPtr handle)
+    {
+        _handle = handle;
+        NativeMethods.AcquireGameObject(_handle);
+    }
+
     ~GameObject()
     {
         ReleaseUnmanagedResources();
     }
+
+    public string Name => NativeMethods.GameObjectName(_handle) ?? "[null]";
 
     private void ReleaseUnmanagedResources()
     {

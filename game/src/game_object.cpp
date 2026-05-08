@@ -8,13 +8,28 @@
 
 #include <spdlog/spdlog.h>
 
-wut::game_object_ptr* wutcs::create_game_object(char const* name) {
-  auto obj = std::make_shared<wut::game_object>(name ? name : "[game_object]");
-  return new wut::game_object_ptr(obj);
+wut::game_object* wutcs::create_game_object(char const* name) {
+  auto obj = wut::make_ref_counted<wut::game_object>(name);
+  return obj.release();
 }
 
-void wutcs::destroy_game_object(wut::game_object_ptr* handle) {
-  delete handle;
+void wutcs::release_game_object(wut::game_object* handle) {
+  if (!handle)
+    return;
+  handle->release();
+}
+
+void wutcs::acquire_game_object(wut::game_object* handle) {
+  if (handle) {
+    handle->add_ref();
+  }
+}
+
+char const* wutcs::game_object_name(wut::game_object* handle) {
+  if (handle) {
+    return handle->name().c_str();
+  }
+  return nullptr;
 }
 
 wut::game_object::game_object(std::string name) : name_(std::move(name)) {
