@@ -18,6 +18,10 @@
 #include <nethost.h>
 
 #include <cassert>
+#include <optional>
+#include <tuple>
+
+#include "game_object.h"
 
 #ifdef WINDOWS
 #include <Windows.h>
@@ -48,6 +52,7 @@ hostfxr_initialize_for_runtime_config_fn init_for_config_fptr;
 hostfxr_get_runtime_delegate_fn get_delegate_fptr;
 hostfxr_close_fn close_fptr;
 
+// Utility wrappers to load dynamic libraries and get methods exported from them.
 #ifdef WINDOWS
 void* load_library(const char_t* path) {
   HMODULE h = ::LoadLibraryW(path);
@@ -74,18 +79,30 @@ void* get_export(void* h, const char* name) {
 }
 #endif
 
+/**
+ * Loads the hostfxr library, used for .net core hosting
+ */
 void load_hostfxr(char_t const* assembly_path, char_t const* dotnet_root) {
   get_hostfxr_parameters params{sizeof(get_hostfxr_parameters), assembly_path, dotnet_root};
 
+  // Get the path to hostfxr library.
   char_t buffer[MAX_PATH];
   size_t buffer_size = sizeof(buffer) / sizeof(char_t);
   auto rc = get_hostfxr_path(buffer, &buffer_size, &params);
   if (rc) {
     SPDLOG_CRITICAL("Failed while trying to get hostfx path: {}", rc);
+    return;
   }
 
+  // Attempt to load the hostfxr library.
   auto lib = load_library(buffer);
   assert(lib);
+
+  // Configure error log printing from hostfxr
+  auto set_error_writer = (hostfxr_set_error_writer_fn)get_export(lib, "hostfxr_set_error_writer");
+  set_error_writer([](char_t const* message) { spdlog::error(message); });
+
+  // Get function pointers for the methods we need to load our game assembly.
   init_for_config_fptr =
       (hostfxr_initialize_for_runtime_config_fn)get_export(lib, "hostfxr_initialize_for_runtime_config");
   get_delegate_fptr = (hostfxr_get_runtime_delegate_fn)get_export(lib, "hostfxr_get_runtime_delegate");
@@ -94,25 +111,47 @@ void load_hostfxr(char_t const* assembly_path, char_t const* dotnet_root) {
   assert(init_for_config_fptr && get_delegate_fptr && close_fptr);
 }
 
-load_assembly_and_get_function_pointer_fn get_dotnet_load_assembly(char_t const* configFilePath) {
+auto get_dotnet_load_assembly(char_t const* configFilePath)
+    -> std::optional<std::tuple<load_assembly_and_get_function_pointer_fn, load_assembly_fn, get_function_pointer_fn>> {
+  // Start .net core, this uses the runtime config we pass to figure out which .net version to load.
   hostfxr_handle ctx;
   auto rc = init_for_config_fptr(configFilePath, nullptr, &ctx);
   if (rc || ctx == nullptr) {
     SPDLOG_CRITICAL("Failed to initialize .net: {:x}", rc);
-    return nullptr;
+    return std::nullopt;
   }
 
+  // Get a method for loading assemblies and retrieving a function pointer from it.
   void* load_assembly_and_get_function_pointer;
-
   rc = get_delegate_fptr(ctx, hdt_load_assembly_and_get_function_pointer, &load_assembly_and_get_function_pointer);
   if (rc || load_assembly_and_get_function_pointer == nullptr) {
-    SPDLOG_CRITICAL("Failed to get function to load assembly: {:x}", rc);
+    SPDLOG_CRITICAL("Failed to get hdt_load_assembly_and_get_function_pointer: {:x}", rc);
     close_fptr(ctx);
-    return nullptr;
+    return std::nullopt;
   }
 
+  void* load_assembly;
+  void* get_function_pointer;
+
+  rc = get_delegate_fptr(ctx, hdt_load_assembly, &load_assembly);
+  if (rc || load_assembly == nullptr) {
+    SPDLOG_CRITICAL("Failed to get hdt_load_assembly: {:x}", rc);
+    close_fptr(ctx);
+    return std::nullopt;
+  }
+
+  rc = get_delegate_fptr(ctx, hdt_get_function_pointer, &get_function_pointer);
+  if (rc || get_function_pointer == nullptr) {
+    SPDLOG_CRITICAL("Failed to get hdt_get_function_pointer: {:x}", rc);
+    close_fptr(ctx);
+    return std::nullopt;
+  }
   close_fptr(ctx);
-  return (load_assembly_and_get_function_pointer_fn)load_assembly_and_get_function_pointer;
+
+  return std::tuple{
+      (load_assembly_and_get_function_pointer_fn)load_assembly_and_get_function_pointer,
+      (load_assembly_fn)load_assembly,
+      (get_function_pointer_fn)get_function_pointer};
 }
 } // namespace
 
@@ -128,7 +167,9 @@ enum class LogLevel : uint32_t {
 };
 
 struct GameInitializeOptions {
-  void (*logMessage)(LogLevel level, char const* msg);
+  void (*log_message)(LogLevel level, char const* msg);
+  wut::game_object_ptr* (*create_game_object)(char const* name);
+  void (*destroy_game_object)(wut::game_object_ptr*);
 };
 
 void logMessage(LogLevel level, char const* msg) {
@@ -162,8 +203,9 @@ int main(int argc, char** argv) {
 
   SPDLOG_INFO("Runtime config: {}", config_path);
 
-  auto load_assembly_and_get_function_pointer = get_dotnet_load_assembly(config_path.c_str());
-  assert(load_assembly_and_get_function_pointer);
+  auto fns = get_dotnet_load_assembly(config_path.c_str());
+  assert(fns.has_value());
+  auto [load_assembly_and_get_function_pointer, load_assembly, get_function_pointer] = fns.value();
 
   typedef void (*gamemanager_initialize_fptr)(wutcs::GameInitializeOptions opts);
   gamemanager_initialize_fptr gamemanager_initialize;
@@ -178,7 +220,9 @@ int main(int argc, char** argv) {
   assert(gamemanager_initialize);
 
   wutcs::GameInitializeOptions opts = {
-      &wutcs::logMessage,
+      wutcs::logMessage,
+      wutcs::create_game_object,
+      wutcs::destroy_game_object,
   };
 
   gamemanager_initialize(opts);

@@ -4,22 +4,22 @@ public static class Log
 {
     public static void Info(string message)
     {
-        GameManager.LogMessage(GameManager.LogLevel.Info, message);
+        NativeMethods.LogMessage(LogLevel.Info, message);
     }
 
     public static void Warning(string message)
     {
-        GameManager.LogMessage(GameManager.LogLevel.Warn, message);
+        NativeMethods.LogMessage(LogLevel.Warn, message);
     }
 
     public static void Error(string message)
     {
-        GameManager.LogMessage(GameManager.LogLevel.Error, message);
+        NativeMethods.LogMessage(LogLevel.Error, message);
     }
 
     public static void Critical(string message)
     {
-        GameManager.LogMessage(GameManager.LogLevel.Critical, message);
+        NativeMethods.LogMessage(LogLevel.Critical, message);
     }
 }
 
