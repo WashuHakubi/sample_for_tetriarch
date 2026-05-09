@@ -274,6 +274,10 @@ int main(int argc, char** argv) {
 
   entt::registry registry;
 
+  // Register our callbacks so managed can track entities.
+  registry.on_construct<entt::entity>().connect<&wutcs::on_entity_constructed>();
+  registry.on_destroy<entt::entity>().connect<&wutcs::on_entity_destroyed>();
+
   wutcs::game_initialize_options opts{
       .registry = &registry,
   };
@@ -283,12 +287,6 @@ int main(int argc, char** argv) {
     SPDLOG_CRITICAL("GameManager::Initialize failed.");
     return -1;
   }
-
-  registry.on_construct<entt::entity>().connect<&wutcs::on_entity_constructed>();
-  registry.on_destroy<entt::entity>().connect<&wutcs::on_entity_destroyed>();
-
-  auto e = registry.create();
-  registry.destroy(e);
 
   auto last_time = SDL_GetTicksNS();
   auto delta_time = 0ull;
@@ -313,14 +311,18 @@ int main(int argc, char** argv) {
     while (delta_time > ticks_per_update) {
       delta_time -= ticks_per_update;
 
-      // Game Update
+      // TODO: Native update
+
+      // Run managed update
       gamemanager_update(ticks_per_update);
     }
 
     SDL_SetRenderDrawColor(renderer, 0x80, 0x80, 0x80, 0xFF);
     SDL_RenderClear(renderer);
 
-    // Render
+    // TODO: Native render
+    //
+    // Run managed render
     gamemanager_render(cur_delta_time);
 
     SDL_RenderPresent(renderer);
