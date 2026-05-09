@@ -9,8 +9,19 @@ public static class GameManager
     private struct GameInitializeOptions
     {
         public ulong ticksPerUpdate;
+        public IntPtr entityRegistry;
+
         public IntPtr logMessagePtr;
+        public IntPtr createEntity;
+        public IntPtr destroyEntity;
     };
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct GameInitializeResults
+    {
+        public IntPtr onEntityConstructed;
+        public IntPtr onEntityDestroyed;
+    }
 
     private static ulong ticksPerUpdate;
 
@@ -22,21 +33,32 @@ public static class GameManager
     }
 
     [UnmanagedCallersOnly]
-    private static unsafe int Initialize(IntPtr arg, int argLength)
+    private static void OnEntityConstructed(Entity e)
     {
-        if (argLength != Marshal.SizeOf(typeof(GameInitializeOptions)))
+        Log.Info($"Entity created: {e}");
+    }
+
+    [UnmanagedCallersOnly]
+    private static void OnEntityDestroyed(Entity e)
+    {
+        Log.Info($"Entity destroyed: {e}");
+
+    }
+
+    [UnmanagedCallersOnly]
+    private static unsafe int Initialize(GameInitializeOptions* opts, int gameInitOptsSize)
+    {
+        if (gameInitOptsSize != Marshal.SizeOf(typeof(GameInitializeOptions)))
         {
+            Console.Error.WriteLine($"GameInitializeOptions size mismatch. Expected: {Marshal.SizeOf(typeof(GameInitializeOptions))}, got: {gameInitOptsSize}");
             return -1;
         }
-
-        var opts = (GameInitializeOptions*)arg.ToPointer();
 
         ticksPerUpdate = opts->ticksPerUpdate;
 
         Fix(ref NativeMethods.LogMessage, opts->logMessagePtr);
 
         Log.Info($"C# {nameof(GameManager)}.{nameof(Initialize)} called");
-
         return 0;
     }
 

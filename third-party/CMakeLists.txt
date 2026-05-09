@@ -12,3 +12,5 @@ add_subdirectory(libcoro)
 add_subdirectory(spdlog)
 
 add_subdirectory(glm)
+
+add_subdirectory(entt)

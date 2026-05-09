@@ -8,6 +8,7 @@ target_link_libraries(game PRIVATE
   nlohmann_json
   imgui.cmake
   glm
+  EnTT::EnTT
 )
 
 # Add dotnet to game

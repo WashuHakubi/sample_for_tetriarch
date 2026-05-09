@@ -6,20 +6,24 @@
 
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
+
 #include <coro/task.hpp>
+
 #include <glm/ext.hpp>
 #include <glm/glm.hpp>
+
 #include <nlohmann/json.hpp>
+
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/spdlog.h>
+
+#include <entt/entt.hpp>
 
 #include <coreclr_delegates.h>
 #include <hostfxr.h>
 #include <nethost.h>
 
 #include <cassert>
-#include <optional>
-#include <tuple>
 
 #ifdef WINDOWS
 #include <Windows.h>
@@ -144,30 +148,54 @@ Fn get_managed_function(string_t const& assembly_path, char_t const* type, char_
 }
 } // namespace
 
+static constexpr uint64_t ticks_per_update = static_cast<uint64_t>(1 / 60.0 * 1000000000.0);
+
 namespace wutcs {
 // Must match SPDLOG levels
-enum class LogLevel : uint32_t {
-  Trace = 0,
-  Debug = 1,
-  Info = 2,
-  Warn = 3,
-  Error = 4,
-  Critical = 5,
+enum class log_level : uint32_t {
+  trace = 0,
+  debug = 1,
+  info = 2,
+  warn = 3,
+  error = 4,
+  critical = 5,
 };
 
-void log_message(LogLevel level, char const* msg) {
+void log_message(log_level level, char const* msg) {
   spdlog::log((spdlog::level::level_enum)level, msg);
 }
 
-struct game_initialize_options {
-  uint64_t ticks_per_update;
+entt::entity entt_create_entity(entt::registry* reg) {
+  return reg->create();
+}
 
-  decltype(wutcs::log_message)* log_message;
+void entt_destroy_entity(entt::registry* reg, entt::entity ent) {
+  reg->destroy(ent);
+}
+
+struct game_initialize_options {
+  uint64_t ticks_per_update{::ticks_per_update};
+  entt::registry* registry;
+
+  decltype(wutcs::log_message)* log_message{&wutcs::log_message};
+
+  decltype(entt_create_entity)* create_entity{&entt_create_entity};
+
+  decltype(entt_destroy_entity)* destroy_entity{&entt_destroy_entity};
 };
 
-} // namespace wutcs
+void(CORECLR_DELEGATE_CALLTYPE* gamemanager_on_entity_constructed)(entt::entity);
 
-static constexpr uint64_t ticks_per_update = static_cast<uint64_t>(1 / 60.0 * 1000000000.0);
+void on_entity_constructed(entt::registry& r, entt::entity e) {
+  gamemanager_on_entity_constructed(e);
+}
+
+void(CORECLR_DELEGATE_CALLTYPE* gamemanager_on_entity_destroyed)(entt::entity);
+
+void on_entity_destroyed(entt::registry& r, entt::entity e) {
+  gamemanager_on_entity_destroyed(e);
+}
+} // namespace wutcs
 
 int main(int argc, char** argv) {
   spdlog::log(spdlog::level::info, "");
@@ -199,7 +227,7 @@ int main(int argc, char** argv) {
   assert(fns);
 
   auto gamemanager_initialize =
-      get_managed_function<int(CORECLR_DELEGATE_CALLTYPE*)(wutcs::game_initialize_options*, int32_t)>(
+      get_managed_function<int(CORECLR_DELEGATE_CALLTYPE*)(wutcs::game_initialize_options const*, int32_t)>(
           assembly_path,
           STR("WutGame.GameManager, WutGame"),
           STR("Initialize"));
@@ -212,12 +240,22 @@ int main(int argc, char** argv) {
   auto gamemanager_render = get_managed_function<void(CORECLR_DELEGATE_CALLTYPE*)(uint64_t)>(
       assembly_path,
       STR("WutGame.GameManager, WutGame"),
-      STR("Update"));
+      STR("Render"));
 
   auto gamemanager_shutdown = get_managed_function<void(CORECLR_DELEGATE_CALLTYPE*)()>(
       assembly_path,
       STR("WutGame.GameManager, WutGame"),
       STR("Shutdown"));
+
+  wutcs::gamemanager_on_entity_constructed = get_managed_function<void(CORECLR_DELEGATE_CALLTYPE*)(entt::entity)>(
+      assembly_path,
+      STR("WutGame.GameManager, WutGame"),
+      STR("OnEntityConstructed"));
+
+  wutcs::gamemanager_on_entity_destroyed = get_managed_function<void(CORECLR_DELEGATE_CALLTYPE*)(entt::entity)>(
+      assembly_path,
+      STR("WutGame.GameManager, WutGame"),
+      STR("OnEntityDestroyed"));
 
   SDL_InitSubSystem(SDL_INIT_VIDEO | SDL_INIT_EVENTS | SDL_INIT_AUDIO);
 
@@ -234,16 +272,23 @@ int main(int argc, char** argv) {
     return -1;
   }
 
-  wutcs::game_initialize_options opts = {
-      ticks_per_update,
-      wutcs::log_message,
+  entt::registry registry;
+
+  wutcs::game_initialize_options opts{
+      .registry = &registry,
   };
 
-  int rc = gamemanager_initialize(&opts, sizeof(wutcs::game_initialize_options));
+  int rc = gamemanager_initialize(&opts, sizeof(opts));
   if (rc) {
     SPDLOG_CRITICAL("GameManager::Initialize failed.");
     return -1;
   }
+
+  registry.on_construct<entt::entity>().connect<&wutcs::on_entity_constructed>();
+  registry.on_destroy<entt::entity>().connect<&wutcs::on_entity_destroyed>();
+
+  auto e = registry.create();
+  registry.destroy(e);
 
   auto last_time = SDL_GetTicksNS();
   auto delta_time = 0ull;
