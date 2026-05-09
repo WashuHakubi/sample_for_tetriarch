@@ -35,13 +35,15 @@ public static class GameManager
     [UnmanagedCallersOnly]
     private static void OnEntityConstructed(Entity e)
     {
-        Log.Info($"Entity created: {e}");
+        Log.Trace($"Entity created: {e}");
+        EntityRegistry.OnEntityConstructed(e);
     }
 
     [UnmanagedCallersOnly]
     private static void OnEntityDestroyed(Entity e)
     {
-        Log.Info($"Entity destroyed: {e}");
+        Log.Trace($"Entity destroyed: {e}");
+        EntityRegistry.OnEntityDestroyed(e);
 
     }
 
@@ -57,6 +59,8 @@ public static class GameManager
         ticksPerUpdate = opts->ticksPerUpdate;
 
         Fix(ref NativeMethods.LogMessage, opts->logMessagePtr);
+        Fix(ref NativeMethods.CreateEntity, opts->createEntity);
+        Fix(ref NativeMethods.DestroyEntity, opts->destroyEntity);
 
         Log.Info($"C# {nameof(GameManager)}.{nameof(Initialize)} called");
         return 0;

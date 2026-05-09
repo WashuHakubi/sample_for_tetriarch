@@ -2,6 +2,11 @@ namespace WutGame;
 
 public static class Log
 {
+    public static void Trace(string message)
+    {
+        NativeMethods.LogMessage(LogLevel.Trace, message);
+    }
+
     public static void Info(string message)
     {
         NativeMethods.LogMessage(LogLevel.Info, message);
