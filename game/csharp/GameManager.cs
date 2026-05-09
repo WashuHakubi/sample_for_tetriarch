@@ -2,7 +2,7 @@
 
 namespace WutGame;
 
-public static class GameManager
+internal static class GameManager
 {
     /// Options and pointers to native methods. The layout of this must match the layout on the native side.
     [StructLayout(LayoutKind.Sequential)]
@@ -26,6 +26,10 @@ public static class GameManager
     private static ulong ticksPerUpdate;
 
     public static ulong TicksPerUpdate => ticksPerUpdate;
+
+    internal static List<IUpdateSystem> _updateSystems = new();
+
+    internal static List<IRenderSystem> _renderSystems = new();
 
     private static void Fix<T>(ref T fn, IntPtr handle)
     {
@@ -62,25 +66,31 @@ public static class GameManager
         Fix(ref NativeMethods.CreateEntity, opts->createEntity);
         Fix(ref NativeMethods.DestroyEntity, opts->destroyEntity);
 
-        Log.Info($"C# {nameof(GameManager)}.{nameof(Initialize)} called");
+        Log.Trace($"C# {nameof(GameManager)}.{nameof(Initialize)} called");
         return 0;
     }
 
     [UnmanagedCallersOnly]
     private static void Update(ulong deltaTimeTicks)
     {
-
+        foreach (var system in _updateSystems)
+        {
+            system.Update(deltaTimeTicks);
+        }
     }
 
     [UnmanagedCallersOnly]
     private static void Render(ulong deltaTimeTicks)
     {
-
+        foreach (var system in _renderSystems)
+        {
+            system.Render(deltaTimeTicks);
+        }
     }
 
     [UnmanagedCallersOnly]
     private static void Shutdown()
     {
-        Log.Info($"C# {nameof(GameManager)}.{nameof(Shutdown)} called");
+        Log.Trace($"C# {nameof(GameManager)}.{nameof(Shutdown)} called");
     }
 }
