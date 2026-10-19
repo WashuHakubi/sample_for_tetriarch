@@ -1,2 +1,3 @@
 # Ignore external libraries.
-ext/**
+third-party/**
+game/vendored/**

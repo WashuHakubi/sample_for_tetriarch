@@ -1,4 +1,6 @@
+Diagnostics:
+  UnusedIncludes: None
 CompileFlags:
-  Remove:
-    - -fdeps-format=p1689r5 # Ignore module dependency format
-    - -fmodule* # Ignore -fmodule-mapper and -fmodules-ts and similar arguments.
+  Add: [-std=c++20]
+Completion:
+  HeaderInsertion: IWYU
