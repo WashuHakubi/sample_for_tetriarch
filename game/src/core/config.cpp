@@ -28,7 +28,6 @@
 
 #include <simdjson.h>
 #include <filesystem>
-#include <spdlog/spdlog.h>
 #include "SDL3/SDL_filesystem.h"
 
 namespace fs = std::filesystem;

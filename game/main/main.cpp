@@ -24,7 +24,6 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#include <spdlog/spdlog.h>
 #include "SDL3/SDL_gpu.h"
 #include "SDL3/SDL_timer.h"
 #include "core/app_callbacks.h"

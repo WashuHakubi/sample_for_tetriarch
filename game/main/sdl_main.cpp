@@ -24,11 +24,9 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#include <spdlog/spdlog.h>
-
 #define SDL_MAIN_USE_CALLBACKS 1 // NOLINT
-#include "SDL3/SDL.h"
 #include "SDL3/SDL_main.h"
+#include "SDL3/SDL.h"
 
 #include "core/app_callbacks.h"
 
