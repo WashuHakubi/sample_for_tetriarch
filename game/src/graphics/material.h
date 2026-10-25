@@ -27,4 +27,48 @@
 
 #pragma once
 
-namespace sft {}
+#include "graphics/semantic.h"
+
+namespace sft {
+struct ShaderPort {
+  uint32_t location;
+  Semantic name;
+  SDL_GPUVertexElementFormat type;
+
+  BEGIN_REFLECT{
+      "ShaderPort",
+      wx::Field{"location", &ShaderPort::location},
+      wx::Field{"name", &ShaderPort::name},
+      wx::Field{"type", &ShaderPort::type},
+  } END_REFLECT
+};
+
+struct ShaderMetadata {
+  uint32_t samplers;
+  uint32_t storage_textures;
+  uint32_t storage_buffers;
+  uint32_t uniform_buffers;
+
+  std::vector<ShaderPort> inputs;
+  std::vector<ShaderPort> outputs;
+
+  BEGIN_REFLECT{
+      "ShaderMetadata",
+      wx::Field{"samplers", &ShaderMetadata::samplers},
+      wx::Field{"storage_textures", &ShaderMetadata::storage_textures},
+      wx::Field{"storage_buffers", &ShaderMetadata::storage_buffers},
+      wx::Field{"uniform_buffers", &ShaderMetadata::uniform_buffers},
+      wx::Field{"inputs", &ShaderMetadata::inputs},
+      wx::Field{"outputs", &ShaderMetadata::outputs},
+  };
+  END_REFLECT;
+};
+
+class Material {
+  auto getVertexInputs() const -> std::span<ShaderPort const> { return metadata_.inputs; }
+
+ private:
+  ShaderMetadata metadata_;
+  SDL_GPUGraphicsPipeline* pipeline_;
+};
+} // namespace sft

@@ -20,6 +20,7 @@ target_link_libraries(game_lib PUBLIC
 )
 
 target_precompile_headers(game_lib PUBLIC
+  # standard headers
   <algorithm>
   <cstdint>
   <chrono>
@@ -35,6 +36,11 @@ target_precompile_headers(game_lib PUBLIC
   <unordered_set>
   <variant>
   <vector>
+
+  # core headers
+  <SDL3/SDL.h>
+  <spdlog/spdlog.h>
+  <wx/reflection/reflection.h>
 )
 
 target_compile_definitions(game_lib PUBLIC

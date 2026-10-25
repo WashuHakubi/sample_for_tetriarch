@@ -28,7 +28,6 @@
 #include "core/config.h"
 
 #include <simdjson.h>
-#include <SDL3/SDL_filesystem.h>
 
 namespace fs = std::filesystem;
 
