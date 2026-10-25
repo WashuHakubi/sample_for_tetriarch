@@ -4,6 +4,9 @@ project(piece-of-dim)
 
 set(CMAKE_CXX_STANDARD 20)
 
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/bin)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/bin)
+
 include(FetchContent)
 FetchContent_Declare(FetchDependency
   GIT_REPOSITORY https://github.com/jpetrie/fetch-dependency.git
@@ -52,6 +55,20 @@ fetch_dependency(SDL3
   CONFIGURATION ${CMAKE_BUILD_TYPE}
 )
 
+find_package(SDL3 REQUIRED)
+
+fetch_dependency(SDL3_shadercross
+        GIT_SOURCE https://github.com/libsdl-org/SDL_shadercross.git
+        VERSION origin/main
+        CONFIGURATION ${CMAKE_BUILD_TYPE}
+        CONFIGURE_OPTIONS
+            "-DCMAKE_LIBRARY_OUTPUT_DIRECTORY=${CMAKE_CURRENT_SOURCE_DIR}/bin"
+            "-DCMAKE_RUNTIME_OUTPUT_DIRECTORY=${CMAKE_CURRENT_SOURCE_DIR}/bin"
+            "-DSDLSHADERCROSS_VENDORED=ON"
+            "-DSPIRV_SKIP_TESTS=ON"
+            "-DCMAKE_PREFIX_PATH=${SDL3_DIR}"
+)
+
 # Json parsing library
 fetch_dependency(simdjson
   GIT_SOURCE https://github.com/simdjson/simdjson.git
@@ -73,6 +90,13 @@ fetch_dependency(spdlog
   GIT_SOURCE https://github.com/gabime/spdlog
   VERSION v1.17.0
   CONFIGURATION ${CMAKE_BUILD_TYPE}
+)
+
+fetch_dependency(stb
+  GIT_SOURCE https://github.com/nothings/stb.git
+  VERSION origin/master
+  NO_BUILD
+  OUT_SOURCE_DIR stb_lib_dir
 )
 
 # Coroutine/reflection support library

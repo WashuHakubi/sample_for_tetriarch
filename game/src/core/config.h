@@ -26,29 +26,25 @@
 
 #pragma once
 
-#include <variant>
-
 namespace sft {
 class Config;
 using ConfigPtr = std::shared_ptr<Config>;
-using ConfigEntry = std::variant<std::string, f64, i64, bool>;
+
+using ConfigValue = std::variant<std::string, double, int64_t, bool>;
 
 class Config {
  public:
-  static ConfigPtr loadProectConfig();
+  static ConfigPtr loadConfig(std::string_view search_path);
 
-  Config(std::unordered_map<std::string, ConfigEntry> entries);
+  bool get(std::string const& key, bool& val, bool default_value = false) const;
 
-  bool get(std::string const& key, std::string& out, std::string def = "");
+  bool get(std::string const& key, double& val, double default_value = 0) const;
 
-  bool get(std::string const& key, f64& out, f64 def = 0);
+  bool get(std::string const& key, int64_t& val, int64_t default_value = 0) const;
 
-  bool get(std::string const& key, i64& out, i64 def = 0);
-
-  bool get(std::string const& key, bool& out, bool def = false);
+  bool get(std::string const& key, std::string& val, std::string default_value = "") const;
 
  private:
-  std::unordered_map<std::string, ConfigEntry> entries_;
+  std::unordered_map<std::string, ConfigValue> name_to_values_;
 };
-
 } // namespace sft

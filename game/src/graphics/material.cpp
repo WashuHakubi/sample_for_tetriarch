@@ -1,3 +1,4 @@
+
 /*
  * Boost Software License - Version 1.0 - August 17th, 2003
  *
@@ -24,6 +25,6 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#pragma once
+#include "graphics/material.h"
 
 namespace sft {}

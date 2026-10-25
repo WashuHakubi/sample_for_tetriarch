@@ -1,3 +1,4 @@
+
 /*
  * Boost Software License - Version 1.0 - August 17th, 2003
  *
@@ -27,123 +28,127 @@
 #include "core/config.h"
 
 #include <simdjson.h>
-#include <filesystem>
-#include "SDL3/SDL_filesystem.h"
+#include <SDL3/SDL_filesystem.h>
 
 namespace fs = std::filesystem;
 
 namespace sft {
-ConfigPtr Config::loadProectConfig() {
-  // TODO: This returns a different path on Android or OSX/iOS App bundle
-  auto base_path = fs::path{SDL_GetBasePath()};
+ConfigPtr Config::loadConfig(std::string_view search_path) {
+  static constexpr std::string_view kConfigName = "project.config.json";
 
-  // Walk up the directory tree until we find a project.config.json
-  auto config_file = base_path / "project.config.json";
-  while (!fs::exists(config_file)) {
-    if (!base_path.has_parent_path()) {
-      throw std::runtime_error("Failed to find project.config.json");
-    }
+  fs::path path;
 
-    base_path = base_path.parent_path();
-    config_file = base_path / "project.config.json";
+  if (!search_path.empty()) {
+    path = fs::path{search_path};
+  } else {
+    path = SDL_GetBasePath();
   }
 
-  SPDLOG_INFO("Found configuration file: {}", config_file.c_str());
+  // Search in the directory for a project.config.json
+  while (fs::is_directory(path)) {
+    auto config_path = path / kConfigName;
+    if (fs::is_regular_file(config_path)) {
+      path = config_path;
+      break;
+    }
 
-  auto parser = simdjson::ondemand::parser();
-  auto json = simdjson::padded_string::load(config_file.c_str());
+    if (!path.has_parent_path()) {
+      throw std::runtime_error("Failed to find config file");
+    }
+
+    path = path.parent_path();
+  }
+
+  if (!fs::is_regular_file(path)) {
+    throw std::runtime_error("Failed to find config file");
+  }
+
+  simdjson::ondemand::parser parser;
+  auto json = simdjson::padded_string::load(path.string());
   simdjson::ondemand::document doc = parser.iterate(json);
 
-  const std::unordered_map<std::string, std::string> variableReplacements = {
-      {"{CURRENT_DIR}", base_path.string()},
+  std::unordered_map<std::string_view, std::string> const var_to_replacement = {
+      {"{CURRENT_DIR}", path.parent_path().string()},
   };
 
-  std::unordered_map<std::string, ConfigEntry> entries;
+  auto config = std::make_shared<Config>();
 
-  // Walk each key, parsing it out into the map.
-  for (auto&& field : doc.get_object()) {
-    auto key = std::string{field.unescaped_key().value()};
-    switch (field.value().type()) {
-      case simdjson::fallback::ondemand::json_type::unknown:
-        throw std::runtime_error("Unknown json type");
-      case simdjson::fallback::ondemand::json_type::array:
-        throw std::runtime_error("Arrays are not supported in project.config.json");
-      case simdjson::fallback::ondemand::json_type::object:
-        throw std::runtime_error("Objects are not supported in project.config.json");
-      case simdjson::fallback::ondemand::json_type::number: {
-        auto const& num = field.value().get_number();
-        if (num->is_double()) {
-          entries.emplace(std::move(key), num->get_double());
-        } else if (num->is_int64()) {
-          entries.emplace(std::move(key), num->get_int64());
+  for (auto&& f : doc.get_object()) {
+    auto key = std::string{f.escaped_key().value()};
+
+    switch (f.value().type()) {
+      case simdjson::fallback::ondemand::json_type::number:
+        if (f.value().is_integer()) {
+          config->name_to_values_.emplace(std::move(key), f.value().get_int64());
         } else {
-          throw std::runtime_error(std::format("Unrecognized integral type for key '{}' in project.config.json", key));
+          config->name_to_values_.emplace(std::move(key), f.value().get_double());
         }
-      } break;
+        break;
       case simdjson::fallback::ondemand::json_type::string: {
-        auto value = std::string{field.value().get_string().value()};
+        auto v = std::string{f.value().get_string().value()};
 
-        // For strings we do a brute force replacement of variables with their proper values.
-        for (auto&& [var, replacement] : variableReplacements) {
-          auto idx = value.find(var);
+        // Try and replace each variable in the string with the appropriate substitution
+        for (auto&& [var, replace] : var_to_replacement) {
+          // Brute force replacement
+          auto idx = v.find(var);
           while (idx != std::string::npos) {
-            value.replace(idx, var.size(), replacement);
-            idx = value.find(var, idx);
+            v.replace(idx, var.size(), replace);
+            idx += var.size();
+            idx = v.find(var, idx);
           }
         }
 
-        entries.emplace(std::move(key), std::move(value));
-      } break;
-      case simdjson::fallback::ondemand::json_type::boolean:
-        entries.emplace(std::move(key), field.value().get_bool());
+        config->name_to_values_.emplace(std::move(key), std::move(v));
         break;
+      }
+      case simdjson::fallback::ondemand::json_type::boolean:
+        config->name_to_values_.emplace(std::move(key), f.value().get_bool());
+        break;
+      case simdjson::fallback::ondemand::json_type::array:
+      case simdjson::fallback::ondemand::json_type::object:
+      case simdjson::fallback::ondemand::json_type::unknown:
       case simdjson::fallback::ondemand::json_type::null:
-        throw std::runtime_error("Null is not supported in project.config.json");
+        throw std::runtime_error(
+            std::format("Invalid configuration in {}. Key {} has unsupported type.", path.string(), key));
         break;
     }
   }
 
-  return std::make_shared<Config>(std::move(entries));
+  return config;
 }
 
-Config::Config(std::unordered_map<std::string, ConfigEntry> entries) : entries_(std::move(entries)) {}
-
 template <class T>
-static bool getFromMap(
-    std::unordered_map<std::string, ConfigEntry> const& map,
+static bool tryGetValue(
+    std::unordered_map<std::string, ConfigValue> const& name_to_values,
     std::string const& key,
     T& out,
-    T const& def) {
-  if (auto it = map.find(key); it != map.end()) {
-    auto v = std::get_if<T>(&it->second);
-    if (v) {
-      // Found the key and the type in the ConfigEntry matched, return it.
-      out = *v;
+    T default_value) {
+  if (auto it = name_to_values.find(key); it != name_to_values.end()) {
+    // Found the key, check if the variant contains the type we want
+    if (auto p = std::get_if<T>(&it->second); p != nullptr) {
+      out = *p;
       return true;
-    } else {
-      SPDLOG_WARN("Type for key '{}' did not match requested type.", key);
     }
   }
 
-  // Failed to find the key or the type did not match.
-  out = def;
+  out = default_value;
   return false;
 }
 
-bool Config::get(std::string const& key, std::string& out, std::string def) {
-  return getFromMap(entries_, key, out, def);
+bool Config::get(std::string const& key, bool& val, bool default_value) const {
+  return tryGetValue(name_to_values_, key, val, default_value);
 }
 
-bool Config::get(std::string const& key, f64& out, f64 def) {
-  return getFromMap(entries_, key, out, def);
+bool Config::get(std::string const& key, double& val, double default_value) const {
+  return tryGetValue(name_to_values_, key, val, default_value);
 }
 
-bool Config::get(std::string const& key, i64& out, i64 def) {
-  return getFromMap(entries_, key, out, def);
+bool Config::get(std::string const& key, int64_t& val, int64_t default_value) const {
+  return tryGetValue(name_to_values_, key, val, default_value);
 }
 
-bool Config::get(std::string const& key, bool& out, bool def) {
-  return getFromMap(entries_, key, out, def);
+bool Config::get(std::string const& key, std::string& val, std::string default_value) const {
+  return tryGetValue(name_to_values_, key, val, default_value);
 }
 
 } // namespace sft

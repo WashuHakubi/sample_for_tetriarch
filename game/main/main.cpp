@@ -24,281 +24,33 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#include "SDL3/SDL_gpu.h"
-#include "SDL3/SDL_timer.h"
-#include "core/app_callbacks.h"
+#include <SDL3/SDL.h>
+
+#define SDL_MAIN_USE_CALLBACKS 1
+#include <SDL3/SDL_main.h>
+
+#include <spdlog/spdlog.h>
 #include "core/config.h"
-#include "core/scoped.h"
-#include "glm/glm.hpp"
 
-using namespace std::chrono_literals;
+SDL_AppResult SDL_AppInit(void** appstate, int argc, char* argv[]) {
+  auto config_ptr = sft::Config::loadConfig("");
 
-static SDL_GPUSwapchainComposition parseComposition(std::string const& value) {
-  static std::unordered_map<std::string, SDL_GPUSwapchainComposition> name_to_comp = {
-      {"sdr", SDL_GPU_SWAPCHAINCOMPOSITION_SDR},
-      {"sdr_linear", SDL_GPU_SWAPCHAINCOMPOSITION_SDR_LINEAR},
-      {"hdr", SDL_GPU_SWAPCHAINCOMPOSITION_HDR_EXTENDED_LINEAR},
-      {"hdr10", SDL_GPU_SWAPCHAINCOMPOSITION_HDR10_ST2084},
-  };
+  std::string assets_dir;
+  if (!config_ptr->get("assets_dir", assets_dir)) {
+    SPDLOG_ERROR("Failed to find asset directory in config");
+    return SDL_APP_FAILURE;
+  }
 
-  return name_to_comp.at(value);
+  SPDLOG_INFO("Found asset dir: {}", assets_dir);
+  return SDL_APP_SUCCESS;
 }
 
-static SDL_GPUPresentMode parsePresentMode(std::string const& value) {
-  static std::unordered_map<std::string, SDL_GPUPresentMode> name_to_comp = {
-      {"vsync", SDL_GPU_PRESENTMODE_VSYNC},
-      {"immediate", SDL_GPU_PRESENTMODE_IMMEDIATE},
-      {"mailbox", SDL_GPU_PRESENTMODE_MAILBOX},
-  };
-
-  return name_to_comp.at(value);
+SDL_AppResult SDL_AppIterate(void* appstate) {
+  return SDL_APP_SUCCESS;
 }
 
-struct GameAppCallbacks final : sft::AppCallbacks {
-  static constexpr u32 kMaxPhsyicsUpdatesPerFrame = 3;
-
-  static constexpr auto kNanosecondsPerSecond = 1'000'000'000;
-  static constexpr auto kNanosecondsPerMillisecond = 1'000'000;
-  static constexpr auto kSecondsPerNanosecond = 1.0 / kNanosecondsPerSecond;
-
-  bool initialize(int argc, char** argv) override {
-    config_ = sft::Config::loadProectConfig();
-
-    std::string assets_dir;
-    if (!config_->get("assets_dir", assets_dir)) {
-      throw std::runtime_error("Failed to find asset_dir config entry.");
-    } else {
-      SPDLOG_INFO("Assets Dir: {}", assets_dir);
-    }
-
-    // If true, display the frame rate in the title.
-    config_->get("enable_frame_counter", enable_frame_counter_, true);
-
-    // Set our update rate for physics. Defaults to 1/60th of a second, or roughly 16.67 milliseconds.
-    config_->get("physics_update_rate", fixed_update_rate_secs_, 1.0 / 60.0);
-    fixed_update_rate_ns_ = static_cast<u64>(fixed_update_rate_secs_ * kNanosecondsPerSecond);
-
-    window_ = SDL_CreateWindow("Piece of Dim", 1280, 720, SDL_WINDOW_HIGH_PIXEL_DENSITY | SDL_WINDOW_RESIZABLE);
-    if (!window_) {
-      SPDLOG_ERROR("Failed to create window: {}", SDL_GetError());
-      return false;
-    }
-
-    device_ = SDL_CreateGPUDevice(
-        SDL_GPU_SHADERFORMAT_DXIL | SDL_GPU_SHADERFORMAT_MSL | SDL_GPU_SHADERFORMAT_SPIRV,
-        true,
-        nullptr);
-    if (!device_) {
-      SPDLOG_ERROR("Failed to create GPU device: {}", SDL_GetError());
-      return false;
-    }
-
-    if (!SDL_ClaimWindowForGPUDevice(device_, window_)) {
-      SPDLOG_ERROR("Failed to claim window for device: {}", SDL_GetError());
-      return false;
-    }
-
-    std::string swapchain_composition;
-    config_->get("sc_composition", swapchain_composition, "sdr");
-    auto composition = parseComposition(swapchain_composition);
-
-    if (!SDL_WindowSupportsGPUSwapchainComposition(device_, window_, composition)) {
-      SPDLOG_ERROR("Window or device does not support composition: {}, defaulting to SDR", (int)composition);
-      composition = SDL_GPU_SWAPCHAINCOMPOSITION_SDR;
-    }
-
-    std::string present_mode_str;
-    config_->get("vsync", present_mode_str, "vsync");
-    auto present_mode = parsePresentMode(present_mode_str);
-
-    if (!SDL_WindowSupportsGPUPresentMode(device_, window_, present_mode)) {
-      SPDLOG_ERROR("Window or device does not support present mode: {}, defaulting to vsync", (int)present_mode);
-      present_mode = SDL_GPU_PRESENTMODE_VSYNC;
-    }
-
-    if (!SDL_SetGPUSwapchainParameters(device_, window_, composition, present_mode)) {
-      SPDLOG_ERROR("Failed to change device present mode or composition: {}", SDL_GetError());
-    }
-
-    // Update our times to avoid a giant spike when we start updating.
-    last_time_ns_ = SDL_GetTicksNS();
-    return true;
-  }
-
-  bool update() override {
-    auto cur_time_ns = SDL_GetTicksNS();
-    auto delta_time_ns = cur_time_ns - last_time_ns_;
-
-    last_time_ns_ = cur_time_ns;
-    last_update_time_ns_ += delta_time_ns;
-
-    ++frame_count_;
-    frame_rate_accum_ += delta_time_ns;
-
-    auto delta_time_secs = delta_time_ns * kSecondsPerNanosecond;
-
-    u32 physics_update_count = 0;
-    while (last_update_time_ns_ >= fixed_update_rate_ns_) {
-      // Tick physics update, this usually only runs once, but if we had a slow frame previously then can run up to
-      // kMaxPhsyicsUpdatesPerFrame times. We limit the number of times it can run to avoid slowing this frame down too
-      // much.
-      if (physics_update_count == kMaxPhsyicsUpdatesPerFrame) {
-        break;
-      }
-
-      physicsUpdate(fixed_update_rate_secs_);
-      last_update_time_ns_ -= fixed_update_rate_ns_;
-      ++physics_update_count;
-    }
-
-    update(delta_time_secs);
-
-    render();
-
-    return true;
-  }
-
-  bool handleEvent(const SDL_Event* event) override {
-    if (event->type == SDL_EVENT_QUIT) {
-      return false;
-    }
-
-    return true;
-  }
-
-  void quit() override {
-    if (depth_stencil_) {
-      SDL_ReleaseGPUTexture(device_, depth_stencil_);
-      depth_stencil_ = nullptr;
-    }
-
-    if (device_) {
-      SDL_ReleaseWindowFromGPUDevice(device_, window_);
-      SDL_DestroyGPUDevice(device_);
-      device_ = nullptr;
-    }
-
-    if (window_) {
-      SDL_DestroyWindow(window_);
-      window_ = nullptr;
-    }
-  }
-
-  void update(double time_delta) {
-    // TODO: Update nodes in scene
-  }
-
-  void physicsUpdate(double fixed_time_delta) {
-    if (enable_frame_counter_ && frame_rate_accum_ >= kNanosecondsPerSecond) {
-      auto fps = static_cast<double>(frame_count_) / (frame_rate_accum_ * kSecondsPerNanosecond);
-      auto new_title = std::format("Piece of Dim, FPS: {:.2f}", fps);
-      SDL_SetWindowTitle(window_, new_title.c_str());
-      frame_count_ = 0;
-      frame_rate_accum_ = {};
-    }
-
-    // TODO: Update physics nodes in scene
-  }
-
-  void render() {
-    // Acquire a command buffer, automatically submitting it when we return.
-    auto command_buffer = SDL_AcquireGPUCommandBuffer(device_);
-    if (!command_buffer) {
-      SPDLOG_ERROR("Failed to acquire command buffer: {}", SDL_GetError());
-      return;
-    }
-
-    SCOPED([command_buffer]() { SDL_SubmitGPUCommandBuffer(command_buffer); });
-
-    if (!command_buffer) {
-      return;
-    }
-
-    SDL_GPUTexture* swapchain_texture;
-    glm::uvec2 swapchain_size;
-
-    if (!SDL_WaitAndAcquireGPUSwapchainTexture(
-            command_buffer,
-            window_,
-            &swapchain_texture,
-            &swapchain_size.x,
-            &swapchain_size.y) ||
-        !swapchain_texture) {
-      SPDLOG_ERROR("Failed to acquire swapchain: {}", SDL_GetError());
-      return;
-    }
-
-    // Check if the depth buffer needs resizing
-    if (!depth_stencil_ || depth_stencil_size_ != swapchain_size) {
-      if (depth_stencil_) {
-        SDL_ReleaseGPUTexture(device_, depth_stencil_);
-      }
-
-      SDL_GPUTextureCreateInfo tci = {
-          .type = SDL_GPU_TEXTURETYPE_2D,
-          .format = SDL_GPU_TEXTUREFORMAT_D24_UNORM,
-          .usage = SDL_GPU_TEXTUREUSAGE_DEPTH_STENCIL_TARGET,
-          .width = swapchain_size.x,
-          .height = swapchain_size.y,
-          .layer_count_or_depth = 1,
-          .num_levels = 1,
-          .sample_count = SDL_GPU_SAMPLECOUNT_1,
-      };
-
-      depth_stencil_ = SDL_CreateGPUTexture(device_, &tci);
-      if (!depth_stencil_) {
-        SPDLOG_ERROR("Failed to create depth buffer: {}", SDL_GetError());
-        return;
-      }
-    }
-
-    {
-      // Clear back buffer
-      SDL_GPUColorTargetInfo cti = {
-          .texture = swapchain_texture,
-          .clear_color = SDL_FColor{0.1, 0.1, 0.1, 1.0},
-          .load_op = SDL_GPU_LOADOP_CLEAR,
-          .store_op = SDL_GPU_STOREOP_STORE};
-
-      SDL_GPUDepthStencilTargetInfo dsti{
-          .texture = depth_stencil_,
-          .clear_depth = 1.0f,
-          .load_op = SDL_GPU_LOADOP_CLEAR,
-          .store_op = SDL_GPU_STOREOP_STORE,
-          .stencil_load_op = SDL_GPU_LOADOP_CLEAR,
-          .stencil_store_op = SDL_GPU_STOREOP_STORE,
-          .clear_stencil = 0,
-      };
-
-      auto render_pass = SDL_BeginGPURenderPass(command_buffer, &cti, 1, &dsti);
-      if (render_pass) {
-        // TODO render to the back buffer.
-
-        SDL_EndGPURenderPass(render_pass);
-      }
-    }
-  }
-
- private:
-  u64 last_time_ns_{};
-  u64 last_update_time_ns_{};
-
-  /// defaults to 1/60 of a second or 16.6 milliseconds
-  double fixed_update_rate_secs_ = 1.0 / 60.0;
-  u64 fixed_update_rate_ns_ = 1.0 / 60.0 * kNanosecondsPerSecond;
-
-  bool enable_frame_counter_{true};
-  u32 frame_count_{};
-  u64 frame_rate_accum_{};
-
-  sft::ConfigPtr config_;
-
-  glm::uvec2 depth_stencil_size_{};
-  SDL_GPUTexture* depth_stencil_{nullptr};
-  SDL_Window* window_{nullptr};
-  SDL_GPUDevice* device_{nullptr};
-};
-
-std::unique_ptr<sft::AppCallbacks> sft::createAppCallbacks() {
-  return std::make_unique<GameAppCallbacks>();
+SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* event) {
+  return SDL_APP_SUCCESS;
 }
+
+void SDL_AppQuit(void* appstate, SDL_AppResult result) {}
