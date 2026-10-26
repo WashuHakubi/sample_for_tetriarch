@@ -76,14 +76,14 @@ ConfigPtr Config::loadConfig(std::string_view search_path) {
     auto key = std::string{f.escaped_key().value()};
 
     switch (f.value().type()) {
-      case simdjson::fallback::ondemand::json_type::number:
+      case simdjson::ondemand::json_type::number:
         if (f.value().is_integer()) {
           config->name_to_values_.emplace(std::move(key), f.value().get_int64());
         } else {
           config->name_to_values_.emplace(std::move(key), f.value().get_double());
         }
         break;
-      case simdjson::fallback::ondemand::json_type::string: {
+      case simdjson::ondemand::json_type::string: {
         auto v = std::string{f.value().get_string().value()};
 
         // Try and replace each variable in the string with the appropriate substitution
@@ -100,13 +100,13 @@ ConfigPtr Config::loadConfig(std::string_view search_path) {
         config->name_to_values_.emplace(std::move(key), std::move(v));
         break;
       }
-      case simdjson::fallback::ondemand::json_type::boolean:
+      case simdjson::ondemand::json_type::boolean:
         config->name_to_values_.emplace(std::move(key), f.value().get_bool());
         break;
-      case simdjson::fallback::ondemand::json_type::array:
-      case simdjson::fallback::ondemand::json_type::object:
-      case simdjson::fallback::ondemand::json_type::unknown:
-      case simdjson::fallback::ondemand::json_type::null:
+      case simdjson::ondemand::json_type::array:
+      case simdjson::ondemand::json_type::object:
+      case simdjson::ondemand::json_type::unknown:
+      case simdjson::ondemand::json_type::null:
         throw std::runtime_error(
             std::format("Invalid configuration in {}. Key {} has unsupported type.", path.string(), key));
         break;
