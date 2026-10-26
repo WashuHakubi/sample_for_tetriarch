@@ -1,1 +1,14 @@
-{ "samplers": 0, "storage_textures": 0, "storage_buffers": 0, "uniform_buffers": 1, "inputs": [{ "name": "in.var.POSITION", "type": "float3", "location": 0 }], "outputs": [] }
+{
+  "samplers": 0,
+  "storage_textures": 0,
+  "storage_buffers": 0,
+  "uniform_buffers": 1,
+  "inputs": [
+    {
+      "name": "in.var.POSITION",
+      "type": "float3",
+      "location": 0
+    }
+  ],
+  "outputs": []
+}
