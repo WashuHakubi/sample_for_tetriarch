@@ -1,5 +1,6 @@
 {
   "vert_shader_name": "shaders/depth_prepass.vert.hlsl",
+  "frag_shader_name": "",
   "enable_fill": true,
   "enable_backface_culling": true,
   "compare_op": "LESS",
