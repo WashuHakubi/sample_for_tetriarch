@@ -66,4 +66,11 @@ inline void serialize(IWriter& writer, std::string_view name, std::vector<T, A> 
   }
   writer.endArray();
 }
+
+template <class T>
+inline void serialize(IWriter& writer, std::string_view name, std::optional<T> const& v) {
+  if (v.has_value()) {
+    serialize(writer, name, *v);
+  }
+}
 } // namespace sft
