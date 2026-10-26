@@ -53,3 +53,12 @@ target_compile_options(game_lib PRIVATE -Wall -Werror)
 
 add_executable(game ${game_main_files})
 target_link_libraries(game PRIVATE game_lib)
+
+add_custom_target(game_build_shaders
+  COMMAND sh "${CMAKE_SOURCE_DIR}/build_shaders.sh"
+  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+  COMMENT "Building shaders"
+  VERBATIM
+)
+
+add_dependencies(game game_build_shaders)
