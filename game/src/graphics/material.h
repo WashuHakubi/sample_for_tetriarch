@@ -66,20 +66,41 @@ struct ShaderMetadata {
 };
 
 struct MaterialData {
-  std::string vert_shader_name_;
-  std::string frag_shader_name_;
+  std::string vert_shader_name;
+  std::string frag_shader_name;
+
+  bool enable_fill{true};
+  bool enable_backface_culling{true};
+
+  SDL_GPUCompareOp compare_op{};
+  bool enable_depth_write{};
+  bool enable_depth_test{};
+
+  bool enable_blending{true};
 
   BEGIN_REFLECT{
       "Material",
-      wx::Field{"vert_shader_name", &MaterialData::vert_shader_name_},
-      wx::Field{"frag_shader_name", &MaterialData::frag_shader_name_},
+      wx::Field{"vert_shader_name", &MaterialData::vert_shader_name},
+      wx::Field{"frag_shader_name", &MaterialData::frag_shader_name},
+
+      wx::Field{"enable_fill", &MaterialData::enable_fill},
+      wx::Field{"enable_backface_culling", &MaterialData::enable_backface_culling},
+
+      wx::Field{"compare_op", &MaterialData::compare_op},
+      wx::Field{"enable_depth_write", &MaterialData::enable_depth_write},
+      wx::Field{"enable_depth_test", &MaterialData::enable_depth_test},
+
+      wx::Field{"enable_blending", &MaterialData::enable_blending},
   };
   END_REFLECT;
 };
 
+using PipelinesArray = std::array<SDL_GPUGraphicsPipeline*, 2>;
+
 class Material : public Asset {
  public:
-  Material(SDL_GPUDevice* device, SDL_GPUGraphicsPipeline* pipeline, ShaderMetadata metadata, MaterialData material);
+  Material(SDL_GPUDevice* device, PipelinesArray pipelines, ShaderMetadata metadata, MaterialData material);
+
   ~Material() override;
 
   auto getVertexInputs() const -> std::span<ShaderPort const> { return metadata_.inputs; }
@@ -89,7 +110,7 @@ class Material : public Asset {
   MaterialData material_;
 
   SDL_GPUDevice* device_;
-  SDL_GPUGraphicsPipeline* pipeline_;
+  PipelinesArray pipelines_;
 };
 
 class MaterialLoader {

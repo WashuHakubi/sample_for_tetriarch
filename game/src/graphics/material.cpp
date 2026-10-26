@@ -30,6 +30,29 @@
 #include "serialization/serialization.h"
 
 namespace sft {
+
+void deserialize(IReader& reader, std::string_view name, SDL_GPUCompareOp& op) {
+  static const std::unordered_map<std::string_view, SDL_GPUCompareOp> name_to_op{
+      {"NEVER", SDL_GPU_COMPAREOP_NEVER},
+      {"LESS", SDL_GPU_COMPAREOP_LESS},
+      {"EQUAL", SDL_GPU_COMPAREOP_EQUAL},
+      {"LESS_EQUAL", SDL_GPU_COMPAREOP_LESS_OR_EQUAL},
+      {"GREATER", SDL_GPU_COMPAREOP_GREATER},
+      {"NOT_EQUAL", SDL_GPU_COMPAREOP_NOT_EQUAL},
+      {"GREATER_EQUAL", SDL_GPU_COMPAREOP_GREATER_OR_EQUAL},
+      {"ALWAYS", SDL_GPU_COMPAREOP_ALWAYS},
+  };
+
+  std::string value;
+  reader.read(name, value);
+  if (auto it = name_to_op.find(name); it != name_to_op.end()) {
+    op = it->second;
+    return;
+  }
+
+  throw std::runtime_error(std::format("Unknown compare op: {}", value));
+}
+
 MaterialLoader::MaterialLoader(SDL_GPUDevice* device) : device_(device) {
   auto formats = SDL_GetGPUShaderFormats(device_);
 
@@ -59,32 +82,22 @@ AssetPtr MaterialLoader::load(IFileSystemPtr const& file_system, std::string con
     deserialize(reader, "", material_data);
   }
 
-  if (!material_data.vert_shader_name_.ends_with(".hlsl")) {
-    throw std::runtime_error(std::format("Invalid vertex shader name: {}", material_data.vert_shader_name_));
+  if (!material_data.vert_shader_name.ends_with(".hlsl")) {
+    throw std::runtime_error(std::format("Invalid vertex shader name: {}", material_data.vert_shader_name));
   }
 
-  if (!material_data.frag_shader_name_.ends_with(".hlsl")) {
-    throw std::runtime_error(std::format("Invalid fragment shader name: {}", material_data.frag_shader_name_));
+  if (!material_data.frag_shader_name.ends_with(".hlsl")) {
+    throw std::runtime_error(std::format("Invalid fragment shader name: {}", material_data.frag_shader_name));
   }
 
-  auto vert_shader_name = material_data.vert_shader_name_.substr(0, material_data.vert_shader_name_.size() - 4);
-  auto frag_shader_name = material_data.frag_shader_name_.substr(0, material_data.frag_shader_name_.size() - 4);
-
+  auto vert_shader_name = material_data.vert_shader_name.substr(0, material_data.vert_shader_name.size() - 4);
   auto vert_shader_data = file_system->read(vert_shader_name + shader_type_suffix_);
   auto vert_shader_metadata_data = file_system->read(vert_shader_name + "meta.json");
-  auto frag_shader_data = file_system->read(frag_shader_name + shader_type_suffix_);
-  auto frag_shader_metadata_data = file_system->read(frag_shader_name + "meta.json");
 
   ShaderMetadata vert_shader_metadata;
   {
     JsonReader reader{vert_shader_metadata_data};
     deserialize(reader, "", vert_shader_metadata);
-  }
-
-  ShaderMetadata frag_shader_metadata;
-  {
-    JsonReader reader{frag_shader_metadata_data};
-    deserialize(reader, "", frag_shader_metadata);
   }
 
   SDL_GPUShaderCreateInfo vsci = {
@@ -101,77 +114,142 @@ AssetPtr MaterialLoader::load(IFileSystemPtr const& file_system, std::string con
 
   auto vert_shader = SDL_CreateGPUShader(device_, &vsci);
 
-  SDL_GPUShaderCreateInfo fsci = {
-      .code_size = frag_shader_data.size(),
-      .code = reinterpret_cast<uint8_t const*>(frag_shader_data.data()),
-      .entrypoint = entrypoint_.c_str(),
-      .format = format_,
-      .stage = SDL_GPU_SHADERSTAGE_FRAGMENT,
-      .num_samplers = frag_shader_metadata.samplers,
-      .num_storage_textures = frag_shader_metadata.storage_textures,
-      .num_storage_buffers = frag_shader_metadata.storage_buffers,
-      .num_uniform_buffers = frag_shader_metadata.uniform_buffers,
-  };
+  // Some materials may not have a fragment shader, such as depth prepass.
+  SDL_GPUShader* frag_shader = nullptr;
 
-  auto frag_shader = SDL_CreateGPUShader(device_, &fsci);
+  if (!material_data.frag_shader_name.empty()) {
+    auto frag_shader_name = material_data.frag_shader_name.substr(0, material_data.frag_shader_name.size() - 4);
+    auto frag_shader_data = file_system->read(frag_shader_name + shader_type_suffix_);
+    auto frag_shader_metadata_data = file_system->read(frag_shader_name + "meta.json");
 
-  std::vector<SDL_GPUVertexBufferDescription> descs;
-  std::vector<SDL_GPUVertexAttribute> attrs;
+    ShaderMetadata frag_shader_metadata;
+    {
+      JsonReader reader{frag_shader_metadata_data};
+      deserialize(reader, "", frag_shader_metadata);
+    }
 
-  descs.resize(vert_shader_metadata.inputs.size());
-  attrs.resize(vert_shader_metadata.inputs.size());
-
-  for (auto&& input : vert_shader_metadata.inputs) {
-    attrs[input.location] = {
-        .location = input.location,
-        .buffer_slot = input.location,
-        .format = input.type,
-        .offset = 0,
+    SDL_GPUShaderCreateInfo fsci = {
+        .code_size = frag_shader_data.size(),
+        .code = reinterpret_cast<uint8_t const*>(frag_shader_data.data()),
+        .entrypoint = entrypoint_.c_str(),
+        .format = format_,
+        .stage = SDL_GPU_SHADERSTAGE_FRAGMENT,
+        .num_samplers = frag_shader_metadata.samplers,
+        .num_storage_textures = frag_shader_metadata.storage_textures,
+        .num_storage_buffers = frag_shader_metadata.storage_buffers,
+        .num_uniform_buffers = frag_shader_metadata.uniform_buffers,
     };
 
-    descs[input.location] = {
-        .slot = input.location,
-        .pitch = getPitch(input.type),
-        .input_rate = SDL_GPU_VERTEXINPUTRATE_VERTEX,
-        .instance_step_rate = 0,
-    };
+    frag_shader = SDL_CreateGPUShader(device_, &fsci);
   }
 
-  SDL_GPUGraphicsPipelineCreateInfo gpci = {
-      .vertex_shader = vert_shader,
-      .fragment_shader = frag_shader,
-      .vertex_input_state{
-          .vertex_buffer_descriptions = descs.data(),
-          .num_vertex_buffers = static_cast<uint32_t>(descs.size()),
-          .vertex_attributes = attrs.data(),
-          .num_vertex_attributes = static_cast<uint32_t>(attrs.size()),
-      },
-      .primitive_type = SDL_GPU_PRIMITIVETYPE_LINELIST,
-      .rasterizer_state = {},
-      .multisample_state = {},
-      .depth_stencil_state = {},
-      .target_info = {},
-  };
+  PipelinesArray pipelines;
+  auto const primitive_types = std::array{SDL_GPU_PRIMITIVETYPE_TRIANGLELIST, SDL_GPU_PRIMITIVETYPE_TRIANGLESTRIP};
+  static_assert(std::tuple_size_v<PipelinesArray> == std::tuple_size_v<std::decay_t<decltype(primitive_types)>>);
 
-  auto pipeline = SDL_CreateGPUGraphicsPipeline(device_, &gpci);
+  for (size_t i = 0; i < pipelines.size(); ++i) {
+    auto primitive_type = primitive_types[i];
 
-  return std::make_shared<Material>(device_, pipeline, std::move(vert_shader_metadata), std::move(material_data));
+    std::vector<SDL_GPUVertexBufferDescription> descs;
+    std::vector<SDL_GPUVertexAttribute> attrs;
+
+    descs.resize(vert_shader_metadata.inputs.size());
+    attrs.resize(vert_shader_metadata.inputs.size());
+
+    for (auto&& input : vert_shader_metadata.inputs) {
+      attrs[input.location] = {
+          .location = input.location,
+          .buffer_slot = input.location,
+          .format = input.type,
+          .offset = 0,
+      };
+
+      descs[input.location] = {
+          .slot = input.location,
+          .pitch = getPitch(input.type),
+          .input_rate = SDL_GPU_VERTEXINPUTRATE_VERTEX,
+          .instance_step_rate = 0,
+      };
+    }
+
+    // TODO: Get this from the render target
+    SDL_GPUColorTargetDescription ctd = {
+        .format = SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM_SRGB,
+        // TODO: Get this from the material
+        .blend_state{
+            .src_color_blendfactor = SDL_GPU_BLENDFACTOR_ONE,
+            .dst_color_blendfactor = SDL_GPU_BLENDFACTOR_ONE,
+            .color_blend_op = SDL_GPU_BLENDOP_ADD,
+            .src_alpha_blendfactor = SDL_GPU_BLENDFACTOR_ONE,
+            .dst_alpha_blendfactor = SDL_GPU_BLENDFACTOR_ONE,
+            .alpha_blend_op = SDL_GPU_BLENDOP_ADD,
+            .enable_blend = material_data.enable_blending,
+        },
+    };
+
+    SDL_GPUGraphicsPipelineCreateInfo gpci = {
+        .vertex_shader = vert_shader,
+        .fragment_shader = frag_shader,
+        .vertex_input_state{
+            .vertex_buffer_descriptions = descs.data(),
+            .num_vertex_buffers = static_cast<uint32_t>(descs.size()),
+            .vertex_attributes = attrs.data(),
+            .num_vertex_attributes = static_cast<uint32_t>(attrs.size()),
+        },
+        .primitive_type = primitive_type,
+        .rasterizer_state{
+            .fill_mode = material_data.enable_fill ? SDL_GPU_FILLMODE_FILL : SDL_GPU_FILLMODE_LINE,
+            .cull_mode = material_data.enable_backface_culling ? SDL_GPU_CULLMODE_BACK : SDL_GPU_CULLMODE_NONE,
+            .front_face = SDL_GPU_FRONTFACE_COUNTER_CLOCKWISE,
+        },
+        .multisample_state{},
+        .depth_stencil_state{
+            .compare_op = material_data.compare_op,
+            .write_mask = 0xFF,
+            .enable_depth_test = material_data.enable_depth_test,
+            .enable_depth_write = material_data.enable_depth_write,
+        },
+        .target_info{
+            // TODO: Get this from the render target
+            .color_target_descriptions = &ctd,
+            .num_color_targets = 1,
+            .depth_stencil_format = SDL_GPU_TEXTUREFORMAT_D24_UNORM_S8_UINT,
+            .has_depth_stencil_target = true,
+        },
+    };
+
+    auto pipeline = SDL_CreateGPUGraphicsPipeline(device_, &gpci);
+    if (!pipeline) {
+      throw std::runtime_error(std::format("Failed to create pipeline: {}", SDL_GetError()));
+    }
+
+    pipelines[i] = pipeline;
+  }
+
+  SDL_ReleaseGPUShader(device_, vert_shader);
+  if (frag_shader) {
+    SDL_ReleaseGPUShader(device_, frag_shader);
+  }
+
+  return std::make_shared<Material>(
+      device_,
+      std::move(pipelines),
+      std::move(vert_shader_metadata),
+      std::move(material_data));
 }
 
-Material::Material(
-    SDL_GPUDevice* device,
-    SDL_GPUGraphicsPipeline* pipeline,
-    ShaderMetadata metadata,
-    MaterialData material)
+Material::Material(SDL_GPUDevice* device, PipelinesArray pipelines, ShaderMetadata metadata, MaterialData material)
     : metadata_(std::move(metadata))
     , material_(std::move(material))
     , device_(device)
-    , pipeline_(pipeline) {}
+    , pipelines_(pipelines) {}
 
 Material::~Material() {
-  if (pipeline_) {
-    SDL_ReleaseGPUGraphicsPipeline(device_, pipeline_);
-    pipeline_ = nullptr;
+  for (auto&& pipeline : pipelines_) {
+    if (pipeline) {
+      SDL_ReleaseGPUGraphicsPipeline(device_, pipeline);
+      pipeline = nullptr;
+    }
   }
 }
 

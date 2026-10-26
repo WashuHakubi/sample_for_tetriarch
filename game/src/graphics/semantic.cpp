@@ -229,6 +229,7 @@ void deserialize(IReader& reader, std::string_view name, SDL_GPUVertexElementFor
   reader.read(name, value);
   if (auto it = name_to_format.find(value); it != name_to_format.end()) {
     format = it->second;
+    return;
   }
 
   throw std::runtime_error(std::format("Unsupported format: {}", value));
