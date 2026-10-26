@@ -27,7 +27,7 @@
 #pragma once
 
 #include "assets/asset.h"
-#include "assets/file_system.h"
+#include "assets/asset_loader.h"
 #include "graphics/semantic.h"
 
 namespace sft {
@@ -113,10 +113,10 @@ class Material : public Asset {
   PipelinesArray pipelines_;
 };
 
-class MaterialLoader {
+class MaterialLoader : IAssetLoader {
   MaterialLoader(SDL_GPUDevice* device);
 
-  AssetPtr load(IFileSystemPtr const& file_system, std::string const& file_name);
+  AssetPtr load(IFileSystemPtr const& file_system, std::string_view asset_path) override;
 
  private:
   SDL_GPUDevice* device_;
@@ -124,4 +124,6 @@ class MaterialLoader {
   std::string entrypoint_;
   SDL_GPUShaderFormat format_;
 };
+
+using MaterialPtr = std::shared_ptr<Material>;
 } // namespace sft

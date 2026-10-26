@@ -73,8 +73,8 @@ MaterialLoader::MaterialLoader(SDL_GPUDevice* device) : device_(device) {
   }
 }
 
-AssetPtr MaterialLoader::load(IFileSystemPtr const& file_system, std::string const& file_name) {
-  auto data = file_system->read(file_name);
+AssetPtr MaterialLoader::load(IFileSystemPtr const& file_system, std::string_view asset_path) {
+  auto data = file_system->read(asset_path);
 
   MaterialData material_data;
   {

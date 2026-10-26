@@ -49,7 +49,9 @@ target_compile_definitions(game_lib PUBLIC
   -DGLM_FORCE_LEFT_HANDED
 )
 
-target_compile_options(game_lib PRIVATE -Wall -Werror)
+target_compile_options(game_lib PRIVATE -Wall -Werror
+  -Wno-unused-private-field
+)
 
 add_executable(game ${game_main_files})
 target_link_libraries(game PRIVATE game_lib)
