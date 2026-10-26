@@ -1,0 +1,9 @@
+{
+  "vert_shader_name": "shaders/depth_prepass.vert.hlsl",
+  "enable_fill": true,
+  "enable_backface_culling": true,
+  "compare_op": "LESS",
+  "enable_depth_write": true,
+  "enable_depth_test": true,
+  "enable_blending": false
+}
