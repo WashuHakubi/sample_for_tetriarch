@@ -143,87 +143,98 @@ AssetPtr MaterialLoader::load(IFileSystemPtr const& file_system, std::string_vie
     frag_shader = SDL_CreateGPUShader(device_, &fsci);
   }
 
-  PipelinesArray pipelines;
-  auto const primitive_types = std::array{SDL_GPU_PRIMITIVETYPE_TRIANGLELIST, SDL_GPU_PRIMITIVETYPE_TRIANGLESTRIP};
-  static_assert(std::tuple_size_v<PipelinesArray> == std::tuple_size_v<std::decay_t<decltype(primitive_types)>>);
+  std::vector<SDL_GPUVertexBufferDescription> descs;
+  std::vector<SDL_GPUVertexAttribute> attrs;
 
-  for (size_t i = 0; i < pipelines.size(); ++i) {
+  descs.resize(vert_shader_metadata.inputs.size());
+  attrs.resize(vert_shader_metadata.inputs.size());
+
+  for (auto&& input : vert_shader_metadata.inputs) {
+    attrs[input.location] = {
+        .location = input.location,
+        .buffer_slot = input.location,
+        .format = input.type,
+        .offset = 0,
+    };
+
+    descs[input.location] = {
+        .slot = input.location,
+        .pitch = getPitch(input.type),
+        .input_rate = SDL_GPU_VERTEXINPUTRATE_VERTEX,
+        .instance_step_rate = 0,
+    };
+  }
+
+  PipelinesArray pipelines;
+  auto const primitive_types = std::array{PipelineFlags::TriangleList, PipelineFlags::TriangleStrip};
+  auto const alpha_blending = std::array{PipelineFlags::NoAlphaBlending, PipelineFlags::AlphaBlending};
+
+  static_assert(
+      std::tuple_size_v<PipelinesArray> ==
+      std::tuple_size_v<std::decay_t<decltype(primitive_types)>> +
+          std::tuple_size_v<std::decay_t<decltype(alpha_blending)>>);
+
+  for (size_t i = 0; i < primitive_types.size(); ++i) {
     auto primitive_type = primitive_types[i];
 
-    std::vector<SDL_GPUVertexBufferDescription> descs;
-    std::vector<SDL_GPUVertexAttribute> attrs;
+    for (size_t j = 0; j < alpha_blending.size(); ++j) {
+      auto const dst_index = primitive_type | alpha_blending[j];
 
-    descs.resize(vert_shader_metadata.inputs.size());
-    attrs.resize(vert_shader_metadata.inputs.size());
-
-    for (auto&& input : vert_shader_metadata.inputs) {
-      attrs[input.location] = {
-          .location = input.location,
-          .buffer_slot = input.location,
-          .format = input.type,
-          .offset = 0,
+      // TODO: Get this from the render target
+      SDL_GPUColorTargetDescription ctd = {
+          .format = SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM_SRGB,
+          // TODO: Get this from the material
+          .blend_state{
+              .src_color_blendfactor = SDL_GPU_BLENDFACTOR_SRC_ALPHA,
+              .dst_color_blendfactor = SDL_GPU_BLENDFACTOR_ONE_MINUS_SRC_ALPHA,
+              .color_blend_op = SDL_GPU_BLENDOP_ADD,
+              .src_alpha_blendfactor = SDL_GPU_BLENDFACTOR_ONE,
+              .dst_alpha_blendfactor = SDL_GPU_BLENDFACTOR_ONE_MINUS_SRC_ALPHA,
+              .alpha_blend_op = SDL_GPU_BLENDOP_ADD,
+              .enable_blend = static_cast<bool>((dst_index & PipelineFlags::AlphaBlending) != 0),
+          },
       };
 
-      descs[input.location] = {
-          .slot = input.location,
-          .pitch = getPitch(input.type),
-          .input_rate = SDL_GPU_VERTEXINPUTRATE_VERTEX,
-          .instance_step_rate = 0,
+      SDL_GPUGraphicsPipelineCreateInfo gpci = {
+          .vertex_shader = vert_shader,
+          .fragment_shader = frag_shader,
+          .vertex_input_state{
+              .vertex_buffer_descriptions = descs.data(),
+              .num_vertex_buffers = static_cast<uint32_t>(descs.size()),
+              .vertex_attributes = attrs.data(),
+              .num_vertex_attributes = static_cast<uint32_t>(attrs.size()),
+          },
+          .primitive_type = primitive_type == PipelineFlags::TriangleList
+              ? SDL_GPU_PRIMITIVETYPE_TRIANGLELIST
+              : SDL_GPU_PRIMITIVETYPE_TRIANGLESTRIP,
+          .rasterizer_state{
+              .fill_mode = material_data.enable_fill ? SDL_GPU_FILLMODE_FILL : SDL_GPU_FILLMODE_LINE,
+              .cull_mode = material_data.enable_backface_culling ? SDL_GPU_CULLMODE_BACK : SDL_GPU_CULLMODE_NONE,
+              .front_face = SDL_GPU_FRONTFACE_COUNTER_CLOCKWISE,
+          },
+          .multisample_state{},
+          .depth_stencil_state{
+              .compare_op = material_data.compare_op,
+              .write_mask = 0xFF,
+              .enable_depth_test = material_data.enable_depth_test,
+              .enable_depth_write = material_data.enable_depth_write,
+          },
+          .target_info{
+              // TODO: Get this from the render target
+              .color_target_descriptions = &ctd,
+              .num_color_targets = 1,
+              .depth_stencil_format = SDL_GPU_TEXTUREFORMAT_D24_UNORM_S8_UINT,
+              .has_depth_stencil_target = true,
+          },
       };
+
+      auto pipeline = SDL_CreateGPUGraphicsPipeline(device_, &gpci);
+      if (!pipeline) {
+        throw std::runtime_error(std::format("Failed to create pipeline: {}", SDL_GetError()));
+      }
+
+      pipelines[dst_index] = pipeline;
     }
-
-    // TODO: Get this from the render target
-    SDL_GPUColorTargetDescription ctd = {
-        .format = SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM_SRGB,
-        // TODO: Get this from the material
-        .blend_state{
-            .src_color_blendfactor = SDL_GPU_BLENDFACTOR_ONE,
-            .dst_color_blendfactor = SDL_GPU_BLENDFACTOR_ONE,
-            .color_blend_op = SDL_GPU_BLENDOP_ADD,
-            .src_alpha_blendfactor = SDL_GPU_BLENDFACTOR_ONE,
-            .dst_alpha_blendfactor = SDL_GPU_BLENDFACTOR_ONE,
-            .alpha_blend_op = SDL_GPU_BLENDOP_ADD,
-            .enable_blend = material_data.enable_blending,
-        },
-    };
-
-    SDL_GPUGraphicsPipelineCreateInfo gpci = {
-        .vertex_shader = vert_shader,
-        .fragment_shader = frag_shader,
-        .vertex_input_state{
-            .vertex_buffer_descriptions = descs.data(),
-            .num_vertex_buffers = static_cast<uint32_t>(descs.size()),
-            .vertex_attributes = attrs.data(),
-            .num_vertex_attributes = static_cast<uint32_t>(attrs.size()),
-        },
-        .primitive_type = primitive_type,
-        .rasterizer_state{
-            .fill_mode = material_data.enable_fill ? SDL_GPU_FILLMODE_FILL : SDL_GPU_FILLMODE_LINE,
-            .cull_mode = material_data.enable_backface_culling ? SDL_GPU_CULLMODE_BACK : SDL_GPU_CULLMODE_NONE,
-            .front_face = SDL_GPU_FRONTFACE_COUNTER_CLOCKWISE,
-        },
-        .multisample_state{},
-        .depth_stencil_state{
-            .compare_op = material_data.compare_op,
-            .write_mask = 0xFF,
-            .enable_depth_test = material_data.enable_depth_test,
-            .enable_depth_write = material_data.enable_depth_write,
-        },
-        .target_info{
-            // TODO: Get this from the render target
-            .color_target_descriptions = &ctd,
-            .num_color_targets = 1,
-            .depth_stencil_format = SDL_GPU_TEXTUREFORMAT_D24_UNORM_S8_UINT,
-            .has_depth_stencil_target = true,
-        },
-    };
-
-    auto pipeline = SDL_CreateGPUGraphicsPipeline(device_, &gpci);
-    if (!pipeline) {
-      throw std::runtime_error(std::format("Failed to create pipeline: {}", SDL_GetError()));
-    }
-
-    pipelines[i] = pipeline;
   }
 
   SDL_ReleaseGPUShader(device_, vert_shader);

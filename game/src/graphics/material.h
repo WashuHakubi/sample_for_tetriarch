@@ -89,13 +89,30 @@ struct MaterialData {
       wx::Field{"compare_op", &MaterialData::compare_op},
       wx::Field{"enable_depth_write", &MaterialData::enable_depth_write},
       wx::Field{"enable_depth_test", &MaterialData::enable_depth_test},
-
-      wx::Field{"enable_blending", &MaterialData::enable_blending},
   };
   END_REFLECT;
 };
 
-using PipelinesArray = std::array<SDL_GPUGraphicsPipeline*, 2>;
+/// @brief Provides a set of flags that when ORed together will produce the index in the PipelinesArray where the
+/// appropriate pipeline matching those flags is.
+struct PipelineFlags {
+  enum Type : uint8_t {
+    Zero = 0x00,
+
+    // primitive type
+    TriangleList = Zero,
+    TriangleStrip = 0x01,
+
+    // Alpha blending
+    NoAlphaBlending = Zero,
+    AlphaBlending = 0x02,
+
+    // Count should be the or of all the possible combinations + 1.
+    Count = (AlphaBlending | TriangleStrip) + 1,
+  };
+};
+
+using PipelinesArray = std::array<SDL_GPUGraphicsPipeline*, PipelineFlags::Count>;
 
 class Material : public Asset {
  public:

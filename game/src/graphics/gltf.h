@@ -87,28 +87,14 @@ struct MaterialInstance {
 
 class GltfAsset : Asset {
  public:
-  struct MaterialMapping {
-    std::string material_name;
-    std::string material_asset;
-
-    BEGIN_REFLECT{
-        "MaterialMapping",
-        wx::Field{"material_name", &MaterialMapping::material_name},
-        wx::Field{"material_asset", &MaterialMapping::material_asset},
-    };
-    END_REFLECT
-  };
-
   BEGIN_REFLECT{
       "GltfAsset",
       wx::Field{"gltf_file", &GltfAsset::gltf_file_},
-      wx::Field{"material_mapping", &GltfAsset::material_mapping_},
   };
   END_REFLECT
 
  private:
   std::string gltf_file_;
-  std::vector<MaterialMapping> material_mapping_;
 
   // TODO: Textures
   std::vector<gltf::Mesh> meshes_;
