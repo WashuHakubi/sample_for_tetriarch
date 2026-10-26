@@ -118,20 +118,23 @@ AssetPtr MaterialLoader::load(IFileSystemPtr const& file_system, std::string con
   std::vector<SDL_GPUVertexBufferDescription> descs;
   std::vector<SDL_GPUVertexAttribute> attrs;
 
+  descs.resize(vert_shader_metadata.inputs.size());
+  attrs.resize(vert_shader_metadata.inputs.size());
+
   for (auto&& input : vert_shader_metadata.inputs) {
-    attrs.push_back({
+    attrs[input.location] = {
         .location = input.location,
-        .buffer_slot = static_cast<uint32_t>(descs.size()),
+        .buffer_slot = input.location,
         .format = input.type,
         .offset = 0,
-    });
+    };
 
-    descs.push_back({
-        .slot = static_cast<uint32_t>(descs.size()),
+    descs[input.location] = {
+        .slot = input.location,
         .pitch = getPitch(input.type),
         .input_rate = SDL_GPU_VERTEXINPUTRATE_VERTEX,
         .instance_step_rate = 0,
-    });
+    };
   }
 
   SDL_GPUGraphicsPipelineCreateInfo gpci = {
@@ -143,7 +146,7 @@ AssetPtr MaterialLoader::load(IFileSystemPtr const& file_system, std::string con
           .vertex_attributes = attrs.data(),
           .num_vertex_attributes = static_cast<uint32_t>(attrs.size()),
       },
-      .primitive_type = {},
+      .primitive_type = SDL_GPU_PRIMITIVETYPE_LINELIST,
       .rasterizer_state = {},
       .multisample_state = {},
       .depth_stencil_state = {},
