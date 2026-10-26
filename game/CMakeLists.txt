@@ -12,6 +12,7 @@ target_include_directories(game_lib PRIVATE ${stb_lib_dir})
 target_link_libraries(game_lib PUBLIC
   glm::glm
   fastgltf::fastgltf
+  nlohmann_json::nlohmann_json
   SDL3::SDL3
   simdjson::simdjson
   simdutf::simdutf
@@ -47,6 +48,8 @@ target_compile_definitions(game_lib PUBLIC
   -DGLM_FORCE_DEPTH_ZERO_TO_ONE
   -DGLM_FORCE_LEFT_HANDED
 )
+
+target_compile_options(game_lib PRIVATE -Wall -Werror)
 
 add_executable(game ${game_main_files})
 target_link_libraries(game PRIVATE game_lib)

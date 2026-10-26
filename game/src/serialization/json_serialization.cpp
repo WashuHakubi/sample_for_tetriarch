@@ -1,0 +1,310 @@
+/*
+ * Copyright (c) 2026 Sean Kent.
+ * All Rights Reserved.
+ *
+ */
+
+#include "json_serialization.h"
+
+sft::JsonWriter::JsonWriter() : root_(nlohmann::json::object()) {}
+
+void sft::JsonWriter::beginArray(
+    std::string_view name,
+    size_t /*len*/
+) {
+  auto* cur = nests_.top();
+
+  if (cur->is_array()) {
+    cur->push_back(nlohmann::json::array());
+    nests_.push(&(*cur)[cur->size() - 1]);
+  } else {
+    auto& next = (*cur)[name] = nlohmann::json::array();
+    nests_.push(&next);
+  }
+}
+
+void sft::JsonWriter::beginObject(std::string_view name) {
+  if (nests_.empty()) {
+    nests_.push(&root_);
+    return;
+  }
+
+  auto* cur = nests_.top();
+  if (cur->is_array()) {
+    cur->push_back(nlohmann::json::object());
+    nests_.push(&(*cur)[cur->size() - 1]);
+  } else {
+    auto& next = (*cur)[name] = nlohmann::json::object();
+    nests_.push(&next);
+  }
+}
+
+void sft::JsonWriter::endArray() {
+  nests_.pop();
+}
+
+void sft::JsonWriter::endObject() {
+  nests_.pop();
+}
+
+static void writeImpl(std::stack<nlohmann::json*> nests, std::string_view name, auto v) {
+  auto* cur = nests.top();
+
+  if (cur->is_array()) {
+    cur->push_back(v);
+  } else {
+    (*cur)[name] = v;
+  }
+}
+
+void sft::JsonWriter::write(std::string_view name, bool v) {
+  writeImpl(nests_, name, v);
+}
+
+void sft::JsonWriter::write(std::string_view name, char v) {
+  writeImpl(nests_, name, static_cast<int>(v));
+}
+
+void sft::JsonWriter::write(std::string_view name, int8_t v) {
+  writeImpl(nests_, name, v);
+}
+
+void sft::JsonWriter::write(std::string_view name, int16_t v) {
+  writeImpl(nests_, name, v);
+}
+
+void sft::JsonWriter::write(std::string_view name, int32_t v) {
+  writeImpl(nests_, name, v);
+}
+
+void sft::JsonWriter::write(std::string_view name, int64_t v) {
+  writeImpl(nests_, name, v);
+}
+
+void sft::JsonWriter::write(std::string_view name, uint8_t v) {
+  writeImpl(nests_, name, v);
+}
+
+void sft::JsonWriter::write(std::string_view name, uint16_t v) {
+  writeImpl(nests_, name, v);
+}
+
+void sft::JsonWriter::write(std::string_view name, uint32_t v) {
+  writeImpl(nests_, name, v);
+}
+
+void sft::JsonWriter::write(std::string_view name, uint64_t v) {
+  writeImpl(nests_, name, v);
+}
+
+void sft::JsonWriter::write(std::string_view name, float v) {
+  writeImpl(nests_, name, v);
+}
+
+void sft::JsonWriter::write(std::string_view name, double v) {
+  writeImpl(nests_, name, v);
+}
+
+void sft::JsonWriter::write(std::string_view name, std::string_view v) {
+  writeImpl(nests_, name, v);
+}
+
+void sft::JsonWriter::dump(std::string& out) const {
+  out = root_.dump(2);
+}
+
+sft::JsonReader::JsonReader(std::string_view json) : root_(nlohmann::json::parse(json)) {}
+
+void sft::JsonReader::beginArray(std::string_view name, size_t& len) {
+  auto& [cur, idx] = nests_.top();
+  if (cur == nullptr) {
+    // Push an empty object indicating the entry does not exist.
+    len = 0;
+    nests_.emplace(nullptr, 0);
+    return;
+  } else if (cur->is_array()) {
+    if (idx >= cur->size()) {
+      // Push an empty object indicating the entry does not exist.
+      SPDLOG_ERROR("Index out of bounds");
+      len = 0;
+      nests_.emplace(nullptr, 0);
+      return;
+    }
+
+    auto& next = (*cur)[idx];
+    ++idx;
+
+    if (!next.is_array()) {
+      SPDLOG_ERROR("Expected an array but found {}", next.type_name());
+      // Push an empty object indicating the entry does not exist.
+      len = 0;
+      nests_.emplace(nullptr, 0);
+      return;
+    }
+
+    len = next.size();
+    nests_.emplace(&next, 0);
+  } else {
+    auto& next = cur->operator[](name);
+
+    if (!next.is_array()) {
+      SPDLOG_ERROR("Expected an array but found {}", next.type_name());
+      // Push an empty object indicating the entry does not exist.
+      len = 0;
+      nests_.emplace(nullptr, 0);
+      return;
+    }
+
+    len = next.size();
+    nests_.emplace(&next, 0);
+  }
+}
+
+void sft::JsonReader::beginObject(std::string_view name) {
+  if (nests_.empty()) {
+    nests_.emplace(&root_, 0);
+    return;
+  }
+
+  auto& [cur, idx] = nests_.top();
+
+  if (cur == nullptr) {
+    // Push an empty object indicating the entry does not exist.
+    nests_.emplace(nullptr, 0);
+    return;
+  } else if (cur->is_array()) {
+    if (idx >= cur->size()) {
+      SPDLOG_ERROR("Attempted to index past array bounds");
+      // Push an empty object indicating the entry does not exist.
+      nests_.emplace(nullptr, 0);
+      return;
+    }
+
+    auto& next = (*cur)[idx];
+    ++idx;
+
+    if (!next.is_object()) {
+      SPDLOG_ERROR("Expected an object but found {}", next.type_name());
+      // Push an empty object indicating the entry does not exist.
+      nests_.emplace(nullptr, 0);
+      return;
+    }
+
+    nests_.emplace(&next, 0);
+  } else {
+    auto& next = cur->operator[](name);
+    if (!next.is_object()) {
+      SPDLOG_ERROR("Expected an object but found {}", next.type_name());
+      // Push an empty object indicating the entry does not exist.
+      nests_.emplace(nullptr, 0);
+      return;
+    }
+
+    nests_.emplace(&next, 0);
+  }
+}
+
+void sft::JsonReader::endArray() {
+  nests_.pop();
+}
+
+void sft::JsonReader::endObject() {
+  nests_.pop();
+}
+
+auto sft::JsonReader::hasKey(std::string_view name) -> bool {
+  auto& [cur, idx] = nests_.top();
+  if (cur == nullptr || cur->is_array()) {
+    return false;
+  }
+  return cur->contains(name);
+}
+
+/// @brief Read a value from the current nesting context.
+///
+/// If the current context is an array, reads the element at the
+/// tracked index and advances the index. Otherwise, reads the named
+/// field from the current object.
+///
+/// @tparam T   Type of the value being read.
+/// @param name Field name (ignored for array context).
+/// @param v    Output parameter for the read value.
+template <class T>
+static void readImpl(std::stack<std::tuple<nlohmann::json*, size_t>> nests_, std::string_view name, T& v) {
+  auto& [cur, idx] = nests_.top();
+
+  if (cur == nullptr) {
+    // If the entry does not exist then simply use a default value.
+    v = {};
+    return;
+  } else if (cur->is_array()) {
+    if (idx >= cur->size()) {
+      SPDLOG_ERROR("Index out of bounds");
+      v = {};
+      return;
+    }
+    v = cur->at(idx++);
+  } else {
+    auto it = cur->find(name);
+    if (it == cur->end()) {
+      // Key does not exist — default-initialize the value.
+      v = {};
+      return;
+    }
+    v = *it;
+  }
+}
+
+void sft::JsonReader::read(std::string_view name, bool& v) {
+  readImpl(nests_, name, v);
+}
+
+void sft::JsonReader::read(std::string_view name, char& v) {
+  int iv;
+  readImpl(nests_, name, iv);
+  v = static_cast<char>(iv);
+}
+
+void sft::JsonReader::read(std::string_view name, int8_t& v) {
+  readImpl(nests_, name, v);
+}
+
+void sft::JsonReader::read(std::string_view name, int16_t& v) {
+  readImpl(nests_, name, v);
+}
+
+void sft::JsonReader::read(std::string_view name, int32_t& v) {
+  readImpl(nests_, name, v);
+}
+
+void sft::JsonReader::read(std::string_view name, int64_t& v) {
+  readImpl(nests_, name, v);
+}
+
+void sft::JsonReader::read(std::string_view name, uint8_t& v) {
+  readImpl(nests_, name, v);
+}
+
+void sft::JsonReader::read(std::string_view name, uint16_t& v) {
+  readImpl(nests_, name, v);
+}
+
+void sft::JsonReader::read(std::string_view name, uint32_t& v) {
+  readImpl(nests_, name, v);
+}
+
+void sft::JsonReader::read(std::string_view name, uint64_t& v) {
+  readImpl(nests_, name, v);
+}
+
+void sft::JsonReader::read(std::string_view name, float& v) {
+  readImpl(nests_, name, v);
+}
+
+void sft::JsonReader::read(std::string_view name, double& v) {
+  readImpl(nests_, name, v);
+}
+
+void sft::JsonReader::read(std::string_view name, std::string& v) {
+  readImpl(nests_, name, v);
+}

@@ -1,4 +1,3 @@
-
 /*
  * Boost Software License - Version 1.0 - August 17th, 2003
  *
@@ -27,4 +26,150 @@
 
 #include "graphics/material.h"
 
-namespace sft {}
+#include "serialization/json_serialization.h"
+#include "serialization/serialization.h"
+
+namespace sft {
+MaterialLoader::MaterialLoader(SDL_GPUDevice* device) : device_(device) {
+  auto formats = SDL_GetGPUShaderFormats(device_);
+
+  if (formats & SDL_GPU_SHADERFORMAT_DXIL) {
+    format_ = SDL_GPU_SHADERFORMAT_DXIL;
+    shader_type_suffix_ = ".dxil";
+    entrypoint_ = "main";
+  } else if (formats & SDL_GPU_SHADERFORMAT_MSL) {
+    format_ = SDL_GPU_SHADERFORMAT_MSL;
+    shader_type_suffix_ = ".msl";
+    entrypoint_ = "main0";
+  } else if (formats & SDL_GPU_SHADERFORMAT_SPIRV) {
+    format_ = SDL_GPU_SHADERFORMAT_SPIRV;
+    shader_type_suffix_ = ".spv";
+    entrypoint_ = "main";
+  } else {
+    throw std::runtime_error("Unknown shader formats");
+  }
+}
+
+AssetPtr MaterialLoader::load(IFileSystemPtr const& file_system, std::string const& file_name) {
+  auto data = file_system->read(file_name);
+
+  MaterialData material_data;
+  {
+    JsonReader reader{data};
+    deserialize(reader, "", material_data);
+  }
+
+  if (!material_data.vert_shader_name_.ends_with(".hlsl")) {
+    throw std::runtime_error(std::format("Invalid vertex shader name: {}", material_data.vert_shader_name_));
+  }
+
+  if (!material_data.frag_shader_name_.ends_with(".hlsl")) {
+    throw std::runtime_error(std::format("Invalid fragment shader name: {}", material_data.frag_shader_name_));
+  }
+
+  auto vert_shader_name = material_data.vert_shader_name_.substr(0, material_data.vert_shader_name_.size() - 4);
+  auto frag_shader_name = material_data.frag_shader_name_.substr(0, material_data.frag_shader_name_.size() - 4);
+
+  auto vert_shader_data = file_system->read(vert_shader_name + shader_type_suffix_);
+  auto vert_shader_metadata_data = file_system->read(vert_shader_name + "meta.json");
+  auto frag_shader_data = file_system->read(frag_shader_name + shader_type_suffix_);
+  auto frag_shader_metadata_data = file_system->read(frag_shader_name + "meta.json");
+
+  ShaderMetadata vert_shader_metadata;
+  {
+    JsonReader reader{vert_shader_metadata_data};
+    deserialize(reader, "", vert_shader_metadata);
+  }
+
+  ShaderMetadata frag_shader_metadata;
+  {
+    JsonReader reader{frag_shader_metadata_data};
+    deserialize(reader, "", frag_shader_metadata);
+  }
+
+  SDL_GPUShaderCreateInfo vsci = {
+      .code_size = vert_shader_data.size(),
+      .code = reinterpret_cast<uint8_t const*>(vert_shader_data.data()),
+      .entrypoint = entrypoint_.c_str(),
+      .format = format_,
+      .stage = SDL_GPU_SHADERSTAGE_VERTEX,
+      .num_samplers = vert_shader_metadata.samplers,
+      .num_storage_textures = vert_shader_metadata.storage_textures,
+      .num_storage_buffers = vert_shader_metadata.storage_buffers,
+      .num_uniform_buffers = vert_shader_metadata.uniform_buffers,
+  };
+
+  auto vert_shader = SDL_CreateGPUShader(device_, &vsci);
+
+  SDL_GPUShaderCreateInfo fsci = {
+      .code_size = frag_shader_data.size(),
+      .code = reinterpret_cast<uint8_t const*>(frag_shader_data.data()),
+      .entrypoint = entrypoint_.c_str(),
+      .format = format_,
+      .stage = SDL_GPU_SHADERSTAGE_FRAGMENT,
+      .num_samplers = frag_shader_metadata.samplers,
+      .num_storage_textures = frag_shader_metadata.storage_textures,
+      .num_storage_buffers = frag_shader_metadata.storage_buffers,
+      .num_uniform_buffers = frag_shader_metadata.uniform_buffers,
+  };
+
+  auto frag_shader = SDL_CreateGPUShader(device_, &fsci);
+
+  std::vector<SDL_GPUVertexBufferDescription> descs;
+  std::vector<SDL_GPUVertexAttribute> attrs;
+
+  for (auto&& input : vert_shader_metadata.inputs) {
+    attrs.push_back({
+        .location = input.location,
+        .buffer_slot = static_cast<uint32_t>(descs.size()),
+        .format = input.type,
+        .offset = 0,
+    });
+
+    descs.push_back({
+        .slot = static_cast<uint32_t>(descs.size()),
+        .pitch = getPitch(input.type),
+        .input_rate = SDL_GPU_VERTEXINPUTRATE_VERTEX,
+        .instance_step_rate = 0,
+    });
+  }
+
+  SDL_GPUGraphicsPipelineCreateInfo gpci = {
+      .vertex_shader = vert_shader,
+      .fragment_shader = frag_shader,
+      .vertex_input_state{
+          .vertex_buffer_descriptions = descs.data(),
+          .num_vertex_buffers = static_cast<uint32_t>(descs.size()),
+          .vertex_attributes = attrs.data(),
+          .num_vertex_attributes = static_cast<uint32_t>(attrs.size()),
+      },
+      .primitive_type = {},
+      .rasterizer_state = {},
+      .multisample_state = {},
+      .depth_stencil_state = {},
+      .target_info = {},
+  };
+
+  auto pipeline = SDL_CreateGPUGraphicsPipeline(device_, &gpci);
+
+  return std::make_shared<Material>(device_, pipeline, std::move(vert_shader_metadata), std::move(material_data));
+}
+
+Material::Material(
+    SDL_GPUDevice* device,
+    SDL_GPUGraphicsPipeline* pipeline,
+    ShaderMetadata metadata,
+    MaterialData material)
+    : metadata_(std::move(metadata))
+    , material_(std::move(material))
+    , device_(device)
+    , pipeline_(pipeline) {}
+
+Material::~Material() {
+  if (pipeline_) {
+    SDL_ReleaseGPUGraphicsPipeline(device_, pipeline_);
+    pipeline_ = nullptr;
+  }
+}
+
+} // namespace sft

@@ -27,6 +27,73 @@
 #include "graphics/semantic.h"
 
 namespace sft {
+uint32_t getPitch(SDL_GPUVertexElementFormat format) {
+  switch (format) {
+    case SDL_GPU_VERTEXELEMENTFORMAT_INT:
+      return sizeof(int32_t);
+    case SDL_GPU_VERTEXELEMENTFORMAT_INT2:
+      return sizeof(int32_t) * 2;
+    case SDL_GPU_VERTEXELEMENTFORMAT_INT3:
+      return sizeof(int32_t) * 3;
+    case SDL_GPU_VERTEXELEMENTFORMAT_INT4:
+      return sizeof(int32_t) * 4;
+    case SDL_GPU_VERTEXELEMENTFORMAT_UINT:
+      return sizeof(uint32_t);
+    case SDL_GPU_VERTEXELEMENTFORMAT_UINT2:
+      return sizeof(uint32_t) * 2;
+    case SDL_GPU_VERTEXELEMENTFORMAT_UINT3:
+      return sizeof(uint32_t) * 3;
+    case SDL_GPU_VERTEXELEMENTFORMAT_UINT4:
+      return sizeof(uint32_t) * 4;
+    case SDL_GPU_VERTEXELEMENTFORMAT_FLOAT:
+      return sizeof(float);
+    case SDL_GPU_VERTEXELEMENTFORMAT_FLOAT2:
+      return sizeof(float) * 2;
+    case SDL_GPU_VERTEXELEMENTFORMAT_FLOAT3:
+      return sizeof(float) * 3;
+    case SDL_GPU_VERTEXELEMENTFORMAT_FLOAT4:
+      return sizeof(float) * 4;
+    case SDL_GPU_VERTEXELEMENTFORMAT_BYTE2:
+      return sizeof(int8_t) * 2;
+    case SDL_GPU_VERTEXELEMENTFORMAT_BYTE4:
+      return sizeof(int8_t) * 4;
+    case SDL_GPU_VERTEXELEMENTFORMAT_UBYTE2:
+      return sizeof(uint8_t) * 2;
+    case SDL_GPU_VERTEXELEMENTFORMAT_UBYTE4:
+      return sizeof(uint8_t) * 4;
+    case SDL_GPU_VERTEXELEMENTFORMAT_BYTE2_NORM:
+      return sizeof(int8_t) * 2;
+    case SDL_GPU_VERTEXELEMENTFORMAT_BYTE4_NORM:
+      return sizeof(int8_t) * 4;
+    case SDL_GPU_VERTEXELEMENTFORMAT_UBYTE2_NORM:
+      return sizeof(uint8_t) * 2;
+    case SDL_GPU_VERTEXELEMENTFORMAT_UBYTE4_NORM:
+      return sizeof(uint8_t) * 4;
+    case SDL_GPU_VERTEXELEMENTFORMAT_SHORT2:
+      return sizeof(int16_t) * 2;
+    case SDL_GPU_VERTEXELEMENTFORMAT_SHORT4:
+      return sizeof(int16_t) * 4;
+    case SDL_GPU_VERTEXELEMENTFORMAT_USHORT2:
+      return sizeof(uint16_t) * 2;
+    case SDL_GPU_VERTEXELEMENTFORMAT_USHORT4:
+      return sizeof(uint16_t) * 4;
+    case SDL_GPU_VERTEXELEMENTFORMAT_SHORT2_NORM:
+      return sizeof(int16_t) * 2;
+    case SDL_GPU_VERTEXELEMENTFORMAT_SHORT4_NORM:
+      return sizeof(int16_t) * 4;
+    case SDL_GPU_VERTEXELEMENTFORMAT_USHORT2_NORM:
+      return sizeof(uint16_t) * 2;
+    case SDL_GPU_VERTEXELEMENTFORMAT_USHORT4_NORM:
+      return sizeof(uint16_t) * 4;
+    case SDL_GPU_VERTEXELEMENTFORMAT_HALF2:
+      return sizeof(uint16_t) * 2;
+    case SDL_GPU_VERTEXELEMENTFORMAT_HALF4:
+      return sizeof(uint16_t) * 4;
+    default:
+      throw std::runtime_error("Unknown vertex format");
+  }
+}
+
 bool fromString(std::string_view value, Semantic& out) {
   static std::unordered_map<std::string_view, Semantic> const semantics = {
       {"POSITION", Semantic::Position},    {"NORMAL", Semantic::Normal},        {"TANGENT", Semantic::Tangent},
@@ -67,8 +134,6 @@ bool fromString(std::string_view value, Semantic& out) {
 
 std::string_view toString(Semantic semantic) {
   switch (semantic) {
-    case Semantic::Invalid:
-      return "INVALID";
     case Semantic::Position:
       return "POSITION";
     case Semantic::Normal:
@@ -107,6 +172,8 @@ std::string_view toString(Semantic semantic) {
       return "WEIGHTS2";
     case Semantic::Weights3:
       return "WEIGHTS3";
+    default:
+      return "INVALID";
   }
 }
 

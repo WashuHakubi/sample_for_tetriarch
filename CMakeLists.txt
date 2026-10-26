@@ -48,6 +48,12 @@ fetch_dependency(lua
   CONFIGURE_OPTIONS "-DLUA_INSTALL_TARGET=ON"
 )
 
+fetch_dependency(nlohmann_json
+  GIT_SOURCE https://github.com/nlohmann/json.git
+  VERSION v3.12.0
+  CONFIGURATION ${CMAKE_BUILD_TYPE}
+)
+
 # Windowing/input library
 fetch_dependency(SDL3
   GIT_SOURCE https://github.com/libsdl-org/SDL.git

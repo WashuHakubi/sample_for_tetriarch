@@ -1,4 +1,3 @@
-
 /*
  * Boost Software License - Version 1.0 - August 17th, 2003
  *
@@ -27,6 +26,8 @@
 
 #pragma once
 
+#include "assets/asset.h"
+#include "assets/file_system.h"
 #include "graphics/semantic.h"
 
 namespace sft {
@@ -64,11 +65,42 @@ struct ShaderMetadata {
   END_REFLECT;
 };
 
-class Material {
+struct MaterialData {
+  std::string vert_shader_name_;
+  std::string frag_shader_name_;
+
+  BEGIN_REFLECT{
+      "Material",
+      wx::Field{"vert_shader_name", &MaterialData::vert_shader_name_},
+      wx::Field{"frag_shader_name", &MaterialData::frag_shader_name_},
+  };
+  END_REFLECT;
+};
+
+class Material : public Asset {
+ public:
+  Material(SDL_GPUDevice* device, SDL_GPUGraphicsPipeline* pipeline, ShaderMetadata metadata, MaterialData material);
+  ~Material() override;
+
   auto getVertexInputs() const -> std::span<ShaderPort const> { return metadata_.inputs; }
 
  private:
   ShaderMetadata metadata_;
+  MaterialData material_;
+
+  SDL_GPUDevice* device_;
   SDL_GPUGraphicsPipeline* pipeline_;
+};
+
+class MaterialLoader {
+  MaterialLoader(SDL_GPUDevice* device);
+
+  AssetPtr load(IFileSystemPtr const& file_system, std::string const& file_name);
+
+ private:
+  SDL_GPUDevice* device_;
+  std::string shader_type_suffix_;
+  std::string entrypoint_;
+  SDL_GPUShaderFormat format_;
 };
 } // namespace sft

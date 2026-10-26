@@ -57,6 +57,8 @@ enum class Semantic : uint8_t {
   Weights3,
 };
 
+uint32_t getPitch(SDL_GPUVertexElementFormat format);
+
 bool fromString(std::string_view value, Semantic& out);
 
 std::string_view toString(Semantic semantic);
