@@ -223,7 +223,7 @@ AssetPtr MaterialLoader::load(IFileSystemPtr const& file_system, std::string_vie
               // TODO: Get this from the render target
               .color_target_descriptions = &ctd,
               .num_color_targets = 1,
-              .depth_stencil_format = SDL_GPU_TEXTUREFORMAT_D24_UNORM_S8_UINT,
+              .depth_stencil_format = SDL_GPU_TEXTUREFORMAT_D32_FLOAT,
               .has_depth_stencil_target = true,
           },
       };

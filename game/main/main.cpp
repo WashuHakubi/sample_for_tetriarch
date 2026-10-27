@@ -27,10 +27,30 @@
 #define SDL_MAIN_USE_CALLBACKS 1
 #include <SDL3/SDL_main.h>
 
+#include "assets/file_system.h"
+#include "core/cleanup.h"
 #include "core/config.h"
 
+using namespace sft;
+
+struct State {
+  ~State() {}
+
+  IFileSystemPtr file_system;
+
+  uint32_t depth_height{};
+  uint32_t depth_width{};
+
+  // Order matters here, as it controls the order of destruction
+  SDLPtr<SDL_Window> window;
+  SDLPtr<SDL_GPUDevice> device;
+  SDLPtr<SDL_GPUTexture> depth_buffer{nullptr, nullptr};
+};
+
 SDL_AppResult SDL_AppInit(void** appstate, int argc, char* argv[]) {
-  auto config_ptr = sft::Config::loadConfig("");
+  auto state = std::make_unique<State>();
+
+  auto config_ptr = Config::loadConfig("");
 
   std::string assets_dir;
   if (!config_ptr->get("assets_dir", assets_dir)) {
@@ -39,15 +59,134 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char* argv[]) {
   }
 
   SPDLOG_INFO("Found asset dir: {}", assets_dir);
-  return SDL_APP_SUCCESS;
+
+  state->file_system = createSimpleFileSystem(assets_dir);
+
+  if (!SDL_InitSubSystem(SDL_INIT_EVENTS | SDL_INIT_VIDEO | SDL_INIT_AUDIO)) {
+    SPDLOG_CRITICAL("Failed to initialize SDL subsystems: {}", SDL_GetError());
+    return SDL_APP_FAILURE;
+  }
+
+  int64_t window_width;
+  int64_t window_height;
+
+  // TODO: This should be overriden by user config values
+  config_ptr->get("window_width", window_width, 1280);
+  config_ptr->get("window_height", window_height, 720);
+
+  state->window.reset(SDL_CreateWindow(
+      "Sample",
+      static_cast<int>(window_width),
+      static_cast<int>(window_height),
+      SDL_WINDOW_HIGH_PIXEL_DENSITY | SDL_WINDOW_RESIZABLE));
+
+  if (!state->window) {
+    SPDLOG_CRITICAL("Failed to create window: {}", SDL_GetError());
+    return SDL_APP_FAILURE;
+  }
+
+  bool debug_device = false;
+  config_ptr->get("debug_device", debug_device, false);
+
+  state->device.reset(SDL_CreateGPUDevice(
+      SDL_GPU_SHADERFORMAT_DXIL | SDL_GPU_SHADERFORMAT_MSL | SDL_GPU_SHADERFORMAT_SPIRV,
+      debug_device,
+      nullptr));
+
+  if (!state->device) {
+    SPDLOG_CRITICAL("Faield to create device: {}", SDL_GetError());
+    return SDL_APP_FAILURE;
+  }
+
+  if (!SDL_ClaimWindowForGPUDevice(state->device.get(), state->window.get())) {
+    SPDLOG_CRITICAL("Failed to claim window for device: {}", SDL_GetError());
+    return SDL_APP_FAILURE;
+  }
+
+  // Set the appstate pointer, releasing it from the unique pointer. This needs to be cleaned up in SDL_AppQuit
+  *appstate = state.release();
+  return SDL_APP_CONTINUE;
 }
 
 SDL_AppResult SDL_AppIterate(void* appstate) {
-  return SDL_APP_SUCCESS;
+  auto state = static_cast<State*>(appstate);
+
+  auto command_buffer = SDL_AcquireGPUCommandBuffer(state->device.get());
+  if (!command_buffer) {
+    return SDL_APP_CONTINUE;
+  }
+
+  SDL_GPUTexture* swapchain_texture;
+  uint32_t swapchain_texture_height;
+  uint32_t swapchain_texture_width;
+  SDL_WaitAndAcquireGPUSwapchainTexture(
+      command_buffer,
+      state->window.get(),
+      &swapchain_texture,
+      &swapchain_texture_width,
+      &swapchain_texture_height);
+  if (!swapchain_texture) {
+    SDL_CancelGPUCommandBuffer(command_buffer);
+    return SDL_APP_CONTINUE;
+  }
+
+  // TODO: Depth should not be here, this should be part of the render target
+  // Resize the depth buffer if it does not match the swapchain
+  if (state->depth_height != swapchain_texture_height || state->depth_width != swapchain_texture_width) {
+    SDL_GPUTextureCreateInfo tci = {
+        .type = SDL_GPU_TEXTURETYPE_2D,
+        .format = SDL_GPU_TEXTUREFORMAT_D32_FLOAT,
+        .usage = SDL_GPU_TEXTUREUSAGE_SAMPLER | SDL_GPU_TEXTUREUSAGE_DEPTH_STENCIL_TARGET,
+        .width = swapchain_texture_width,
+        .height = swapchain_texture_height,
+        .layer_count_or_depth = 1,
+        .num_levels = 1,
+        .sample_count = SDL_GPU_SAMPLECOUNT_1,
+    };
+
+    state->depth_buffer = SDLPtr<SDL_GPUTexture>{SDL_CreateGPUTexture(state->device.get(), &tci), state->device.get()};
+    if (!state->depth_buffer) {
+      SPDLOG_ERROR("Failed to create depth buffer: {}", SDL_GetError());
+      SDL_CancelGPUCommandBuffer(command_buffer);
+      return SDL_APP_CONTINUE;
+    }
+
+    state->depth_width = swapchain_texture_width;
+    state->depth_height = swapchain_texture_height;
+  }
+
+  SDL_GPUColorTargetInfo cti{
+      .texture = swapchain_texture,
+      .clear_color = SDL_FColor{},
+      .load_op = SDL_GPU_LOADOP_CLEAR,
+      .store_op = SDL_GPU_STOREOP_STORE,
+  };
+
+  SDL_GPUDepthStencilTargetInfo dsti{
+      .texture = state->depth_buffer.get(),
+      .clear_depth = 1.0f,
+      .load_op = SDL_GPU_LOADOP_CLEAR,
+      .store_op = SDL_GPU_STOREOP_STORE,
+  };
+
+  auto render_pass = SDL_BeginGPURenderPass(command_buffer, &cti, 1, &dsti);
+  if (render_pass) {
+    SDL_EndGPURenderPass(render_pass);
+  }
+
+  SDL_SubmitGPUCommandBuffer(command_buffer);
+  return SDL_APP_CONTINUE;
 }
 
 SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* event) {
-  return SDL_APP_SUCCESS;
+  if (event->type == SDL_EVENT_QUIT) {
+    return SDL_APP_SUCCESS;
+  }
+
+  return SDL_APP_CONTINUE;
 }
 
-void SDL_AppQuit(void* appstate, SDL_AppResult result) {}
+void SDL_AppQuit(void* appstate, SDL_AppResult result) {
+  auto state = std::unique_ptr<State>{static_cast<State*>(appstate)};
+  // state is automatically deleted when we return
+}
